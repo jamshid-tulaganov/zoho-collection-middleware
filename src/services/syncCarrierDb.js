@@ -35,9 +35,10 @@ const MASTER_DB_PATH  = env.MASTER_DB_PATH;
 let syncInProgress = false;
 let lastSyncResult = null;
 let syncPromise = null;
+let syncProgress = null;
 
 export function getCarrierDbSyncStatus() {
-    return { inProgress: syncInProgress, lastResult: lastSyncResult };
+    return { inProgress: syncInProgress, lastResult: lastSyncResult, progress: syncProgress };
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -439,6 +440,16 @@ export async function runCarrierDbSync() {
     }
 
     syncInProgress = true;
+    syncProgress = {
+        phase: "starting",
+        startedAt: new Date().toISOString(),
+        processed: 0,
+        skipped: 0,
+        errors: 0,
+        totalPlanned: null,
+        currentCarrierId: null,
+        lastHeartbeatAt: new Date().toISOString(),
+    };
     syncPromise = (async () => {
         const t0 = Date.now();
         let processed = 0, skipped = 0, errors = 0;
@@ -447,12 +458,16 @@ export async function runCarrierDbSync() {
             console.log(`[carrier-db] Sync started at ${new Date().toISOString()}`);
 
             // ── Step 1: Load existing carrier-db + master-db ─────────────────
+            syncProgress.phase = "loading_sources";
+            syncProgress.lastHeartbeatAt = new Date().toISOString();
             const carrierDb = loadCarrierDb();
             const masterDb = loadMasterDb();
             console.log(`[carrier-db] Loaded existing: ${Object.keys(carrierDb).length} carriers`);
             console.log(`[carrier-db] Master DB: ${Object.keys(masterDb).length} carriers`);
 
             // ── Step 2: Fetch Zoho Deals (Card Swiped) ───────────────────────
+            syncProgress.phase = "fetching_zoho_deals";
+            syncProgress.lastHeartbeatAt = new Date().toISOString();
             console.log("[carrier-db] Step 2: Fetching Zoho Deals...");
             await ensureZohoToken();
             const deals = await fetchDeals();
@@ -464,6 +479,8 @@ export async function runCarrierDbSync() {
             console.log(`[carrier-db]   Deals: ${deals.length} (${dealByCid.size} with valid cid)`);
 
             // ── Step 3: Fetch SMP companies ──────────────────────────────────
+            syncProgress.phase = "fetching_smp_companies";
+            syncProgress.lastHeartbeatAt = new Date().toISOString();
             console.log("[carrier-db] Step 3: Fetching SMP LOC companies (tagIds=2)...");
             const locMap = await fetchCompanies(2);
             console.log(`[carrier-db]   LOC companies: ${locMap.size}`);
@@ -484,9 +501,14 @@ export async function runCarrierDbSync() {
                 ...allCompanies.keys(),
             ]);
             const orderedCarrierIds = [...carrierIds].sort((a, b) => a.localeCompare(b));
+            syncProgress.phase = "processing_carriers";
+            syncProgress.totalPlanned = orderedCarrierIds.length;
+            syncProgress.lastHeartbeatAt = new Date().toISOString();
             console.log(`[carrier-db] Step 4: Processing ${orderedCarrierIds.length} carriers...`);
 
             for (const cid of orderedCarrierIds) {
+                syncProgress.currentCarrierId = cid;
+                syncProgress.lastHeartbeatAt = new Date().toISOString();
                 try {
                     const existingEntry = carrierDb[cid] || {};
                     const dbEntry = masterDb[cid] || {};
@@ -503,6 +525,7 @@ export async function runCarrierDbSync() {
 
                     if (!comp && !deal && !Object.keys(dbEntry).length && !Object.keys(existingEntry).length) {
                         skipped++;
+                        syncProgress.skipped = skipped;
                         continue;
                     }
 
@@ -617,17 +640,29 @@ export async function runCarrierDbSync() {
                     };
 
                     processed++;
+                    syncProgress.processed = processed;
+                    syncProgress.skipped = skipped;
+                    syncProgress.errors = errors;
                     if (processed % 50 === 0) {
                         console.log(`[carrier-db]   ... ${processed} done (skip=${skipped} err=${errors})`);
+                        syncProgress.lastHeartbeatAt = new Date().toISOString();
                         await ensureZohoToken();
                     }
                 } catch (err) {
                     errors++;
+                    syncProgress.errors = errors;
+                    syncProgress.lastHeartbeatAt = new Date().toISOString();
                     console.error(`[carrier-db] Error for carrier ${cid}:`, err.message);
                 }
             }
 
             // ── Step 5: Save + summarize ───────────────────────────────────
+            syncProgress.phase = "saving_cache";
+            syncProgress.currentCarrierId = null;
+            syncProgress.processed = processed;
+            syncProgress.skipped = skipped;
+            syncProgress.errors = errors;
+            syncProgress.lastHeartbeatAt = new Date().toISOString();
             saveCarrierDb(carrierDb);
 
             const total = Object.keys(carrierDb).length;
@@ -651,6 +686,17 @@ export async function runCarrierDbSync() {
                 completedAt: new Date().toISOString(),
                 path: CARRIER_DB_PATH,
             };
+            syncProgress = {
+                phase: "completed",
+                startedAt: syncProgress.startedAt,
+                processed,
+                skipped,
+                errors,
+                totalPlanned: syncProgress.totalPlanned,
+                currentCarrierId: null,
+                lastHeartbeatAt: new Date().toISOString(),
+                completedAt: lastSyncResult.completedAt,
+            };
 
             console.log(`[carrier-db] Sync complete — ${processed} processed | ${skipped} skipped | ${errors} errors | ${duration}s`);
             console.log(`[carrier-db]   Total: ${total} | Debtors: ${isDebtors} | With DOB: ${withDob} | With delinquency: ${withDelinq}`);
@@ -661,6 +707,14 @@ export async function runCarrierDbSync() {
                 success: false,
                 error: err.message,
                 completedAt: new Date().toISOString(),
+            };
+            syncProgress = {
+                ...(syncProgress || {}),
+                phase: "failed",
+                currentCarrierId: syncProgress?.currentCarrierId || null,
+                lastHeartbeatAt: new Date().toISOString(),
+                completedAt: lastSyncResult.completedAt,
+                error: err.message,
             };
             return lastSyncResult;
         } finally {
