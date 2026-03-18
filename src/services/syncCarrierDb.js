@@ -284,18 +284,19 @@ function buildInvoiceData(cid, comp, dbEntry = {}, existingEntry = {}, invoiceIn
     const today = new Date();
     const fourWeeksAgo = new Date(today);
     fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
-    const existingDerived = buildDefaultDerived(existingEntry);
 
     const isDebtor = comp
         ? (comp.tags || []).some((t) => t.id === 1)
         : (dbEntry.debtor_sources || []).length > 0;
 
-    let dateFirstDelinquency = existingDerived.date_first_delinquency || "";
-    let dateOfLastPayment    = existingDerived.date_last_payment || "";
-    let dateClosed           = existingDerived.date_closed || "";
-    let isClosed             = Boolean(existingDerived.is_closed);
+    let dateFirstDelinquency = "";
+    let dateOfLastPayment = "";
+    let dateClosed = "";
+    let isClosed = false;
     const invoiceMonths      = {};
-    let lastInvDate          = existingDerived.date_open || "";
+    let lastInvDate = "";
+    let amountPastDue = 0;
+    let actualPayment = 0;
 
     // ── Invoice months map (from master db) ──
     if (dbEntry) {
@@ -314,79 +315,61 @@ function buildInvoiceData(cid, comp, dbEntry = {}, existingEntry = {}, invoiceIn
         if (dbDates.length) lastInvDate = dbDates.sort().reverse()[0];
     }
 
-    // Supplement from SMP (recent invoices) — O(1) lookup via index
+    // SMP invoices are the primary source of truth for invoice-driven calculations.
     const carrierInvoices = getCarrierInvoicesFromIndex(invoiceIndex, cid);
+    const sortedInvoices = [...carrierInvoices].sort((a, b) =>
+        String(b.dueDate || b.dateTo || b.createDate || "").localeCompare(
+            String(a.dueDate || a.dateTo || a.createDate || "")
+        )
+    );
+
     for (const inv of carrierInvoices) {
-        const cr = String(inv.createDate || "");
-        if (cr.length >= 7) {
-            invoiceMonths[cr.slice(0, 7)] = true;
-            if (!lastInvDate && cr.length >= 10) lastInvDate = cr.slice(0, 10);
-        }
-    }
-
-    // ── Date of First Delinquency ──
-    if (isDebtor && dbEntry) {
-        // Priority 1: earliest_delinquency_period_end + 1 day
-        const edpe = dbEntry.earliest_delinquency_period_end;
-        if (!dateFirstDelinquency && edpe && String(edpe).length >= 10) {
-            try {
-                const d = new Date(edpe);
-                d.setDate(d.getDate() + 1);
-                dateFirstDelinquency = d.toISOString().slice(0, 10);
-            } catch { /* ignore */ }
-        }
-
-        // Priority 2: oldest unpaid invoice from master db
-        if (!dateFirstDelinquency) {
-            const unpaidDates = (dbEntry.invoices || [])
-                .filter((i) => !i.payment_date)
-                .map((i) => String(i.invoice_date || ""))
-                .filter((d) => d.length >= 10)
-                .map((d) => new Date(`${d.slice(0, 10)}T00:00:00Z`));
-            if (unpaidDates.length) {
-                const earliest = new Date(Math.min(...unpaidDates.map((d) => d.getTime())));
-                const pyWeekday = (earliest.getUTCDay() + 6) % 7;
-                const dToSun = 6 - pyWeekday;
-                const periodEnd = new Date(earliest);
-                periodEnd.setUTCDate(periodEnd.getUTCDate() + dToSun);
-                const delinq = new Date(periodEnd);
-                delinq.setUTCDate(delinq.getUTCDate() + 1);
-                dateFirstDelinquency = delinq.toISOString().slice(0, 10);
+        for (const raw of [inv.createDate, inv.dateFrom, inv.dateTo, inv.dueDate]) {
+            const dt = String(raw || "");
+            if (dt.length >= 7) invoiceMonths[dt.slice(0, 7)] = true;
+            if (dt.length >= 10 && (!lastInvDate || dt.slice(0, 10) > lastInvDate)) {
+                lastInvDate = dt.slice(0, 10);
             }
         }
     }
 
-    // Priority 3: SMP unpaid invoices from index
-    if (isDebtor && !dateFirstDelinquency) {
-        const unpaid = carrierInvoices
-            .filter((inv) => ["PENDING", "PARTIALLY_PAID"].includes(String(inv.status || "")))
-            .sort((a, b) => String(a.dueDate || "").localeCompare(String(b.dueDate || "")));
-        if (unpaid.length) {
-            const firstDue = String(unpaid[0].dueDate || "");
-            if (firstDue.length >= 10) dateFirstDelinquency = firstDue.slice(0, 10);
+    const unpaidInvoices = sortedInvoices.filter((inv) => {
+        const status = String(inv.status || "");
+        const remaining = Math.max(0, safeNum(inv.totalAmount) - safeNum(inv.totalPaid));
+        return ["PENDING", "PARTIALLY_PAID"].includes(status) && remaining > 0;
+    });
+
+    if (unpaidInvoices.length) {
+        amountPastDue = unpaidInvoices.reduce(
+            (sum, inv) => sum + Math.max(0, safeNum(inv.totalAmount) - safeNum(inv.totalPaid)),
+            0
+        );
+    }
+
+    // Calculate delinquency only from current CMP unpaid invoices.
+    if (isDebtor && unpaidInvoices.length) {
+        const oldestUnpaid = [...unpaidInvoices].sort((a, b) =>
+            String(a.dueDate || a.dateTo || a.createDate || "").localeCompare(
+                String(b.dueDate || b.dateTo || b.createDate || "")
+            )
+        )[0];
+        const firstDue = String(
+            oldestUnpaid?.dueDate || oldestUnpaid?.dateTo || oldestUnpaid?.createDate || ""
+        );
+        if (firstDue.length >= 10) {
+            dateFirstDelinquency = firstDue.slice(0, 10);
         }
     }
 
-    // ── Last payment date (from master db) ──
-    if (dbEntry) {
-        const paid = (dbEntry.invoices || [])
-            .map((i) => String(i.payment_date || ""))
-            .filter((d) => d.length >= 10)
-            .sort()
-            .reverse();
-        if (!dateOfLastPayment && paid.length) dateOfLastPayment = paid[0];
-    }
-
-    // Fallback: billing history from pre-indexed map (no API call)
-    if (!dateOfLastPayment) {
-        const txns = getCarrierBillingFromGlobal(billingIndex, cid);
-        for (const txn of txns) {
-            const amt = safeNum(txn.amount);
-            const dt  = String(txn.createDate || "");
-            if (amt > 0 && dt.length >= 10) {
-                dateOfLastPayment = dt.slice(0, 10);
-                break;
-            }
+    // Latest positive CMP transaction determines the last payment signal.
+    const txns = getCarrierBillingFromGlobal(billingIndex, cid);
+    for (const txn of txns) {
+        const amt = safeNum(txn.amount);
+        const dt = String(txn.createDate || "");
+        if (amt > 0 && dt.length >= 10) {
+            dateOfLastPayment = dt.slice(0, 10);
+            actualPayment = amt;
+            break;
         }
     }
 
@@ -400,9 +383,9 @@ function buildInvoiceData(cid, comp, dbEntry = {}, existingEntry = {}, invoiceIn
         if (isClosed && dateOfLastPayment) {
             dateClosed = dateOfLastPayment;
         }
-        // Fallback: last paid invoice from index
+        // Fallback: most recent paid CMP invoice if there was no payment transaction.
         if (!dateClosed) {
-            const paidInvoices = carrierInvoices
+            const paidInvoices = sortedInvoices
                 .filter((inv) => String(inv.status || "") === "PAID")
                 .sort((a, b) => String(b.dueDate || "").localeCompare(String(a.dueDate || "")));
             if (paidInvoices.length) {
@@ -411,7 +394,17 @@ function buildInvoiceData(cid, comp, dbEntry = {}, existingEntry = {}, invoiceIn
         }
     }
 
-    return { isDebtor, dateFirstDelinquency, dateOfLastPayment, isClosed, dateClosed, invoiceMonths, lastInvDate };
+    return {
+        isDebtor,
+        dateFirstDelinquency,
+        dateOfLastPayment,
+        isClosed,
+        dateClosed,
+        invoiceMonths,
+        lastInvDate,
+        amountPastDue,
+        actualPayment,
+    };
 }
 
 // ── Main sync ────────────────────────────────────────────────────────────────
@@ -601,18 +594,16 @@ export async function runCarrierDbSync() {
                             dob: metro2.dateOfBirth || existingDerived.dob || "",
                             credit_score: String(creditScore || existingDerived.credit_score || ""),
                             date_open: metro2.dateOpenIso || existingDerived.date_open || "",
-                            date_first_delinquency:
-                                metro2.dateFirstDelinquencyIso || existingDerived.date_first_delinquency || "",
-                            date_last_payment: metro2.dateLastPaymentIso || existingDerived.date_last_payment || "",
-                            date_closed: metro2.dateClosedIso || existingDerived.date_closed || "",
-                            account_status: metro2.accountStatus || existingDerived.account_status || "",
-                            payment_history_profile:
-                                metro2.paymentHistoryProfile || existingDerived.payment_history_profile || "",
+                            date_first_delinquency: metro2.dateFirstDelinquencyIso || "",
+                            date_last_payment: metro2.dateLastPaymentIso || "",
+                            date_closed: metro2.dateClosedIso || "",
+                            account_status: metro2.accountStatus || "11",
+                            payment_history_profile: metro2.paymentHistoryProfile || "",
                             credit_limit: metro2.creditLimit ?? existingDerived.credit_limit ?? 0,
                             highest_credit: metro2.highestCredit ?? existingDerived.highest_credit ?? 0,
-                            current_balance: metro2.currentBalance ?? existingDerived.current_balance ?? 0,
-                            amount_past_due: metro2.amountPastDue ?? existingDerived.amount_past_due ?? 0,
-                            actual_payment: metro2.actualPayment ?? existingDerived.actual_payment ?? 0,
+                            current_balance: metro2.currentBalance ?? 0,
+                            amount_past_due: metro2.amountPastDue ?? 0,
+                            actual_payment: metro2.actualPayment ?? 0,
                             is_debtor: invoiceData.isDebtor,
                             is_closed: invoiceData.isClosed,
                             was_former_debtor: metro2.wasFormerDebtor || existingDerived.was_former_debtor || false,

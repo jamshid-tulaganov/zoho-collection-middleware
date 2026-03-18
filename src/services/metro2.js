@@ -147,7 +147,14 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
     const isDebtor = invoiceData.isDebtor;
 
     // ── Dates from invoiceData ──
-    let { dateFirstDelinquency, dateOfLastPayment, isClosed, dateClosed } = invoiceData;
+    let {
+        dateFirstDelinquency,
+        dateOfLastPayment,
+        isClosed,
+        dateClosed,
+        amountPastDue = 0,
+        actualPayment = 0,
+    } = invoiceData;
 
     // ── COQL existing record fallback ──
     let existingDelinqDate = "";
@@ -183,6 +190,8 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
     let currentBalance = 0;
     if (!isDebtor && !isClosed) {
         currentBalance = creditLimit;
+    } else if (isDebtor) {
+        currentBalance = Math.min(Math.round(amountPastDue), 999999999);
     }
 
     // ── Payment History Profile (24-char) ──
@@ -328,9 +337,9 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
         creditLimit,
         highestCredit,
         currentBalance,
-        amountPastDue: 0,
+        amountPastDue: Math.min(Math.round(amountPastDue), 999999999),
         monthlyPayment: 0,
-        actualPayment: 0,
+        actualPayment: Math.min(Math.round(actualPayment), 999999999),
         termsFrequency: "W",
         terms: "001",
         originalChargeOffAmount: 0,
