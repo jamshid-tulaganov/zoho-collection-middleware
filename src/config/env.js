@@ -4,6 +4,13 @@ import { fileURLToPath } from "url";
 import dotenv from "dotenv";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const projectRoot = path.resolve(__dirname, "../..");
+
+function resolveFromProjectRoot(value, fallbackAbsolutePath) {
+    const raw = value && String(value).trim();
+    if (!raw) return fallbackAbsolutePath;
+    return path.isAbsolute(raw) ? raw : path.resolve(projectRoot, raw);
+}
 
 // Load .env from project root (collections/.env)
 const envPath = path.resolve(__dirname, "../../.env");
@@ -35,11 +42,17 @@ export const env = {
     SMP_PASSWORD: process.env.SMP_PASSWORD || "",
 
     // Master DB (offline spreadsheet data)
-    MASTER_DB_PATH: process.env.MASTER_DB_PATH || path.resolve(__dirname, "../../db/debtor-master-db.json"),
+    MASTER_DB_PATH: resolveFromProjectRoot(
+        process.env.MASTER_DB_PATH,
+        path.resolve(projectRoot, "db/debtor-master-db.json")
+    ),
 
     // Carrier DB (live file-based cache — updated daily by syncCarrierDb.js)
     // Default: collections/data/carrier-db.json  (override with CARRIER_DB_PATH env var)
-    CARRIER_DB_PATH: process.env.CARRIER_DB_PATH || path.resolve(__dirname, "../../data/carrier-db.json"),
+    CARRIER_DB_PATH: resolveFromProjectRoot(
+        process.env.CARRIER_DB_PATH,
+        path.resolve(projectRoot, "data/carrier-db.json")
+    ),
 
     // Zoho Sheet
     ZOHO_SHEET_WORKBOOK_ID: process.env.ZOHO_SHEET_WORKBOOK_ID || "",
