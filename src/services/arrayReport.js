@@ -127,15 +127,33 @@ export function carrierToRow(carrier) {
     };
 }
 
+function hasCmpTag(carrier = {}, tagId) {
+    const tagIds = carrier?.smp?.tag_ids;
+    if (!Array.isArray(tagIds)) return false;
+    return tagIds.map(String).includes(String(tagId));
+}
+
 export function loadReportCarriers(query = {}) {
     const db = readCarrierDb();
     let carriers = Object.values(db);
+    const wantsDebtors = query.type === "debtor" || query.debtors === "true";
+    const wantsLoc = query.type === "loc" || query.debtors === "false";
 
-    if (query.type === "debtor" || query.debtors === "true") {
-        carriers = carriers.filter((carrier) => carrier.derived?.is_debtor);
+    if (query.scope !== "all") {
+        if (wantsDebtors) {
+            carriers = carriers.filter((carrier) => hasCmpTag(carrier, 1));
+        } else {
+            carriers = carriers.filter((carrier) => hasCmpTag(carrier, 2));
+        }
     }
-    if (query.type === "loc" || query.debtors === "false") {
-        carriers = carriers.filter((carrier) => !carrier.derived?.is_debtor);
+
+    if (query.scope === "all") {
+        if (wantsDebtors) {
+            carriers = carriers.filter((carrier) => carrier.derived?.is_debtor);
+        }
+        if (wantsLoc) {
+            carriers = carriers.filter((carrier) => !carrier.derived?.is_debtor);
+        }
     }
     if (query.missing_dob === "true") {
         carriers = carriers.filter((carrier) => !carrier.derived?.dob);
