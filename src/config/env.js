@@ -71,6 +71,11 @@ export const env = {
         path.resolve(projectRoot, "data/carrier-db.json")
     ),
 
+    TELEGRAM_USERS_PATH: resolveFromProjectRoot(
+        process.env.TELEGRAM_USERS_PATH,
+        path.resolve(projectRoot, "data/telegram-users.json")
+    ),
+
     // Zoho Sheet
     ZOHO_SHEET_WORKBOOK_ID: process.env.ZOHO_SHEET_WORKBOOK_ID || "",
     ZOHO_SHEET_NAME: process.env.ZOHO_SHEET_NAME || "Octane Array Report - New",

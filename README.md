@@ -35,5 +35,6 @@ Copy `.env.example` to `.env` and fill in the required Zoho and SMP credentials.
 
 - Register webhook: `GET /telegram/register-webhook`
 - Inspect webhook: `GET /telegram/webhook-info`
+- User registration: send `/start` to the bot
 - Telegram command: `/report`
 - Optional command variant: `/report sync` to refresh `carrier-db.json` before building the file

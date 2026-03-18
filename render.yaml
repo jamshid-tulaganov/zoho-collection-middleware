@@ -20,6 +20,8 @@ services:
         value: /opt/render/project/src/db/debtor-master-db.json
       - key: CARRIER_DB_PATH
         value: /opt/render/project/src/data/carrier-db.json
+      - key: TELEGRAM_USERS_PATH
+        value: /opt/render/project/src/data/telegram-users.json
       - key: ZOHO_BASE_URL
         value: https://www.zohoapis.com
       - key: ZOHO_ACCOUNTS_URL

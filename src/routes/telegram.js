@@ -14,6 +14,39 @@ function hasTelegramConfig() {
     return Boolean(env.TELEGRAM_BOT_TOKEN);
 }
 
+async function loadTelegramUsers() {
+    try {
+        const raw = await fs.readFile(env.TELEGRAM_USERS_PATH, "utf-8");
+        return JSON.parse(raw);
+    } catch {
+        return {};
+    }
+}
+
+async function saveTelegramUsers(users) {
+    await fs.mkdir(path.dirname(env.TELEGRAM_USERS_PATH), { recursive: true });
+    await fs.writeFile(env.TELEGRAM_USERS_PATH, JSON.stringify(users, null, 2), "utf-8");
+}
+
+async function registerTelegramUser(message) {
+    const chatId = message?.chat?.id;
+    if (!chatId) return null;
+
+    const users = await loadTelegramUsers();
+    const key = String(chatId);
+    users[key] = {
+        chat_id: key,
+        type: message?.chat?.type || "",
+        first_name: message?.from?.first_name || "",
+        last_name: message?.from?.last_name || "",
+        username: message?.from?.username || "",
+        started_at: users[key]?.started_at || new Date().toISOString(),
+        last_seen_at: new Date().toISOString(),
+    };
+    await saveTelegramUsers(users);
+    return users[key];
+}
+
 function telegramUrl(method) {
     return `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`;
 }
@@ -125,6 +158,7 @@ async function setTelegramCommands() {
     if (!hasTelegramConfig() || commandsRegistered) return;
     await callTelegram("setMyCommands", {
         commands: [
+            { command: "start", description: "Register for report delivery" },
             { command: "report", description: "Generate Array credit report" },
         ],
     });
@@ -199,7 +233,26 @@ router.post("/webhook", async (req, res) => {
     const text = String(message?.text || "").trim();
     const chatId = message?.chat?.id;
 
-    if (!chatId || !text.toLowerCase().startsWith("/report")) {
+    if (!chatId) {
+        return res.json({ ok: true, ignored: true });
+    }
+
+    if (text.toLowerCase().startsWith("/start")) {
+        res.json({ ok: true, status: "registered" });
+        try {
+            const user = await registerTelegramUser(message);
+            await sendTelegramMessage(
+                chatId,
+                `You are registered. Your chat ID is ${user.chat_id}. Send /report anytime and I will send the file here.`
+            );
+        } catch (err) {
+            console.error("[telegram] start failed:", err.message);
+            await sendTelegramMessage(chatId, `Registration failed: ${err.message}`).catch(() => {});
+        }
+        return;
+    }
+
+    if (!text.toLowerCase().startsWith("/report")) {
         return res.json({ ok: true, ignored: true });
     }
 
