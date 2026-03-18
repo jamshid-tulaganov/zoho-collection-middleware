@@ -35,7 +35,7 @@ export const env = {
     SMP_PASSWORD: process.env.SMP_PASSWORD || "",
 
     // Master DB (offline spreadsheet data)
-    MASTER_DB_PATH: process.env.MASTER_DB_PATH || path.resolve(__dirname, "../../../automation/debtor-master-db.json"),
+    MASTER_DB_PATH: process.env.MASTER_DB_PATH || path.resolve(__dirname, "../../db/debtor-master-db.json"),
 
     // Carrier DB (live file-based cache — updated daily by syncCarrierDb.js)
     // Default: collections/data/carrier-db.json  (override with CARRIER_DB_PATH env var)
