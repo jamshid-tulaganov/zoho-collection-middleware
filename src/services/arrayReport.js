@@ -133,6 +133,10 @@ function hasCmpTag(carrier = {}, tagId) {
     return tagIds.map(String).includes(String(tagId));
 }
 
+function hasZohoCardSwiped(carrier = {}) {
+    return String(carrier?.zoho?.stage || "").trim() === "Card Swiped";
+}
+
 export function loadReportCarriers(query = {}) {
     const db = readCarrierDb();
     let carriers = Object.values(db);
@@ -143,7 +147,7 @@ export function loadReportCarriers(query = {}) {
         if (wantsDebtors) {
             carriers = carriers.filter((carrier) => hasCmpTag(carrier, 1));
         } else {
-            carriers = carriers.filter((carrier) => hasCmpTag(carrier, 2));
+            carriers = carriers.filter((carrier) => hasCmpTag(carrier, 2) && hasZohoCardSwiped(carrier));
         }
     }
 
