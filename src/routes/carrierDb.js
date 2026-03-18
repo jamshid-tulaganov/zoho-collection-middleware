@@ -10,6 +10,7 @@
 import { Router } from "express";
 import {
     runCarrierDbSync,
+    getCarrierDbSyncStatus,
     getCarrierDbStatusSnapshot,
     readCarrierDb,
 } from "../services/syncCarrierDb.js";
