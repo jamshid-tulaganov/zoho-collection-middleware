@@ -47,6 +47,21 @@ async function registerTelegramUser(message) {
     return users[key];
 }
 
+router.get("/users", async (_req, res) => {
+    try {
+        const users = await loadTelegramUsers();
+        const data = Object.values(users).sort((a, b) =>
+            String(b.last_seen_at || "").localeCompare(String(a.last_seen_at || ""))
+        );
+        res.json({
+            count: data.length,
+            data,
+        });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 function telegramUrl(method) {
     return `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`;
 }
