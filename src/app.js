@@ -52,7 +52,7 @@ export function createApp() {
     app.use("/carrier-db", carrierDbRouter);
 
     // Convenience aliases matching the carrier-db plan
-    app.post("/sync-carrier-db", async (req, res) => {
+    const triggerCarrierDbSync = async (req, res) => {
         const status = getCarrierDbSyncStatus();
         if (status.inProgress) {
             return res.status(409).json({ message: "Sync already in progress", status });
@@ -62,7 +62,10 @@ export function createApp() {
         runCarrierDbSync().catch((err) =>
             console.error("[carrier-db] Background sync error:", err.message)
         );
-    });
+    };
+
+    app.get("/sync-carrier-db", triggerCarrierDbSync);
+    app.post("/sync-carrier-db", triggerCarrierDbSync);
 
     app.get("/carrier-db-status", (req, res) => {
         res.json(getCarrierDbStatusSnapshot());
