@@ -58,6 +58,12 @@ export const env = {
         path.resolve(projectRoot, "db/debtor-master-db.json")
     ),
 
+    // Accounting spreadsheet data converted to JSON for contact fallback
+    ACCOUNTING_DB_PATH: resolveFromProjectRoot(
+        process.env.ACCOUNTING_DB_PATH,
+        path.resolve(projectRoot, "db/accounting-client-db.json")
+    ),
+
     // Carrier DB (live file-based cache — updated daily by syncCarrierDb.js)
     // Default: collections/data/carrier-db.json  (override with CARRIER_DB_PATH env var)
     CARRIER_DB_PATH: resolveFromProjectRoot(

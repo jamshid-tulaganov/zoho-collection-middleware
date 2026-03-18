@@ -31,6 +31,7 @@ import { computeMetro2, parseDate } from "./metro2.js";
 
 const CARRIER_DB_PATH = env.CARRIER_DB_PATH;
 const MASTER_DB_PATH  = env.MASTER_DB_PATH;
+const ACCOUNTING_DB_PATH = env.ACCOUNTING_DB_PATH;
 
 // ── State ────────────────────────────────────────────────────────────────────
 
@@ -72,6 +73,19 @@ function loadMasterDb() {
         return JSON.parse(fs.readFileSync(MASTER_DB_PATH, "utf-8"));
     } catch {
         console.warn("[carrier-db] Could not parse debtor-master-db.json.");
+        return {};
+    }
+}
+
+function loadAccountingDb() {
+    if (!ACCOUNTING_DB_PATH || !fs.existsSync(ACCOUNTING_DB_PATH)) {
+        console.warn("[carrier-db] accounting-client-db.json not found — accounting fallback unavailable.");
+        return {};
+    }
+    try {
+        return JSON.parse(fs.readFileSync(ACCOUNTING_DB_PATH, "utf-8"));
+    } catch {
+        console.warn("[carrier-db] Could not parse accounting-client-db.json.");
         return {};
     }
 }
@@ -119,6 +133,12 @@ function normCid(raw) {
 function safeNum(v) {
     const n = parseFloat(v);
     return isNaN(n) ? 0 : n;
+}
+
+function normalizePhone10(v) {
+    const digits = String(v || "").replace(/[^0-9]/g, "");
+    if (digits.length >= 10) return digits.slice(-10);
+    return "";
 }
 
 function mmddyyyyToIso(value) {
@@ -218,6 +238,110 @@ function buildDefaultDerived(entry = {}) {
         is_closed: false,
         was_former_debtor: false,
         ...(entry.derived || {}),
+    };
+}
+
+function buildAccountingFromCachedEntry(entry = {}) {
+    return entry?.accounting || null;
+}
+
+function applyAccountingFallbacks(comp, deal, accountingEntry = null) {
+    if (!accountingEntry) {
+        return { comp, deal };
+    }
+
+    const fallbackComp = comp
+        ? {
+            ...comp,
+            name: comp.name || accountingEntry.company || "",
+            contactPhone: comp.contactPhone || accountingEntry.phone_raw || accountingEntry.phone || "",
+            creditScore: comp.creditScore || accountingEntry.credit_score || "",
+            address: {
+                ...(comp.address || {}),
+                addressLine1: comp.address?.addressLine1 || accountingEntry.address?.line1 || "",
+                addressLine2: comp.address?.addressLine2 || "",
+                city: comp.address?.city || accountingEntry.address?.city || "",
+                state: comp.address?.state || accountingEntry.address?.state || "",
+                postalCode: comp.address?.postalCode || accountingEntry.address?.zip || "",
+            },
+            owners: (comp.owners && comp.owners.length)
+                ? comp.owners
+                : [{
+                    firstName: accountingEntry.first_name || "",
+                    lastName: accountingEntry.last_name || "",
+                }],
+        }
+        : null;
+
+    const fallbackDeal = deal
+        ? {
+            ...deal,
+            First_name: deal.First_name || accountingEntry.first_name || "",
+            Last_Name: deal.Last_Name || accountingEntry.last_name || "",
+            Address: deal.Address || accountingEntry.address?.line1 || accountingEntry.address?.raw || "",
+            City: deal.City || accountingEntry.address?.city || "",
+            State: deal.State || accountingEntry.address?.state || "",
+            Zip_Code: deal.Zip_Code || accountingEntry.address?.zip || "",
+            Credit_Score: deal.Credit_Score || accountingEntry.credit_score || "",
+        }
+        : null;
+
+    return { comp: fallbackComp, deal: fallbackDeal };
+}
+
+function buildPreferredContactData(deal, accountingEntry, comp, existingDerived = {}) {
+    const owner = comp?.owners?.[0] || {};
+    const addr = comp?.address || {};
+
+    return {
+        first_name: String(
+            deal?.First_name
+            || accountingEntry?.first_name
+            || owner.firstName
+            || existingDerived.first_name
+            || ""
+        ).trim(),
+        last_name: String(
+            deal?.Last_Name
+            || accountingEntry?.last_name
+            || owner.lastName
+            || existingDerived.last_name
+            || ""
+        ).trim(),
+        addr1: String(
+            deal?.Address
+            || accountingEntry?.address?.line1
+            || addr.addressLine1
+            || existingDerived.addr1
+            || ""
+        ).trim(),
+        city: String(
+            deal?.City
+            || accountingEntry?.address?.city
+            || addr.city
+            || existingDerived.city
+            || ""
+        ).trim(),
+        state: String(
+            deal?.State
+            || accountingEntry?.address?.state
+            || addr.state
+            || existingDerived.state
+            || ""
+        ).trim(),
+        zip: String(
+            deal?.Zip_Code
+            || accountingEntry?.address?.zip
+            || addr.postalCode
+            || existingDerived.zip
+            || ""
+        ).trim(),
+        phone: normalizePhone10(
+            accountingEntry?.phone
+            || comp?.contactPhone
+            || existingDerived.phone
+            || ""
+        ),
     };
 }
 
@@ -438,8 +562,10 @@ export async function runCarrierDbSync() {
             syncProgress.lastHeartbeatAt = new Date().toISOString();
             const carrierDb = loadCarrierDb();
             const masterDb = loadMasterDb();
+            const accountingDb = loadAccountingDb();
             console.log(`[carrier-db] Loaded existing: ${Object.keys(carrierDb).length} carriers`);
             console.log(`[carrier-db] Master DB: ${Object.keys(masterDb).length} carriers`);
+            console.log(`[carrier-db] Accounting DB: ${Object.keys(accountingDb).length} carriers`);
 
             // ── Step 2: Fetch Zoho Deals (Card Swiped) ───────────────────────
             syncProgress.phase = "fetching_zoho_deals";
@@ -490,6 +616,7 @@ export async function runCarrierDbSync() {
             const carrierIds = new Set([
                 ...Object.keys(carrierDb),
                 ...Object.keys(masterDb),
+                ...Object.keys(accountingDb),
                 ...dealByCid.keys(),
                 ...allCompanies.keys(),
             ]);
@@ -505,18 +632,20 @@ export async function runCarrierDbSync() {
                 try {
                     const existingEntry = carrierDb[cid] || {};
                     const dbEntry = masterDb[cid] || {};
+                    const accountingEntry = accountingDb[cid] || buildAccountingFromCachedEntry(existingEntry) || null;
                     const liveComp = allCompanies.get(cid) || null;
                     const liveDeal = dealByCid.get(cid) || null;
 
-                    const comp = liveComp
+                    const baseComp = liveComp
                         ? {
                             ...liveComp,
                             tags: ensureDebtorTag(liveComp.tags || [], debtorCids.has(cid)),
                         }
                         : buildCompanyFromCachedEntry(cid, existingEntry);
-                    const deal = liveDeal || buildDealFromCachedEntry(existingEntry);
+                    const baseDeal = liveDeal || buildDealFromCachedEntry(existingEntry);
+                    const { comp, deal } = applyAccountingFallbacks(baseComp, baseDeal, accountingEntry);
 
-                    if (!comp && !deal && !Object.keys(dbEntry).length && !Object.keys(existingEntry).length) {
+                    if (!comp && !deal && !Object.keys(dbEntry).length && !Object.keys(existingEntry).length && !accountingEntry) {
                         skipped++;
                         syncProgress.skipped = skipped;
                         continue;
@@ -525,6 +654,7 @@ export async function runCarrierDbSync() {
                     const smpBlock = comp ? buildSmpBlock(comp) : (existingEntry.smp || null);
                     const zohoBlock = liveDeal ? buildZohoBlock(liveDeal) : (existingEntry.zoho || null);
                     const existingDerived = buildDefaultDerived(existingEntry);
+                    const preferredContact = buildPreferredContactData(deal, accountingEntry, comp, existingDerived);
                     const nowIso = new Date().toISOString();
 
                     // ── Offline / spreadsheet data ────────────────────────
@@ -555,9 +685,10 @@ export async function runCarrierDbSync() {
 
                     carrierDb[cid] = {
                         carrier_id: cid,
-                        company: comp?.name?.trim() || dbEntry.company || existingEntry.company || "",
+                        company: accountingEntry?.company || comp?.name?.trim() || dbEntry.company || existingEntry.company || "",
                         smp: smpBlock,
                         zoho: zohoBlock,
+                        accounting: accountingEntry,
                         invoices: smpInvoices.map((inv) => ({
                                 invoice_number: String(inv.invoiceNumber || inv.id || ""),
                                 total_amount: safeNum(inv.totalAmount),
@@ -583,16 +714,16 @@ export async function runCarrierDbSync() {
                         ggr_submission_date: ggrSubmissionDate,
                         earliest_delinquency_period_end: earliestDelinquencyPeriodEnd,
                         derived: {
-                            first_name: metro2.firstName || existingDerived.first_name || "",
-                            last_name: metro2.lastName || existingDerived.last_name || "",
-                            addr1: metro2.address1 || existingDerived.addr1 || "",
+                            first_name: preferredContact.first_name,
+                            last_name: preferredContact.last_name,
+                            addr1: preferredContact.addr1,
                             addr2: metro2.address2 || existingDerived.addr2 || "",
-                            city: metro2.city || existingDerived.city || "",
-                            state: metro2.state || existingDerived.state || "",
-                            zip: metro2.zipCode || existingDerived.zip || "",
-                            phone: metro2.phone || existingDerived.phone || "",
+                            city: preferredContact.city,
+                            state: preferredContact.state,
+                            zip: preferredContact.zip,
+                            phone: preferredContact.phone,
                             dob: metro2.dateOfBirth || existingDerived.dob || "",
-                            credit_score: String(creditScore || existingDerived.credit_score || ""),
+                            credit_score: String(creditScore || accountingEntry?.credit_score || existingDerived.credit_score || ""),
                             date_open: metro2.dateOpenIso || existingDerived.date_open || "",
                             date_first_delinquency: metro2.dateFirstDelinquencyIso || "",
                             date_last_payment: metro2.dateLastPaymentIso || "",
