@@ -24,6 +24,12 @@ if (fs.existsSync(telegramEnvPath)) {
     dotenv.config({ path: telegramEnvPath, override: false });
 }
 
+// Also try loading from servercrm/.env for shared Telegram credentials
+const serverCrmEnvPath = path.resolve(__dirname, "../../../servercrm/.env");
+if (fs.existsSync(serverCrmEnvPath)) {
+    dotenv.config({ path: serverCrmEnvPath, override: false });
+}
+
 export const env = {
     PORT: Number(process.env.PORT || 3001),
     MONGODB_URI: process.env.MONGODB_URI || "",
@@ -40,6 +46,11 @@ export const env = {
     SMP_BASE_URL: process.env.SMP_BASE_URL || "https://tssfuelmanager.com:8443",
     SMP_USERNAME: process.env.SMP_USERNAME || "cmpadmin",
     SMP_PASSWORD: process.env.SMP_PASSWORD || "",
+
+    // Telegram bot
+    TELEGRAM_BOT_TOKEN: process.env.TELEGRAM_BOT_TOKEN || "",
+    TELEGRAM_CHAT_ID: process.env.TELEGRAM_CHAT_ID || "",
+    TELEGRAM_SECRET_TOKEN: process.env.TELEGRAM_SECRET_TOKEN || "",
 
     // Master DB (offline spreadsheet data)
     MASTER_DB_PATH: resolveFromProjectRoot(

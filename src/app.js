@@ -4,6 +4,7 @@ import express from "express";
 import hooksRouter from "./routes/hooks.js";
 import reportsRouter from "./routes/reports.js";
 import carrierDbRouter from "./routes/carrierDb.js";
+import telegramRouter from "./routes/telegram.js";
 import { runFullSync, runDebtorSync, getSyncStatus } from "./services/sync.js";
 import {
     getCarrierDbSyncStatus,
@@ -50,6 +51,9 @@ export function createApp() {
 
     // ── Carrier DB (file-based cache) ──
     app.use("/carrier-db", carrierDbRouter);
+
+    // ── Telegram webhook / bot-driven report delivery ──
+    app.use("/telegram", telegramRouter);
 
     // Convenience aliases matching the carrier-db plan
     const triggerCarrierDbSync = async (req, res) => {

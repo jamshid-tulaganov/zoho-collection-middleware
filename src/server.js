@@ -2,6 +2,7 @@ import { env, validateEnvironment } from "./config/env.js";
 import { connectDB } from "./config/db.js";
 import { createApp } from "./app.js";
 import { startScheduler } from "./cron/scheduler.js";
+import { bootTelegramBot } from "./routes/telegram.js";
 
 async function bootstrap() {
     try {
@@ -9,6 +10,7 @@ async function bootstrap() {
         await connectDB();
 
         const app = createApp();
+        await bootTelegramBot();
         startScheduler();
 
         app.listen(env.PORT, () => {
