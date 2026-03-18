@@ -1,0 +1,42 @@
+services:
+  - type: web
+    name: zoho-collection-middleware
+    runtime: node
+    plan: starter
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /
+    autoDeploy: true
+    disk:
+      name: carrier-db
+      mountPath: /opt/render/project/src/data
+      sizeGB: 1
+    envVars:
+      - key: NODE_VERSION
+        value: 22
+      - key: PORT
+        value: 3001
+      - key: MASTER_DB_PATH
+        value: /opt/render/project/src/db/debtor-master-db.json
+      - key: CARRIER_DB_PATH
+        value: /opt/render/project/src/data/carrier-db.json
+      - key: ZOHO_BASE_URL
+        value: https://www.zohoapis.com
+      - key: ZOHO_ACCOUNTS_URL
+        value: https://accounts.zoho.com
+      - key: SMP_BASE_URL
+        value: https://tssfuelmanager.com:8443
+      - key: SMP_USERNAME
+        value: asadbek.x@tsst.ai
+      - key: ZOHO_CLIENT_ID
+        sync: false
+      - key: ZOHO_CLIENT_SECRET
+        sync: false
+      - key: ZOHO_REFRESH_TOKEN
+        sync: false
+      - key: ZOHO_ACCESS_TOKEN
+        sync: false
+      - key: SMP_PASSWORD
+        sync: false
+      - key: MONGODB_URI
+        sync: false
