@@ -1,0 +1,22 @@
+{
+    "name": "collection-middleware",
+    "version": "1.0.0",
+    "description": "Collection Department data warehouse — aggregates SMP, Zoho CRM, and spreadsheet data for Metro 2 Array Credit Reports",
+    "type": "module",
+    "main": "src/server.js",
+    "scripts": {
+        "start": "node src/server.js",
+        "dev": "node --watch src/server.js",
+        "sync:carrier-db": "node sync-carrier-db.js"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "dependencies": {
+        "dotenv": "^17.3.1",
+        "exceljs": "^4.4.0",
+        "express": "^5.2.1",
+        "mongoose": "^9.3.1",
+        "node-cron": "^4.2.1"
+    }
+}
