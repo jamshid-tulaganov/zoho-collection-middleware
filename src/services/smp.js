@@ -61,13 +61,13 @@ export async function fetchCompanies(tagIds = 2) {
 }
 
 /**
- * Fetch ALL invoices for a carrier (any status) to build monthly activity map.
+ * Fetch ALL invoices globally (any status), paginated.
  */
-export async function fetchAllInvoices(carrierId) {
+export async function fetchAllInvoicesGlobal() {
     const invoices = [];
-    for (let page = 0; page < 4; page++) {
+    for (let page = 0; page <= 500; page++) {
         const data = await smpGet(
-            `invoices?page=${page}&size=200&sort=createDate,desc&carrierId=${carrierId}`
+            `invoices?page=${page}&size=200&sort=createDate,desc`
         );
         const content = data.content || [];
         if (!content.length) break;
@@ -78,31 +78,64 @@ export async function fetchAllInvoices(carrierId) {
 }
 
 /**
- * Fetch unpaid invoices (PENDING/PARTIALLY_PAID) sorted by dueDate ascending.
+ * Fetch invoices for a single carrier from a preloaded global invoice list.
  */
-export async function fetchUnpaidInvoices(carrierId) {
-    const data = await smpGet(
-        `invoices?page=0&size=25&sort=dueDate,asc&statuses=PENDING&statuses=PARTIALLY_PAID&carrierId=${carrierId}`
-    );
-    return data.content || [];
+export function getCarrierInvoicesFromGlobal(invoices, carrierId) {
+    return invoices
+        .filter((invoice) => String(invoice.carrierId || "").trim() === String(carrierId))
+        .sort((a, b) => String(b.createDate || "").localeCompare(String(a.createDate || "")));
+}
+
+/**
+ * Fetch unpaid invoices (PENDING/PARTIALLY_PAID) for a single carrier
+ * from a preloaded global invoice list.
+ */
+export function getCarrierUnpaidInvoicesFromGlobal(invoices, carrierId) {
+    return getCarrierInvoicesFromGlobal(invoices, carrierId)
+        .filter((invoice) => ["PENDING", "PARTIALLY_PAID"].includes(String(invoice.status || "")))
+        .sort((a, b) => String(a.dueDate || "").localeCompare(String(b.dueDate || "")));
 }
 
 /**
  * Fetch most recent PAID invoice.
  */
+export function getCarrierLastPaidInvoiceFromGlobal(invoices, carrierId) {
+    return getCarrierInvoicesFromGlobal(invoices, carrierId)
+        .filter((invoice) => String(invoice.status || "") === "PAID")
+        .sort((a, b) => String(b.dueDate || "").localeCompare(String(a.dueDate || "")))[0] || null;
+}
+
+// Legacy helpers kept for the older Mongo sync flow.
+export async function fetchAllInvoices(carrierId) {
+    const invoices = await fetchAllInvoicesGlobal();
+    return getCarrierInvoicesFromGlobal(invoices, carrierId);
+}
+
+export async function fetchUnpaidInvoices(carrierId) {
+    const invoices = await fetchAllInvoicesGlobal();
+    return getCarrierUnpaidInvoicesFromGlobal(invoices, carrierId);
+}
+
 export async function fetchLastPaidInvoice(carrierId) {
-    const data = await smpGet(
-        `invoices?page=0&size=1&sort=dueDate,desc&statuses=PAID&carrierId=${carrierId}`
-    );
-    return (data.content || [])[0] || null;
+    const invoices = await fetchAllInvoicesGlobal();
+    return getCarrierLastPaidInvoiceFromGlobal(invoices, carrierId);
 }
 
 /**
- * Fetch billing history (recent transactions).
+ * Fetch billing history (recent transactions) via company-specific endpoint.
  */
-export async function fetchBillingHistory(carrierId) {
-    const data = await smpGet(
-        `billing-history?page=0&size=10&sort=createDate,desc&carrierId=${carrierId}`
+export async function fetchBillingHistory(companyId) {
+    if (!companyId) return [];
+
+    const companyScoped = await smpGet(
+        `companies/${companyId}/billing-history?page=0&size=100&sort=createDate,desc`
     );
-    return data.content || [];
+    if (Array.isArray(companyScoped.content)) {
+        return companyScoped.content;
+    }
+
+    const legacyScoped = await smpGet(
+        `billing-history?page=0&size=100&sort=createDate,desc&carrierId=${companyId}`
+    );
+    return legacyScoped.content || [];
 }

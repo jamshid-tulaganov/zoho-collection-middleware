@@ -17,10 +17,11 @@ import path from "path";
 import { env } from "../config/env.js";
 import {
     fetchCompanies,
-    fetchUnpaidInvoices,
-    fetchLastPaidInvoice,
     fetchBillingHistory,
-    fetchAllInvoices,
+    fetchAllInvoicesGlobal,
+    getCarrierInvoicesFromGlobal,
+    getCarrierUnpaidInvoicesFromGlobal,
+    getCarrierLastPaidInvoiceFromGlobal,
 } from "./smp.js";
 import { fetchDeals, ensureZohoToken } from "./zoho.js";
 import { computeMetro2, parseDate } from "./metro2.js";
@@ -147,6 +148,7 @@ function buildCompanyFromCachedEntry(cid, entry = {}) {
     if (!entry?.smp) return null;
 
     return {
+        id: entry.smp.company_id ?? null,
         carrierId: cid,
         name: entry.company || "",
         createDate: entry.smp.create_date || "",
@@ -224,6 +226,7 @@ function buildSmpBlock(comp) {
     const addr = comp.address || {};
     const owners = comp.owners || [];
     return {
+        company_id: comp.id ?? null,
         create_date: String(comp.createDate || "").slice(0, 10),
         credit_limit: Math.floor(safeNum(comp.creditLimit)),
         contact_phone: String(comp.contactPhone || ""),
@@ -275,7 +278,7 @@ function buildZohoBlock(deal) {
 
 // ── Compute invoiceData object expected by computeMetro2 ─────────────────────
 
-async function buildInvoiceData(cid, comp, dbEntry = {}, existingEntry = {}) {
+async function buildInvoiceData(cid, comp, dbEntry = {}, existingEntry = {}, allInvoices = []) {
     const today = new Date();
     const fourWeeksAgo = new Date(today);
     fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
@@ -311,7 +314,7 @@ async function buildInvoiceData(cid, comp, dbEntry = {}, existingEntry = {}) {
 
     // Supplement from SMP (recent invoices)
     try {
-        const allInv = await fetchAllInvoices(cid);
+        const allInv = getCarrierInvoicesFromGlobal(allInvoices, cid);
         for (const inv of allInv) {
             const cr = String(inv.createDate || "");
             if (cr.length >= 7) {
@@ -356,7 +359,7 @@ async function buildInvoiceData(cid, comp, dbEntry = {}, existingEntry = {}) {
     // Priority 3: SMP unpaid invoices API fallback
     if (isDebtor && !dateFirstDelinquency) {
         try {
-            const unpaid = await fetchUnpaidInvoices(cid);
+            const unpaid = getCarrierUnpaidInvoicesFromGlobal(allInvoices, cid);
             if (unpaid.length) {
                 const firstDue = String(unpaid[0].dueDate || "");
                 if (firstDue.length >= 10) dateFirstDelinquency = firstDue.slice(0, 10);
@@ -377,7 +380,7 @@ async function buildInvoiceData(cid, comp, dbEntry = {}, existingEntry = {}) {
     // Fallback: billing history API
     if (!dateOfLastPayment) {
         try {
-            const txns = await fetchBillingHistory(cid);
+            const txns = await fetchBillingHistory(comp?.id || existingEntry?.smp?.company_id || null);
             for (const txn of txns) {
                 const amt = safeNum(txn.amount);
                 const dt  = String(txn.createDate || "");
@@ -402,7 +405,7 @@ async function buildInvoiceData(cid, comp, dbEntry = {}, existingEntry = {}) {
         // Fallback: last paid invoice from SMP
         if (!dateClosed) {
             try {
-                const paid = await fetchLastPaidInvoice(cid);
+                const paid = getCarrierLastPaidInvoiceFromGlobal(allInvoices, cid);
                 if (paid) dateClosed = String(paid.dueDate || "").slice(0, 10);
             } catch { /* ignore */ }
         }
@@ -413,19 +416,15 @@ async function buildInvoiceData(cid, comp, dbEntry = {}, existingEntry = {}) {
 
 // ── Fetch raw SMP invoices for any carrier ─────────────────────────────────────
 
-async function fetchCarrierInvoices(cid) {
-    try {
-        return await fetchAllInvoices(cid);
-    } catch {
-        return [];
-    }
+function fetchCarrierInvoices(allInvoices, cid) {
+    return getCarrierInvoicesFromGlobal(allInvoices, cid);
 }
 
 // ── Fetch billing history rows for any carrier ────────────────────────────────
 
-async function fetchCarrierBilling(cid) {
+async function fetchCarrierBilling(companyId) {
     try {
-        return await fetchBillingHistory(cid);
+        return await fetchBillingHistory(companyId);
     } catch {
         return [];
     }
@@ -493,6 +492,12 @@ export async function runCarrierDbSync() {
             const allCompanies = new Map([...locMap, ...debtorMap]);
             console.log(`[carrier-db]   Total unique companies: ${allCompanies.size}`);
 
+            syncProgress.phase = "fetching_smp_invoices";
+            syncProgress.lastHeartbeatAt = new Date().toISOString();
+            console.log("[carrier-db] Step 3c: Fetching all SMP invoices...");
+            const allInvoices = await fetchAllInvoicesGlobal();
+            console.log(`[carrier-db]   Total invoices fetched: ${allInvoices.length}`);
+
             // ── Step 4: Process union of all sources ────────────────────────
             const carrierIds = new Set([
                 ...Object.keys(carrierDb),
@@ -553,11 +558,11 @@ export async function runCarrierDbSync() {
                         || existingDerived.is_debtor
                     );
 
-                    const smpInvoices = await fetchCarrierInvoices(cid);
-                    const smpBillingHistory = await fetchCarrierBilling(cid);
+                    const smpInvoices = fetchCarrierInvoices(allInvoices, cid);
+                    const smpBillingHistory = await fetchCarrierBilling(comp?.id || existingEntry?.smp?.company_id || null);
 
                     // ── Derived data recomputation ───────────────────────
-                    const invoiceData = await buildInvoiceData(cid, comp, dbEntry, existingEntry);
+                    const invoiceData = await buildInvoiceData(cid, comp, dbEntry, existingEntry, allInvoices);
                     const metro2 = computeMetro2(cid, comp, deal, dbEntry, null, invoiceData);
 
                     let creditScore = metro2.highestCredit;
