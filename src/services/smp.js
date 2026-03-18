@@ -78,7 +78,34 @@ export async function fetchAllInvoicesGlobal() {
 }
 
 /**
+ * Index invoices by carrierId for O(1) lookup.
+ * Call once after fetchAllInvoicesGlobal, then use getCarrierInvoicesFromIndex.
+ */
+export function indexInvoicesByCarrier(invoices) {
+    const map = new Map();
+    for (const inv of invoices) {
+        const cid = String(inv.carrierId || "").trim();
+        if (!cid || cid === "0") continue;
+        if (!map.has(cid)) map.set(cid, []);
+        map.get(cid).push(inv);
+    }
+    // Sort each carrier's invoices by createDate desc
+    for (const [, arr] of map) {
+        arr.sort((a, b) => String(b.createDate || "").localeCompare(String(a.createDate || "")));
+    }
+    return map;
+}
+
+/**
+ * Get invoices for a carrier from a pre-indexed Map. O(1) lookup.
+ */
+export function getCarrierInvoicesFromIndex(invoiceIndex, carrierId) {
+    return invoiceIndex.get(String(carrierId)) || [];
+}
+
+/**
  * Fetch invoices for a single carrier from a preloaded global invoice list.
+ * @deprecated Use indexInvoicesByCarrier + getCarrierInvoicesFromIndex instead.
  */
 export function getCarrierInvoicesFromGlobal(invoices, carrierId) {
     return invoices
@@ -122,7 +149,110 @@ export async function fetchLastPaidInvoice(carrierId) {
 }
 
 /**
+ * Fetch ALL billing history globally (paginated).
+ * Returns flat array of all transactions across all carriers.
+ *
+ * Tries the global endpoint first (/billing-history without carrierId).
+ * If that returns empty (API may require carrierId), falls back to
+ * batched per-company fetches using the provided companyMap.
+ *
+ * @param {Map<string,object>} [companyMap] — Map<carrierId, companyObj> for fallback
+ * @param {number} [concurrency=15] — parallel requests for fallback mode
+ */
+export async function fetchAllBillingHistoryGlobal(companyMap = new Map(), concurrency = 15) {
+    // ── Attempt 1: global endpoint (no carrierId filter) ──
+    try {
+        const firstPage = await smpGet(
+            `billing-history?page=0&size=200&sort=createDate,desc`
+        );
+        const firstContent = firstPage.content || [];
+        if (firstContent.length > 0) {
+            // Global endpoint works — paginate all
+            const transactions = [...firstContent];
+            if (firstContent.length >= 200) {
+                for (let page = 1; page <= 500; page++) {
+                    const data = await smpGet(
+                        `billing-history?page=${page}&size=200&sort=createDate,desc`
+                    );
+                    const content = data.content || [];
+                    if (!content.length) break;
+                    transactions.push(...content);
+                    if (content.length < 200) break;
+                }
+            }
+            console.log(`[SMP] Global billing-history returned ${transactions.length} transactions.`);
+            return transactions;
+        }
+    } catch (err) {
+        console.warn(`[SMP] Global billing-history failed: ${err.message} — using per-company fallback.`);
+    }
+
+    // ── Attempt 2: batched per-company fetches ──
+    if (!companyMap.size) {
+        console.warn("[SMP] No companies provided for billing-history fallback — returning empty.");
+        return [];
+    }
+
+    console.log(`[SMP] Fetching billing-history per-company for ${companyMap.size} companies (concurrency=${concurrency})...`);
+    const transactions = [];
+    const entries = [...companyMap.entries()];
+
+    for (let i = 0; i < entries.length; i += concurrency) {
+        const batch = entries.slice(i, i + concurrency);
+        const results = await Promise.allSettled(
+            batch.map(async ([carrierId, comp]) => {
+                const companyId = comp?.id;
+                if (!companyId) return [];
+                try {
+                    const data = await smpGet(
+                        `companies/${companyId}/billing-history?page=0&size=100&sort=createDate,desc`
+                    );
+                    const content = data.content || [];
+                    // Tag each transaction with carrierId for indexing
+                    return content.map((txn) => ({ ...txn, carrierId }));
+                } catch {
+                    return [];
+                }
+            })
+        );
+        for (const r of results) {
+            if (r.status === "fulfilled" && r.value.length) {
+                transactions.push(...r.value);
+            }
+        }
+        if ((i + concurrency) % 150 === 0) {
+            console.log(`[SMP]   ... billing-history: ${i + concurrency}/${entries.length} companies`);
+        }
+    }
+
+    console.log(`[SMP] Per-company billing-history returned ${transactions.length} transactions.`);
+    return transactions;
+}
+
+/**
+ * Index billing-history transactions by carrierId for O(1) lookup.
+ */
+export function indexBillingHistoryByCarrier(transactions) {
+    const map = new Map();
+    for (const txn of transactions) {
+        const cid = String(txn.carrierId || "").trim();
+        if (!cid || cid === "0") continue;
+        if (!map.has(cid)) map.set(cid, []);
+        map.get(cid).push(txn);
+    }
+    return map;
+}
+
+/**
+ * Get billing history for a single carrier from pre-indexed map.
+ */
+export function getCarrierBillingFromGlobal(billingMap, carrierId) {
+    return billingMap.get(String(carrierId)) || [];
+}
+
+/**
  * Fetch billing history (recent transactions) via company-specific endpoint.
+ * @deprecated Use fetchAllBillingHistoryGlobal + getCarrierBillingFromGlobal instead.
  */
 export async function fetchBillingHistory(companyId) {
     if (!companyId) return [];

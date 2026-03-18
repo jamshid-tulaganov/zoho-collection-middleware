@@ -17,11 +17,12 @@ import path from "path";
 import { env } from "../config/env.js";
 import {
     fetchCompanies,
-    fetchBillingHistory,
     fetchAllInvoicesGlobal,
-    getCarrierInvoicesFromGlobal,
-    getCarrierUnpaidInvoicesFromGlobal,
-    getCarrierLastPaidInvoiceFromGlobal,
+    indexInvoicesByCarrier,
+    getCarrierInvoicesFromIndex,
+    fetchAllBillingHistoryGlobal,
+    indexBillingHistoryByCarrier,
+    getCarrierBillingFromGlobal,
 } from "./smp.js";
 import { fetchDeals, ensureZohoToken } from "./zoho.js";
 import { computeMetro2, parseDate } from "./metro2.js";
@@ -277,8 +278,9 @@ function buildZohoBlock(deal) {
 }
 
 // ── Compute invoiceData object expected by computeMetro2 ─────────────────────
+// Now fully synchronous — uses pre-indexed maps instead of API calls.
 
-async function buildInvoiceData(cid, comp, dbEntry = {}, existingEntry = {}, allInvoices = []) {
+function buildInvoiceData(cid, comp, dbEntry = {}, existingEntry = {}, invoiceIndex, billingIndex) {
     const today = new Date();
     const fourWeeksAgo = new Date(today);
     fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
@@ -312,17 +314,15 @@ async function buildInvoiceData(cid, comp, dbEntry = {}, existingEntry = {}, all
         if (dbDates.length) lastInvDate = dbDates.sort().reverse()[0];
     }
 
-    // Supplement from SMP (recent invoices)
-    try {
-        const allInv = getCarrierInvoicesFromGlobal(allInvoices, cid);
-        for (const inv of allInv) {
-            const cr = String(inv.createDate || "");
-            if (cr.length >= 7) {
-                invoiceMonths[cr.slice(0, 7)] = true;
-                if (!lastInvDate && cr.length >= 10) lastInvDate = cr.slice(0, 10);
-            }
+    // Supplement from SMP (recent invoices) — O(1) lookup via index
+    const carrierInvoices = getCarrierInvoicesFromIndex(invoiceIndex, cid);
+    for (const inv of carrierInvoices) {
+        const cr = String(inv.createDate || "");
+        if (cr.length >= 7) {
+            invoiceMonths[cr.slice(0, 7)] = true;
+            if (!lastInvDate && cr.length >= 10) lastInvDate = cr.slice(0, 10);
         }
-    } catch { /* non-fatal */ }
+    }
 
     // ── Date of First Delinquency ──
     if (isDebtor && dbEntry) {
@@ -356,15 +356,15 @@ async function buildInvoiceData(cid, comp, dbEntry = {}, existingEntry = {}, all
         }
     }
 
-    // Priority 3: SMP unpaid invoices API fallback
+    // Priority 3: SMP unpaid invoices from index
     if (isDebtor && !dateFirstDelinquency) {
-        try {
-            const unpaid = getCarrierUnpaidInvoicesFromGlobal(allInvoices, cid);
-            if (unpaid.length) {
-                const firstDue = String(unpaid[0].dueDate || "");
-                if (firstDue.length >= 10) dateFirstDelinquency = firstDue.slice(0, 10);
-            }
-        } catch { /* ignore */ }
+        const unpaid = carrierInvoices
+            .filter((inv) => ["PENDING", "PARTIALLY_PAID"].includes(String(inv.status || "")))
+            .sort((a, b) => String(a.dueDate || "").localeCompare(String(b.dueDate || "")));
+        if (unpaid.length) {
+            const firstDue = String(unpaid[0].dueDate || "");
+            if (firstDue.length >= 10) dateFirstDelinquency = firstDue.slice(0, 10);
+        }
     }
 
     // ── Last payment date (from master db) ──
@@ -377,19 +377,17 @@ async function buildInvoiceData(cid, comp, dbEntry = {}, existingEntry = {}, all
         if (!dateOfLastPayment && paid.length) dateOfLastPayment = paid[0];
     }
 
-    // Fallback: billing history API
+    // Fallback: billing history from pre-indexed map (no API call)
     if (!dateOfLastPayment) {
-        try {
-            const txns = await fetchBillingHistory(comp?.id || existingEntry?.smp?.company_id || null);
-            for (const txn of txns) {
-                const amt = safeNum(txn.amount);
-                const dt  = String(txn.createDate || "");
-                if (amt > 0 && dt.length >= 10) {
-                    dateOfLastPayment = dt.slice(0, 10);
-                    break;
-                }
+        const txns = getCarrierBillingFromGlobal(billingIndex, cid);
+        for (const txn of txns) {
+            const amt = safeNum(txn.amount);
+            const dt  = String(txn.createDate || "");
+            if (amt > 0 && dt.length >= 10) {
+                dateOfLastPayment = dt.slice(0, 10);
+                break;
             }
-        } catch { /* ignore */ }
+        }
     }
 
     // ── Closed? ──
@@ -402,32 +400,18 @@ async function buildInvoiceData(cid, comp, dbEntry = {}, existingEntry = {}, all
         if (isClosed && dateOfLastPayment) {
             dateClosed = dateOfLastPayment;
         }
-        // Fallback: last paid invoice from SMP
+        // Fallback: last paid invoice from index
         if (!dateClosed) {
-            try {
-                const paid = getCarrierLastPaidInvoiceFromGlobal(allInvoices, cid);
-                if (paid) dateClosed = String(paid.dueDate || "").slice(0, 10);
-            } catch { /* ignore */ }
+            const paidInvoices = carrierInvoices
+                .filter((inv) => String(inv.status || "") === "PAID")
+                .sort((a, b) => String(b.dueDate || "").localeCompare(String(a.dueDate || "")));
+            if (paidInvoices.length) {
+                dateClosed = String(paidInvoices[0].dueDate || "").slice(0, 10);
+            }
         }
     }
 
     return { isDebtor, dateFirstDelinquency, dateOfLastPayment, isClosed, dateClosed, invoiceMonths, lastInvDate };
-}
-
-// ── Fetch raw SMP invoices for any carrier ─────────────────────────────────────
-
-function fetchCarrierInvoices(allInvoices, cid) {
-    return getCarrierInvoicesFromGlobal(allInvoices, cid);
-}
-
-// ── Fetch billing history rows for any carrier ────────────────────────────────
-
-async function fetchCarrierBilling(companyId) {
-    try {
-        return await fetchBillingHistory(companyId);
-    } catch {
-        return [];
-    }
 }
 
 // ── Main sync ────────────────────────────────────────────────────────────────
@@ -492,11 +476,22 @@ export async function runCarrierDbSync() {
             const allCompanies = new Map([...locMap, ...debtorMap]);
             console.log(`[carrier-db]   Total unique companies: ${allCompanies.size}`);
 
+            // ── Step 3c: Fetch all SMP invoices globally + index ──────────
             syncProgress.phase = "fetching_smp_invoices";
             syncProgress.lastHeartbeatAt = new Date().toISOString();
             console.log("[carrier-db] Step 3c: Fetching all SMP invoices...");
             const allInvoices = await fetchAllInvoicesGlobal();
-            console.log(`[carrier-db]   Total invoices fetched: ${allInvoices.length}`);
+            const invoiceIndex = indexInvoicesByCarrier(allInvoices);
+            console.log(`[carrier-db]   Total invoices fetched: ${allInvoices.length} (${invoiceIndex.size} carriers)`);
+
+            // ── Step 3d: Fetch all billing history globally + index ────────
+            // Tries global endpoint first; falls back to batched per-company if API requires carrierId
+            syncProgress.phase = "fetching_smp_billing";
+            syncProgress.lastHeartbeatAt = new Date().toISOString();
+            console.log("[carrier-db] Step 3d: Fetching all SMP billing history...");
+            const allBilling = await fetchAllBillingHistoryGlobal(allCompanies, 15);
+            const billingIndex = indexBillingHistoryByCarrier(allBilling);
+            console.log(`[carrier-db]   Total billing txns fetched: ${allBilling.length} (${billingIndex.size} carriers)`);
 
             // ── Step 4: Process union of all sources ────────────────────────
             const carrierIds = new Set([
@@ -551,18 +546,12 @@ export async function runCarrierDbSync() {
                         || existingEntry.earliest_delinquency_period_end
                         || null;
 
-                    // ── Invoice / billing fetches ─────────────────────────
-                    const currentIsDebtor = Boolean(
-                        smpBlock?.is_debtor
-                        || debtorSources.length
-                        || existingDerived.is_debtor
-                    );
+                    // ── Invoice / billing from pre-indexed maps (no API calls) ──
+                    const smpInvoices = getCarrierInvoicesFromIndex(invoiceIndex, cid);
+                    const smpBillingHistory = getCarrierBillingFromGlobal(billingIndex, cid);
 
-                    const smpInvoices = fetchCarrierInvoices(allInvoices, cid);
-                    const smpBillingHistory = await fetchCarrierBilling(comp?.id || existingEntry?.smp?.company_id || null);
-
-                    // ── Derived data recomputation ───────────────────────
-                    const invoiceData = await buildInvoiceData(cid, comp, dbEntry, existingEntry, allInvoices);
+                    // ── Derived data recomputation (fully synchronous now) ──
+                    const invoiceData = buildInvoiceData(cid, comp, dbEntry, existingEntry, invoiceIndex, billingIndex);
                     const metro2 = computeMetro2(cid, comp, deal, dbEntry, null, invoiceData);
 
                     let creditScore = metro2.highestCredit;
