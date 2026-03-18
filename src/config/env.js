@@ -26,7 +26,6 @@ if (fs.existsSync(telegramEnvPath)) {
 
 export const env = {
     PORT: Number(process.env.PORT || 3001),
-    MONGODB_URI: process.env.MONGODB_URI || "",
 
     // Zoho CRM
     ZOHO_BASE_URL: process.env.ZOHO_BASE_URL || "https://www.zohoapis.com",
