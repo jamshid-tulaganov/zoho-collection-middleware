@@ -411,19 +411,19 @@ async function buildInvoiceData(cid, comp, dbEntry = {}, existingEntry = {}) {
     return { isDebtor, dateFirstDelinquency, dateOfLastPayment, isClosed, dateClosed, invoiceMonths, lastInvDate };
 }
 
-// ── Fetch raw SMP invoices for a debtor (unpaid only) ─────────────────────────
+// ── Fetch raw SMP invoices for any carrier ─────────────────────────────────────
 
-async function fetchDebtorInvoices(cid) {
+async function fetchCarrierInvoices(cid) {
     try {
-        return await fetchUnpaidInvoices(cid);
+        return await fetchAllInvoices(cid);
     } catch {
         return [];
     }
 }
 
-// ── Fetch billing history rows for a debtor ───────────────────────────────────
+// ── Fetch billing history rows for any carrier ────────────────────────────────
 
-async function fetchDebtorBilling(cid) {
+async function fetchCarrierBilling(cid) {
     try {
         return await fetchBillingHistory(cid);
     } catch {
@@ -553,12 +553,8 @@ export async function runCarrierDbSync() {
                         || existingDerived.is_debtor
                     );
 
-                    let smpInvoices = [];
-                    let smpBillingHistory = [];
-                    if (currentIsDebtor) {
-                        smpInvoices = await fetchDebtorInvoices(cid);
-                        smpBillingHistory = await fetchDebtorBilling(cid);
-                    }
+                    const smpInvoices = await fetchCarrierInvoices(cid);
+                    const smpBillingHistory = await fetchCarrierBilling(cid);
 
                     // ── Derived data recomputation ───────────────────────
                     const invoiceData = await buildInvoiceData(cid, comp, dbEntry, existingEntry);
@@ -575,8 +571,7 @@ export async function runCarrierDbSync() {
                         company: comp?.name?.trim() || dbEntry.company || existingEntry.company || "",
                         smp: smpBlock,
                         zoho: zohoBlock,
-                        invoices: currentIsDebtor
-                            ? smpInvoices.map((inv) => ({
+                        invoices: smpInvoices.map((inv) => ({
                                 invoice_number: String(inv.invoiceNumber || inv.id || ""),
                                 total_amount: safeNum(inv.totalAmount),
                                 total_paid: safeNum(inv.totalPaid),
@@ -585,21 +580,14 @@ export async function runCarrierDbSync() {
                                 due_date: String(inv.dueDate || "").slice(0, 10),
                                 date_from: String(inv.dateFrom || "").slice(0, 10),
                                 date_to: String(inv.dateTo || "").slice(0, 10),
-                            }))
-                            : [],
-                        invoices_last_synced: currentIsDebtor
-                            ? nowIso
-                            : (existingEntry.invoices_last_synced || null),
-                        billing_history: currentIsDebtor
-                            ? smpBillingHistory.slice(0, 20).map((txn) => ({
+                            })),
+                        invoices_last_synced: nowIso,
+                        billing_history: smpBillingHistory.slice(0, 20).map((txn) => ({
                                 amount: safeNum(txn.amount),
                                 create_date: String(txn.createDate || "").slice(0, 10),
                                 reference: String(txn.refNum || ""),
-                            }))
-                            : [],
-                        billing_last_synced: currentIsDebtor
-                            ? nowIso
-                            : (existingEntry.billing_last_synced || null),
+                            })),
+                        billing_last_synced: nowIso,
                         billing_cycle: billingCycle,
                         credit_score_tss: creditScoreTss,
                         debtor_sources: debtorSources,
