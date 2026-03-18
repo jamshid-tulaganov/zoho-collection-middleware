@@ -1,7 +1,6 @@
 # Collections Service
 
 Node.js service for the collection department workflow.
-This app is JSON-cache based and does not use MongoDB.
 
 ## What it does
 
