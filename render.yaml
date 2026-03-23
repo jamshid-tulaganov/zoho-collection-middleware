@@ -14,6 +14,8 @@ services:
     envVars:
       - key: NODE_VERSION
         value: 22
+      - key: PLAYWRIGHT_BROWSERS_PATH
+        value: /opt/render/project/.playwright
       - key: PORT
         value: 3001
       - key: MASTER_DB_PATH
