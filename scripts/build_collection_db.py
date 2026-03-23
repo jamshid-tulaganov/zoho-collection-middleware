@@ -49,16 +49,19 @@ def build_dataset_rows(workbook):
 
     for row in ws.iter_rows(min_row=9, values_only=True):
         company = normalize_space(row[2])
+        debtor_type = normalize_space(row[4])
         placement_date = to_iso_date(row[18])
         company_key = normalize_company_key(company)
         if not company_key:
+            continue
+        if debtor_type.lower() == "fraud":
             continue
 
         payload = {
             "invoice_number": str(row[11] or "").strip().replace(".0", ""),
             "company": company,
             "invoice_status": normalize_space(row[3]),
-            "debtor_type": normalize_space(row[4]),
+            "debtor_type": debtor_type,
             "collections_agent": normalize_space(row[5]),
             "invoice_date": to_iso_date(row[12]),
             "total_amount": round(to_number(row[13]), 2),

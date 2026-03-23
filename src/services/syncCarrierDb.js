@@ -523,6 +523,7 @@ function buildInvoiceData(cid, comp, dbEntry = {}, existingEntry = {}, invoiceIn
 
     // ── Closed? ──
     if (!isDebtor) {
+        collectionStartDate = "";
         if (lastInvDate) {
             isClosed = new Date(lastInvDate) < fourWeeksAgo;
         } else {
@@ -556,11 +557,26 @@ function buildInvoiceData(cid, comp, dbEntry = {}, existingEntry = {}, invoiceIn
     };
 }
 
+function isActiveCollectionRow(row = {}) {
+    const status = String(row.status || row.invoice_status || "").trim().toLowerCase();
+    const remaining = safeNum(
+        row.remaining_amount
+        ?? row.amount_remaining
+        ?? (safeNum(row.amount_submitted) - safeNum(row.amount_collected))
+    );
+
+    if (status === "paid") return false;
+    return remaining > 0;
+}
+
 function deriveCollectionStartDate(ggrData, ggrSubmissionDate) {
+    const activeRows = (ggrData?.ggr_invoices || []).filter((item) => isActiveCollectionRow(item));
+    if (!activeRows.length) return "";
+
     if (String(ggrSubmissionDate || "").length >= 10) {
         return String(ggrSubmissionDate).slice(0, 10);
     }
-    const invoiceDates = (ggrData?.ggr_invoices || [])
+    const invoiceDates = activeRows
         .map((item) => String(item.ggr_submission_date || item.placement_date || ""))
         .filter((value) => value.length >= 10)
         .sort();
@@ -570,9 +586,13 @@ function deriveCollectionStartDate(ggrData, ggrSubmissionDate) {
 function buildCollectionDataForCarrier(
     collectionDb = {},
     carrierCompanies = [],
+    invoiceData = {},
     fallbackGgrData = null,
     fallbackSubmissionDate = null
 ) {
+    const currentIsDebtor = Boolean(invoiceData.isDebtor);
+    const lastPaymentDate = String(invoiceData.dateOfLastPayment || "").slice(0, 10);
+
     const matched = [];
     const seen = new Set();
 
@@ -581,6 +601,9 @@ function buildCollectionDataForCarrier(
         if (!key) continue;
         const rows = collectionDb[key] || [];
         for (const row of rows) {
+            if (String(row.debtor_type || "").trim().toLowerCase() === "fraud") {
+                continue;
+            }
             const rowKey = `${key}:${row.invoice_number || ""}:${row.placement_date || ""}:${row.invoice_date || ""}`;
             if (seen.has(rowKey)) continue;
             seen.add(rowKey);
@@ -590,7 +613,12 @@ function buildCollectionDataForCarrier(
     }
 
     if (!matched.length) {
-        const collectionStartDate = deriveCollectionStartDate(fallbackGgrData, fallbackSubmissionDate);
+        let collectionStartDate = currentIsDebtor
+            ? deriveCollectionStartDate(fallbackGgrData, fallbackSubmissionDate)
+            : "";
+        if (collectionStartDate && lastPaymentDate && lastPaymentDate >= collectionStartDate) {
+            collectionStartDate = "";
+        }
         return {
             ggrData: fallbackGgrData || null,
             ggrSubmissionDate: fallbackSubmissionDate || fallbackGgrData?.ggr_submission_date || null,
@@ -626,7 +654,22 @@ function buildCollectionDataForCarrier(
     const totalSubmitted = ggrInvoices.reduce((sum, row) => sum + safeNum(row.amount_submitted), 0);
     const totalCollected = ggrInvoices.reduce((sum, row) => sum + safeNum(row.amount_collected), 0);
     const totalRemaining = ggrInvoices.reduce((sum, row) => sum + safeNum(row.remaining_amount), 0);
-    const collectionStartDate = deriveCollectionStartDate({ ggr_invoices: ggrInvoices }, ggrSubmissionDate);
+    const activeGgrInvoices = ggrInvoices.filter((row) => isActiveCollectionRow(row));
+    const eligibleGgrInvoices = currentIsDebtor
+        ? activeGgrInvoices.filter((row) => {
+            const placementDate = String(row.ggr_submission_date || "").slice(0, 10);
+            if (!placementDate || !lastPaymentDate) return true;
+            return lastPaymentDate < placementDate;
+        })
+        : [];
+    const eligibleSubmissionDate = eligibleGgrInvoices
+        .map((row) => row.ggr_submission_date)
+        .find((value) => String(value || "").length >= 10)
+        || null;
+    const collectionStartDate = deriveCollectionStartDate(
+        { ggr_invoices: eligibleGgrInvoices },
+        eligibleSubmissionDate
+    );
 
     return {
         ggrData: {
@@ -787,6 +830,15 @@ export async function runCarrierDbSync() {
                     const smpBillingHistory = getCarrierBillingFromGlobal(billingIndex, cid);
                     const fallbackGgrData = dbEntry.ggr_data || existingEntry.ggr_data || null;
                     const fallbackGgrSubmissionDate = dbEntry.ggr_submission_date || existingEntry.ggr_submission_date || null;
+                    const invoiceData = buildInvoiceData(
+                        cid,
+                        comp,
+                        dbEntry,
+                        existingEntry,
+                        invoiceIndex,
+                        billingIndex,
+                        ""
+                    );
                     const {
                         ggrData,
                         ggrSubmissionDate,
@@ -794,6 +846,7 @@ export async function runCarrierDbSync() {
                     } = buildCollectionDataForCarrier(
                         collectionDb,
                         carrierCompanies,
+                        invoiceData,
                         fallbackGgrData,
                         fallbackGgrSubmissionDate
                     );
@@ -803,15 +856,7 @@ export async function runCarrierDbSync() {
                         || null;
 
                     // ── Derived data recomputation (fully synchronous now) ──
-                    const invoiceData = buildInvoiceData(
-                        cid,
-                        comp,
-                        dbEntry,
-                        existingEntry,
-                        invoiceIndex,
-                        billingIndex,
-                        collectionStartDate
-                    );
+                    invoiceData.collectionStartDate = collectionStartDate;
                     const metro2 = computeMetro2(cid, comp, deal, dbEntry, null, invoiceData);
 
                     let creditScore = metro2.highestCredit;
