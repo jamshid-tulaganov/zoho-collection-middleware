@@ -152,6 +152,7 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
         dateOfLastPayment,
         isClosed,
         dateClosed,
+        invoiceMonths = {},
         amountPastDue = 0,
         actualPayment = 0,
     } = invoiceData;
@@ -236,17 +237,24 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
         closeDStartAbs = closedYear * 12 + closedMonth + 2;
     }
 
+    const coveredMonths = invoiceMonths || {};
     let paymentHistoryProfile = "";
     for (let n = 0; n < 24; n++) {
         const totalMonths = RY * 12 + RM - 1 - n;
         const mYear = Math.floor(totalMonths / 12);
         const mMonth = (totalMonths % 12) + 1;
         const mAbs = mYear * 12 + mMonth;
+        const monthKey = `${mYear}-${String(mMonth).padStart(2, "0")}`;
 
         let code = "0";
 
         // Before account opened → B
         if (hasOpenDate && (mYear < openYear || (mYear === openYear && mMonth < openMonth))) {
+            code = "B";
+        }
+        // If we have no invoice/payment evidence for the month from either
+        // spreadsheet history or CMP, treat it as no-payment-data.
+        else if (!coveredMonths[monthKey]) {
             code = "B";
         }
         // Delinquent period → graduated codes
