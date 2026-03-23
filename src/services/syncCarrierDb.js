@@ -95,23 +95,13 @@ function loadAccountingDb() {
 function loadCollectionDb() {
     if (!COLLECTION_DB_PATH || !fs.existsSync(COLLECTION_DB_PATH)) {
         console.warn("[carrier-db] collection-placement-db.json not found — collection fallback unavailable.");
-        return { byInvoice: {}, byCompany: {} };
+        return {};
     }
     try {
-        const byInvoice = JSON.parse(fs.readFileSync(COLLECTION_DB_PATH, "utf-8"));
-        const byCompany = {};
-        for (const rows of Object.values(byInvoice)) {
-            for (const row of rows || []) {
-                const key = normalizeCompanyKey(row.company);
-                if (!key) continue;
-                byCompany[key] = byCompany[key] || [];
-                byCompany[key].push(row);
-            }
-        }
-        return { byInvoice, byCompany };
+        return JSON.parse(fs.readFileSync(COLLECTION_DB_PATH, "utf-8"));
     } catch {
         console.warn("[carrier-db] Could not parse collection-placement-db.json.");
-        return { byInvoice: {}, byCompany: {} };
+        return {};
     }
 }
 
@@ -158,13 +148,6 @@ function normCid(raw) {
 function safeNum(v) {
     const n = parseFloat(v);
     return isNaN(n) ? 0 : n;
-}
-
-function normalizeInvoiceNumber(v) {
-    if (v === null || v === undefined) return "";
-    if (typeof v === "number") return String(Math.trunc(v));
-    const raw = String(v).trim();
-    return raw.endsWith(".0") ? raw.slice(0, -2) : raw;
 }
 
 function normalizeCompanyKey(value) {
@@ -585,8 +568,7 @@ function deriveCollectionStartDate(ggrData, ggrSubmissionDate) {
 }
 
 function buildCollectionDataForCarrier(
-    smpInvoices = [],
-    collectionDb = { byInvoice: {}, byCompany: {} },
+    collectionDb = {},
     carrierCompanies = [],
     fallbackGgrData = null,
     fallbackSubmissionDate = null
@@ -594,31 +576,17 @@ function buildCollectionDataForCarrier(
     const matched = [];
     const seen = new Set();
 
-    for (const invoice of smpInvoices) {
-        const invoiceNumber = normalizeInvoiceNumber(invoice.invoiceNumber || invoice.id || "");
-        if (!invoiceNumber) continue;
-        const rows = collectionDb.byInvoice?.[invoiceNumber] || [];
+    for (const company of carrierCompanies) {
+        const key = normalizeCompanyKey(company);
+        if (!key) continue;
+        const rows = collectionDb[key] || [];
         for (const row of rows) {
-            const key = `${invoiceNumber}:${row.placement_date || ""}:${row.invoice_date || ""}`;
-            if (seen.has(key)) continue;
-            seen.add(key);
+            const rowKey = `${key}:${row.invoice_number || ""}:${row.placement_date || ""}:${row.invoice_date || ""}`;
+            if (seen.has(rowKey)) continue;
+            seen.add(rowKey);
             matched.push(row);
         }
-    }
-
-    if (!matched.length) {
-        for (const company of carrierCompanies) {
-            const key = normalizeCompanyKey(company);
-            if (!key) continue;
-            const rows = collectionDb.byCompany?.[key] || [];
-            for (const row of rows) {
-                const rowKey = `${row.invoice_number}:${row.placement_date || ""}:${row.invoice_date || ""}`;
-                if (seen.has(rowKey)) continue;
-                seen.add(rowKey);
-                matched.push(row);
-            }
-            if (matched.length) break;
-        }
+        if (matched.length) break;
     }
 
     if (!matched.length) {
@@ -824,7 +792,6 @@ export async function runCarrierDbSync() {
                         ggrSubmissionDate,
                         collectionStartDate,
                     } = buildCollectionDataForCarrier(
-                        smpInvoices,
                         collectionDb,
                         carrierCompanies,
                         fallbackGgrData,

@@ -12,17 +12,6 @@ SOURCE_XLSX = ROOT / "collections" / "data" / "TSS_Bad_Debtors_New_25.02.2026.xl
 OUTPUT_JSON = ROOT / "collections" / "db" / "collection-placement-db.json"
 
 
-def normalize_invoice_number(value):
-    if value is None:
-        return ""
-    if isinstance(value, (int, float)):
-        return str(int(value))
-    raw = str(value).strip()
-    if raw.endswith(".0"):
-        raw = raw[:-2]
-    return raw
-
-
 def to_iso_date(value):
     if value is None:
         return ""
@@ -50,19 +39,23 @@ def normalize_space(value):
     return " ".join(str(value or "").replace("\n", " ").split()).strip()
 
 
+def normalize_company_key(value):
+    return "".join(ch for ch in normalize_space(value).lower() if ch.isalnum())
+
+
 def build_dataset_rows(workbook):
     ws = workbook["Dataset"]
     grouped = {}
 
     for row in ws.iter_rows(min_row=9, values_only=True):
         company = normalize_space(row[2])
-        invoice_number = normalize_invoice_number(row[11])
         placement_date = to_iso_date(row[18])
-        if not company or not invoice_number:
+        company_key = normalize_company_key(company)
+        if not company_key:
             continue
 
         payload = {
-            "invoice_number": invoice_number,
+            "invoice_number": str(row[11] or "").strip().replace(".0", ""),
             "company": company,
             "invoice_status": normalize_space(row[3]),
             "debtor_type": normalize_space(row[4]),
@@ -78,12 +71,12 @@ def build_dataset_rows(workbook):
             "address": normalize_space(row[26]),
             "state": normalize_space(row[27]),
             "city": normalize_space(row[29]),
-            "zip": normalize_invoice_number(row[30]),
+            "zip": str(row[30] or "").strip().replace(".0", ""),
             "comments_billing": normalize_space(row[31]),
             "sales_agent": normalize_space(row[32]),
             "source_sheet": "Dataset",
         }
-        grouped.setdefault(invoice_number, []).append(payload)
+        grouped.setdefault(company_key, []).append(payload)
 
     return grouped
 
@@ -94,7 +87,7 @@ def main():
     OUTPUT_JSON.parent.mkdir(parents=True, exist_ok=True)
     OUTPUT_JSON.write_text(json.dumps(grouped, indent=2), encoding="utf-8")
     row_count = sum(len(items) for items in grouped.values())
-    print(f"Wrote {row_count} collection rows across {len(grouped)} invoices to {OUTPUT_JSON}")
+    print(f"Wrote {row_count} collection rows across {len(grouped)} companies to {OUTPUT_JSON}")
 
 
 if __name__ == "__main__":

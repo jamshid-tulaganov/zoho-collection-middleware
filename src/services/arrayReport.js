@@ -74,6 +74,9 @@ function isMeaningfulOptionalValue(value) {
 export function carrierToRow(carrier) {
     const derived = carrier.derived || {};
     const creditScore = derived.credit_score || derived.highest_credit || "";
+    const reportCloseDate = derived.is_debtor
+        ? derived.date_last_payment
+        : ((derived.is_closed || derived.was_former_debtor) ? derived.date_closed : "");
 
     return {
         "Association Code": "1",
@@ -109,7 +112,7 @@ export function carrierToRow(carrier) {
         "Date Open": isoToMmddyyyy(derived.date_open),
         "Date of First Delinquency": isoToMmddyyyy(derived.date_first_delinquency),
         "Date of Last Payment": isoToMmddyyyy(derived.date_last_payment),
-        "Date Closed": isoToMmddyyyy(derived.date_closed),
+        "Date Closed": isoToMmddyyyy(reportCloseDate),
         "Account Status": derived.account_status || "11",
         "Payment Rating": "",
         "Special Comment Code": "",
