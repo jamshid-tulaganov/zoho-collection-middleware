@@ -33,14 +33,26 @@ function loadCandidates() {
  * @param {{ excelPath?: string, force?: boolean }} options
  * @returns {Promise<object>} stats
  */
-export async function syncIsoftpullDobs({ force = false } = {}) {
+/** Delay between companies (3–5 seconds, randomized). */
+function delay() {
+    const ms = 3000 + Math.floor(Math.random() * 2000);
+    return new Promise((r) => setTimeout(r, ms));
+}
+
+/**
+ * @param {{ force?: boolean, limit?: number }} options
+ *   limit — max companies to process (0 or omit = all)
+ */
+export async function syncIsoftpullDobs({ force = false, limit = 0 } = {}) {
     const db = JSON.parse(fs.readFileSync(env.CARRIER_DB_PATH, "utf-8"));
     const candidates = loadCandidates();
 
     // If force=false, also skip carriers that already have DOB in carrier-db
-    const toProcess = force
+    let toProcess = force
         ? candidates
         : candidates.filter((c) => !db[c.carrierId]?.derived?.dob);
+
+    if (limit > 0) toProcess = toProcess.slice(0, limit);
 
     syncProgress = {
         total: candidates.length,
@@ -92,6 +104,9 @@ export async function syncIsoftpullDobs({ force = false } = {}) {
         }
 
         syncProgress.processed++;
+
+        // Human-like pause between companies
+        if (syncProgress.processed < toProcess.length) await delay();
     }
 
     // Final save

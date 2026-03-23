@@ -82,9 +82,10 @@ router.get("/sync-dob", (req, res) => {
     }
 
     const force = req.query.force === "true";
-    res.json({ message: "DOB sync started", force, pollAt: "/isoftpull/sync-progress" });
+    const limit = parseInt(req.query.limit) || 0;
+    res.json({ message: "DOB sync started", force, limit: limit || "all", pollAt: "/isoftpull/sync-progress" });
 
-    syncIsoftpullDobs({ force }).catch((err) =>
+    syncIsoftpullDobs({ force, limit }).catch((err) =>
         console.error("[isoftpull] Sync error:", err.message)
     );
 });

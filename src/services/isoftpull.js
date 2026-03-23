@@ -55,6 +55,12 @@ async function extractDobFromPage(page) {
     return page.inputValue('input[placeholder="Date of Birth"]').catch(() => null);
 }
 
+/** Human-like delay between actions (2–4 seconds, randomized). */
+function humanDelay() {
+    const ms = 2000 + Math.floor(Math.random() * 2000);
+    return new Promise((r) => setTimeout(r, ms));
+}
+
 // ── Public API ──────────────────────────────────────────────────────────────
 
 /**
@@ -82,19 +88,24 @@ export function getDobByName(firstName, lastName) {
 
             if (!hrefs.length) return { dob: null, applicantId: null, checked: 0 };
 
+            // Deduplicate hrefs (search page may have duplicate links per applicant)
+            const uniqueHrefs = [...new Set(hrefs)];
+
             // Go through each applicant until we find one with a DOB
-            for (const href of hrefs) {
+            for (let i = 0; i < uniqueHrefs.length; i++) {
+                const href = uniqueHrefs[i];
                 const applicantId = href.split("/").pop();
+                await humanDelay();
                 await page.goto(`${BASE_URL}${href}`, { waitUntil: "domcontentloaded" });
                 const dob = await extractDobFromPage(page);
                 if (dob) {
-                    console.log(`[isoftpull] Found DOB on applicant ${applicantId} (checked ${hrefs.indexOf(href) + 1}/${hrefs.length})`);
-                    return { dob, applicantId, checked: hrefs.indexOf(href) + 1 };
+                    console.log(`[isoftpull] Found DOB on applicant ${applicantId} (checked ${i + 1}/${uniqueHrefs.length})`);
+                    return { dob, applicantId, checked: i + 1 };
                 }
             }
 
             // All applicants checked, none had a DOB
-            return { dob: null, applicantId: null, checked: hrefs.length };
+            return { dob: null, applicantId: null, checked: uniqueHrefs.length };
         } finally {
             await page.close();
         }
