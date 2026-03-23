@@ -41,9 +41,9 @@ router.get("/dob/:id", async (req, res) => {
  * GET /isoftpull/dob-stats
  * Summary: how many DOBs from iSoftPull, how many still missing in Excel report.
  */
-router.get("/dob-stats", async (req, res) => {
+router.get("/dob-stats", (req, res) => {
     try {
-        res.json(await getIsoftpullDobStats());
+        res.json(getIsoftpullDobStats());
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -60,12 +60,12 @@ router.get("/sync-progress", (req, res) => {
 });
 
 /**
- * POST /isoftpull/sync-dob
- * Start fetching missing DOBs from the Array Credit Report Excel → iSoftPull → carrier-db.json.
- * Runs in background. Poll /isoftpull/sync-progress for live updates.
+ * GET /isoftpull/sync-dob
+ * Start fetching missing DOBs (1,435 companies from Array Credit Report) → carrier-db.json.
+ * Runs in background. Poll /isoftpull/sync-progress to see every company as it's processed.
  * Query param: ?force=true — re-fetch even records that already have a DOB in carrier-db.
  */
-router.post("/sync-dob", (req, res) => {
+router.get("/sync-dob", (req, res) => {
     const progress = getSyncProgress();
     if (progress?.running) {
         return res.status(409).json({
@@ -74,6 +74,9 @@ router.post("/sync-dob", (req, res) => {
                 processed: progress.processed,
                 total: progress.toProcess,
                 fetched: progress.fetched,
+                notFound: progress.notFound,
+                errors: progress.errors,
+                lastProcessed: progress.details.at(-1) || null,
             },
         });
     }

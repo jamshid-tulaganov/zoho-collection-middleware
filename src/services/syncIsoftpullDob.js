@@ -1,11 +1,11 @@
 import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
-import ExcelJS from "exceljs";
 import { env } from "../config/env.js";
 import { getDobByName } from "./isoftpull.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const CANDIDATES_PATH = path.resolve(__dirname, "../../data/isoftpull-candidates.json");
 
 // Tracks in-progress sync so we can report live stats
 let syncProgress = null;
@@ -19,28 +19,11 @@ function normalizeDob(dob) {
 }
 
 /**
- * Read the Array Credit Report Excel and return carriers that are missing DOB.
+ * Load missing-DOB candidates from the pre-extracted JSON file.
  * Returns: Array of { carrierId, firstName, lastName }
  */
-async function loadMissingDobsFromExcel(excelPath) {
-    const wb = new ExcelJS.Workbook();
-    await wb.xlsx.readFile(excelPath);
-    const sheet = wb.getWorksheet("Array Credit Report");
-
-    const missing = [];
-    sheet.eachRow((row, rowNum) => {
-        if (rowNum < 5) return; // skip title + header + description + required rows
-        const carrierId = String(row.getCell(11).value || "").trim();
-        if (!carrierId) return;
-        const dob = String(row.getCell(10).value || "").trim();
-        if (dob) return; // already has DOB
-        const firstName = String(row.getCell(2).value || "").trim();
-        const lastName = String(row.getCell(3).value || "").trim();
-        if (!firstName || !lastName) return;
-        missing.push({ carrierId, firstName, lastName });
-    });
-
-    return missing;
+function loadCandidates() {
+    return JSON.parse(fs.readFileSync(CANDIDATES_PATH, "utf-8"));
 }
 
 /**
@@ -50,13 +33,9 @@ async function loadMissingDobsFromExcel(excelPath) {
  * @param {{ excelPath?: string, force?: boolean }} options
  * @returns {Promise<object>} stats
  */
-export async function syncIsoftpullDobs({ excelPath, force = false } = {}) {
-    const reportPath = excelPath || path.resolve(__dirname, "../../data/Array_Credit_Report_2026-03-23.xlsx");
-
+export async function syncIsoftpullDobs({ force = false } = {}) {
     const db = JSON.parse(fs.readFileSync(env.CARRIER_DB_PATH, "utf-8"));
-
-    // Build candidate list from Excel (missing DOB rows)
-    const candidates = await loadMissingDobsFromExcel(reportPath);
+    const candidates = loadCandidates();
 
     // If force=false, also skip carriers that already have DOB in carrier-db
     const toProcess = force
@@ -78,6 +57,8 @@ export async function syncIsoftpullDobs({ excelPath, force = false } = {}) {
     console.log(`[isoftpull-dob] Starting sync: ${toProcess.length} candidates (${candidates.length} missing in Excel, force=${force})`);
 
     for (const { carrierId, firstName, lastName } of toProcess) {
+        syncProgress.current = { carrierId, firstName, lastName };
+
         try {
             const { dob, applicantId } = await getDobByName(firstName, lastName);
 
@@ -135,22 +116,11 @@ export function getSyncProgress() {
 /**
  * Return summary stats: how many DOBs in carrier-db came from iSoftPull vs total missing in Excel.
  */
-export async function getIsoftpullDobStats() {
+export function getIsoftpullDobStats() {
     const db = JSON.parse(fs.readFileSync(env.CARRIER_DB_PATH, "utf-8"));
     const entries = Object.values(db);
-
-    const reportPath = path.resolve(__dirname, "../../data/Array_Credit_Report_2026-03-23.xlsx");
-    let excelMissing = null;
-    if (fs.existsSync(reportPath)) {
-        const missing = await loadMissingDobsFromExcel(reportPath);
-        // How many of those missing are still missing in carrier-db
-        const stillMissing = missing.filter((c) => !db[c.carrierId]?.derived?.dob);
-        excelMissing = {
-            totalMissingInExcel: missing.length,
-            stillMissingInCarrierDb: stillMissing.length,
-            filledSoFar: missing.length - stillMissing.length,
-        };
-    }
+    const candidates = loadCandidates();
+    const stillMissing = candidates.filter((c) => !db[c.carrierId]?.derived?.dob);
 
     return {
         carrierDb: {
@@ -158,7 +128,11 @@ export async function getIsoftpullDobStats() {
             withDob: entries.filter((e) => e.derived?.dob).length,
             fromIsoftpull: entries.filter((e) => e.derived?.dob_source === "isoftpull").length,
         },
-        excel: excelMissing,
+        excel: {
+            totalMissingInExcel: candidates.length,
+            stillMissingInCarrierDb: stillMissing.length,
+            filledSoFar: candidates.length - stillMissing.length,
+        },
         syncProgress: syncProgress
             ? {
                   running: syncProgress.running,
