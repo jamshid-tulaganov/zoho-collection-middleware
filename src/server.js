@@ -3,6 +3,7 @@ import { connectDB } from "./config/db.js";
 import { createApp } from "./app.js";
 import { startScheduler } from "./cron/scheduler.js";
 import { bootTelegramBot } from "./routes/telegram.js";
+import { closeBrowser } from "./services/isoftpull.js";
 
 async function bootstrap() {
     try {
@@ -23,3 +24,6 @@ async function bootstrap() {
 }
 
 bootstrap();
+
+process.on("SIGTERM", async () => { await closeBrowser(); process.exit(0); });
+process.on("SIGINT",  async () => { await closeBrowser(); process.exit(0); });
