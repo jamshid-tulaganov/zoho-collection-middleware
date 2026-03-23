@@ -58,8 +58,9 @@ async function extractDobFromPage(page) {
 // ── Public API ──────────────────────────────────────────────────────────────
 
 /**
- * Search iSoftPull by name and return the DOB from the first matching applicant.
- * @returns {{ dob: string|null, applicantId: string|null }}
+ * Search iSoftPull by name, check every matching applicant one by one until a DOB is found.
+ * A company may have multiple records — iterate all of them before giving up.
+ * @returns {{ dob: string|null, applicantId: string|null, checked: number }}
  */
 export function getDobByName(firstName, lastName) {
     return enqueue(async () => {
@@ -71,20 +72,29 @@ export function getDobByName(firstName, lastName) {
 
             await navigateAuth(page, searchUrl);
 
-            // Find first link matching /client/applicants/<numeric-id>
-            const href = await page.evaluate(() => {
+            // Collect ALL applicant links matching /client/applicants/<numeric-id>
+            const hrefs = await page.evaluate(() => {
                 const links = Array.from(document.querySelectorAll('a[href*="/client/applicants/"]'));
-                const found = links.find((l) => /\/client\/applicants\/\d+$/.test(l.getAttribute("href")));
-                return found ? found.getAttribute("href") : null;
+                return links
+                    .map((l) => l.getAttribute("href"))
+                    .filter((h) => /\/client\/applicants\/\d+$/.test(h));
             });
 
-            if (!href) return { dob: null, applicantId: null };
+            if (!hrefs.length) return { dob: null, applicantId: null, checked: 0 };
 
-            const applicantId = href.split("/").pop();
-            await page.goto(`${BASE_URL}${href}`, { waitUntil: "domcontentloaded" });
+            // Go through each applicant until we find one with a DOB
+            for (const href of hrefs) {
+                const applicantId = href.split("/").pop();
+                await page.goto(`${BASE_URL}${href}`, { waitUntil: "domcontentloaded" });
+                const dob = await extractDobFromPage(page);
+                if (dob) {
+                    console.log(`[isoftpull] Found DOB on applicant ${applicantId} (checked ${hrefs.indexOf(href) + 1}/${hrefs.length})`);
+                    return { dob, applicantId, checked: hrefs.indexOf(href) + 1 };
+                }
+            }
 
-            const dob = await extractDobFromPage(page);
-            return { dob: dob || null, applicantId };
+            // All applicants checked, none had a DOB
+            return { dob: null, applicantId: null, checked: hrefs.length };
         } finally {
             await page.close();
         }
