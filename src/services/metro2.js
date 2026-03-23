@@ -153,6 +153,7 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
         isClosed,
         dateClosed,
         invoiceMonths = {},
+        collectionStartDate = "",
         amountPastDue = 0,
         actualPayment = 0,
     } = invoiceData;
@@ -237,6 +238,17 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
         closeDStartAbs = closedYear * 12 + closedMonth + 2;
     }
 
+    let hasCollectionStart = false;
+    let collectionStartAbs = 0;
+    if (collectionStartDate && collectionStartDate.length >= 7) {
+        const collectionYear = parseInt(collectionStartDate.slice(0, 4));
+        const collectionMonth = parseInt(collectionStartDate.slice(5, 7));
+        if (!isNaN(collectionYear) && !isNaN(collectionMonth)) {
+            hasCollectionStart = true;
+            collectionStartAbs = collectionYear * 12 + collectionMonth;
+        }
+    }
+
     const coveredMonths = invoiceMonths || {};
     let paymentHistoryProfile = "";
     for (let n = 0; n < 24; n++) {
@@ -251,6 +263,15 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
         // Before account opened → B
         if (hasOpenDate && (mYear < openYear || (mYear === openYear && mMonth < openMonth))) {
             code = "B";
+        }
+        // After close + grace → D
+        else if (hasClosedDate && closeDStartAbs > 0 && mAbs >= closeDStartAbs) {
+            code = "D";
+        }
+        // Collection / GGR placement means the account is in collections
+        // starting that month, regardless of invoice coverage.
+        else if (hasCollectionStart && mAbs >= collectionStartAbs) {
+            code = "G";
         }
         // If we have no invoice/payment evidence for the month from either
         // spreadsheet history or CMP, treat it as no-payment-data.
@@ -268,11 +289,6 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
                 else code = "G";
             }
         }
-        // After close + grace → D
-        else if (hasClosedDate && closeDStartAbs > 0 && mAbs >= closeDStartAbs) {
-            code = "D";
-        }
-
         paymentHistoryProfile += code;
     }
 

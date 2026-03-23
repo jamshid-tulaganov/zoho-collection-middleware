@@ -64,6 +64,12 @@ export const env = {
         path.resolve(projectRoot, "db/accounting-client-db.json")
     ),
 
+    // Collection / bad-debtor spreadsheet data converted to JSON by invoice number
+    COLLECTION_DB_PATH: resolveFromProjectRoot(
+        process.env.COLLECTION_DB_PATH,
+        path.resolve(projectRoot, "db/collection-placement-db.json")
+    ),
+
     // Carrier DB (live file-based cache — updated daily by syncCarrierDb.js)
     // Default: collections/data/carrier-db.json  (override with CARRIER_DB_PATH env var)
     CARRIER_DB_PATH: resolveFromProjectRoot(

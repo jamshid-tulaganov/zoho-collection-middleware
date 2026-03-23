@@ -6,7 +6,8 @@
  *   2. SMP LOC companies (tagIds=2)  → smp block
  *   3. SMP invoices + billing        → invoices[], billing_history[]
  *   4. debtor-master-db.json         → billing_cycle, credit_score_tss, ggr_data, debtor_periods
- *   5. metro2.js engine              → derived block (all 48 Array fields)
+ *   5. collection-placement-db.json  → collection month / G-profile start
+ *   6. metro2.js engine              → derived block (all 48 Array fields)
  *
  * No MongoDB dependency — reads/writes a single carrier-db.json file.
  * DOB = zoho.dob_raw only.  Credit score = zoho.credit_score_raw || credit_score_tss.
@@ -32,6 +33,7 @@ import { computeMetro2, parseDate } from "./metro2.js";
 const CARRIER_DB_PATH = env.CARRIER_DB_PATH;
 const MASTER_DB_PATH  = env.MASTER_DB_PATH;
 const ACCOUNTING_DB_PATH = env.ACCOUNTING_DB_PATH;
+const COLLECTION_DB_PATH = env.COLLECTION_DB_PATH;
 
 // ── State ────────────────────────────────────────────────────────────────────
 
@@ -90,6 +92,29 @@ function loadAccountingDb() {
     }
 }
 
+function loadCollectionDb() {
+    if (!COLLECTION_DB_PATH || !fs.existsSync(COLLECTION_DB_PATH)) {
+        console.warn("[carrier-db] collection-placement-db.json not found — collection fallback unavailable.");
+        return { byInvoice: {}, byCompany: {} };
+    }
+    try {
+        const byInvoice = JSON.parse(fs.readFileSync(COLLECTION_DB_PATH, "utf-8"));
+        const byCompany = {};
+        for (const rows of Object.values(byInvoice)) {
+            for (const row of rows || []) {
+                const key = normalizeCompanyKey(row.company);
+                if (!key) continue;
+                byCompany[key] = byCompany[key] || [];
+                byCompany[key].push(row);
+            }
+        }
+        return { byInvoice, byCompany };
+    } catch {
+        console.warn("[carrier-db] Could not parse collection-placement-db.json.");
+        return { byInvoice: {}, byCompany: {} };
+    }
+}
+
 function getCarrierDbStatusSnapshot() {
     const syncStatus = getCarrierDbSyncStatus();
     let fileMeta = null;
@@ -133,6 +158,19 @@ function normCid(raw) {
 function safeNum(v) {
     const n = parseFloat(v);
     return isNaN(n) ? 0 : n;
+}
+
+function normalizeInvoiceNumber(v) {
+    if (v === null || v === undefined) return "";
+    if (typeof v === "number") return String(Math.trunc(v));
+    const raw = String(v).trim();
+    return raw.endsWith(".0") ? raw.slice(0, -2) : raw;
+}
+
+function normalizeCompanyKey(value) {
+    return String(value || "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "");
 }
 
 function normalizePhone10(v) {
@@ -404,7 +442,7 @@ function buildZohoBlock(deal) {
 // ── Compute invoiceData object expected by computeMetro2 ─────────────────────
 // Now fully synchronous — uses pre-indexed maps instead of API calls.
 
-function buildInvoiceData(cid, comp, dbEntry = {}, existingEntry = {}, invoiceIndex, billingIndex) {
+function buildInvoiceData(cid, comp, dbEntry = {}, existingEntry = {}, invoiceIndex, billingIndex, collectionStartDate = "") {
     const today = new Date();
     const fourWeeksAgo = new Date(today);
     fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
@@ -490,6 +528,9 @@ function buildInvoiceData(cid, comp, dbEntry = {}, existingEntry = {}, invoiceIn
     for (const txn of txns) {
         const amt = safeNum(txn.amount);
         const dt = String(txn.createDate || "");
+        if (amt > 0 && dt.length >= 7) {
+            invoiceMonths[dt.slice(0, 7)] = true;
+        }
         if (amt > 0 && dt.length >= 10) {
             dateOfLastPayment = dt.slice(0, 10);
             actualPayment = amt;
@@ -528,6 +569,110 @@ function buildInvoiceData(cid, comp, dbEntry = {}, existingEntry = {}, invoiceIn
         lastInvDate,
         amountPastDue,
         actualPayment,
+        collectionStartDate,
+    };
+}
+
+function deriveCollectionStartDate(ggrData, ggrSubmissionDate) {
+    if (String(ggrSubmissionDate || "").length >= 10) {
+        return String(ggrSubmissionDate).slice(0, 10);
+    }
+    const invoiceDates = (ggrData?.ggr_invoices || [])
+        .map((item) => String(item.ggr_submission_date || item.placement_date || ""))
+        .filter((value) => value.length >= 10)
+        .sort();
+    return invoiceDates[0] ? invoiceDates[0].slice(0, 10) : "";
+}
+
+function buildCollectionDataForCarrier(
+    smpInvoices = [],
+    collectionDb = { byInvoice: {}, byCompany: {} },
+    carrierCompanies = [],
+    fallbackGgrData = null,
+    fallbackSubmissionDate = null
+) {
+    const matched = [];
+    const seen = new Set();
+
+    for (const invoice of smpInvoices) {
+        const invoiceNumber = normalizeInvoiceNumber(invoice.invoiceNumber || invoice.id || "");
+        if (!invoiceNumber) continue;
+        const rows = collectionDb.byInvoice?.[invoiceNumber] || [];
+        for (const row of rows) {
+            const key = `${invoiceNumber}:${row.placement_date || ""}:${row.invoice_date || ""}`;
+            if (seen.has(key)) continue;
+            seen.add(key);
+            matched.push(row);
+        }
+    }
+
+    if (!matched.length) {
+        for (const company of carrierCompanies) {
+            const key = normalizeCompanyKey(company);
+            if (!key) continue;
+            const rows = collectionDb.byCompany?.[key] || [];
+            for (const row of rows) {
+                const rowKey = `${row.invoice_number}:${row.placement_date || ""}:${row.invoice_date || ""}`;
+                if (seen.has(rowKey)) continue;
+                seen.add(rowKey);
+                matched.push(row);
+            }
+            if (matched.length) break;
+        }
+    }
+
+    if (!matched.length) {
+        const collectionStartDate = deriveCollectionStartDate(fallbackGgrData, fallbackSubmissionDate);
+        return {
+            ggrData: fallbackGgrData || null,
+            ggrSubmissionDate: fallbackSubmissionDate || fallbackGgrData?.ggr_submission_date || null,
+            collectionStartDate,
+        };
+    }
+
+    matched.sort((a, b) =>
+        String(a.placement_date || a.invoice_date || "").localeCompare(
+            String(b.placement_date || b.invoice_date || "")
+        )
+    );
+
+    const ggrSubmissionDate = matched
+        .map((row) => row.placement_date)
+        .find((value) => String(value || "").length >= 10)
+        || fallbackSubmissionDate
+        || null;
+
+    const ggrInvoices = matched.map((row) => ({
+        invoice_number: row.invoice_number,
+        invoice_date: row.invoice_date || null,
+        amount_submitted: safeNum(row.total_amount),
+        amount_collected: safeNum(row.total_paid),
+        remaining_amount: safeNum(row.remaining_amount),
+        ggr_submission_date: row.placement_date || null,
+        status: row.invoice_status || "",
+        comments: row.comments_billing || "",
+        collections_agent: row.collections_agent || "",
+        company: row.company || "",
+    }));
+
+    const totalSubmitted = ggrInvoices.reduce((sum, row) => sum + safeNum(row.amount_submitted), 0);
+    const totalCollected = ggrInvoices.reduce((sum, row) => sum + safeNum(row.amount_collected), 0);
+    const totalRemaining = ggrInvoices.reduce((sum, row) => sum + safeNum(row.remaining_amount), 0);
+    const collectionStartDate = deriveCollectionStartDate({ ggr_invoices: ggrInvoices }, ggrSubmissionDate);
+
+    return {
+        ggrData: {
+            ggr_submission_date: ggrSubmissionDate,
+            ggr_agent: matched.find((row) => row.collections_agent)?.collections_agent || "",
+            total_submitted: Math.round(totalSubmitted * 100) / 100,
+            total_collected: Math.round(totalCollected * 100) / 100,
+            total_remaining: Math.round(totalRemaining * 100) / 100,
+            status: totalRemaining > 0 ? "active" : "paid",
+            source: "collections_dataset",
+            ggr_invoices: ggrInvoices,
+        },
+        ggrSubmissionDate,
+        collectionStartDate,
     };
 }
 
@@ -563,6 +708,7 @@ export async function runCarrierDbSync() {
             const carrierDb = loadCarrierDb();
             const masterDb = loadMasterDb();
             const accountingDb = loadAccountingDb();
+            const collectionDb = loadCollectionDb();
             console.log(`[carrier-db] Loaded existing: ${Object.keys(carrierDb).length} carriers`);
             console.log(`[carrier-db] Master DB: ${Object.keys(masterDb).length} carriers`);
             console.log(`[carrier-db] Accounting DB: ${Object.keys(accountingDb).length} carriers`);
@@ -656,25 +802,49 @@ export async function runCarrierDbSync() {
                     const existingDerived = buildDefaultDerived(existingEntry);
                     const preferredContact = buildPreferredContactData(deal, accountingEntry, comp, existingDerived);
                     const nowIso = new Date().toISOString();
+                    const carrierCompanies = [
+                        accountingEntry?.company,
+                        comp?.name,
+                        dbEntry.company,
+                        existingEntry.company,
+                    ];
 
                     // ── Offline / spreadsheet data ────────────────────────
                     const billingCycle = dbEntry.billing_cycle || existingEntry.billing_cycle || "";
                     const creditScoreTss = dbEntry.credit_score || existingEntry.credit_score_tss || 0;
                     const debtorSources = dbEntry.debtor_sources || existingEntry.debtor_sources || [];
                     const debtorPeriods = dbEntry.debtor_periods || existingEntry.debtor_periods || [];
-                    const ggrData = dbEntry.ggr_data || existingEntry.ggr_data || null;
-                    const ggrSubmissionDate = dbEntry.ggr_submission_date || existingEntry.ggr_submission_date || null;
+                    // ── Invoice / billing from pre-indexed maps (no API calls) ──
+                    const smpInvoices = getCarrierInvoicesFromIndex(invoiceIndex, cid);
+                    const smpBillingHistory = getCarrierBillingFromGlobal(billingIndex, cid);
+                    const fallbackGgrData = dbEntry.ggr_data || existingEntry.ggr_data || null;
+                    const fallbackGgrSubmissionDate = dbEntry.ggr_submission_date || existingEntry.ggr_submission_date || null;
+                    const {
+                        ggrData,
+                        ggrSubmissionDate,
+                        collectionStartDate,
+                    } = buildCollectionDataForCarrier(
+                        smpInvoices,
+                        collectionDb,
+                        carrierCompanies,
+                        fallbackGgrData,
+                        fallbackGgrSubmissionDate
+                    );
                     const earliestDelinquencyPeriodEnd =
                         dbEntry.earliest_delinquency_period_end
                         || existingEntry.earliest_delinquency_period_end
                         || null;
 
-                    // ── Invoice / billing from pre-indexed maps (no API calls) ──
-                    const smpInvoices = getCarrierInvoicesFromIndex(invoiceIndex, cid);
-                    const smpBillingHistory = getCarrierBillingFromGlobal(billingIndex, cid);
-
                     // ── Derived data recomputation (fully synchronous now) ──
-                    const invoiceData = buildInvoiceData(cid, comp, dbEntry, existingEntry, invoiceIndex, billingIndex);
+                    const invoiceData = buildInvoiceData(
+                        cid,
+                        comp,
+                        dbEntry,
+                        existingEntry,
+                        invoiceIndex,
+                        billingIndex,
+                        collectionStartDate
+                    );
                     const metro2 = computeMetro2(cid, comp, deal, dbEntry, null, invoiceData);
 
                     let creditScore = metro2.highestCredit;
