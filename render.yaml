@@ -1,9 +1,10 @@
 services:
   - type: web
     name: zoho-collection-middleware
-    runtime: docker
+    runtime: node
     plan: starter
-    dockerfilePath: ./Dockerfile
+    buildCommand: npm install && npx playwright install chromium chromium-headless-shell --with-deps
+    startCommand: npm start
     healthCheckPath: /
     autoDeploy: true
     disk:
@@ -11,12 +12,12 @@ services:
       mountPath: /opt/render/project/src/data
       sizeGB: 1
     envVars:
-      - key: PLAYWRIGHT_BROWSERS_PATH
-        value: /app/.playwright-browsers
+      - key: NODE_VERSION
+        value: 22
       - key: PORT
         value: 3001
       - key: MASTER_DB_PATH
-        value: /app/db/debtor-master-db.json
+        value: /opt/render/project/src/db/debtor-master-db.json
       - key: CARRIER_DB_PATH
         value: /opt/render/project/src/data/carrier-db.json
       - key: TELEGRAM_USERS_PATH
