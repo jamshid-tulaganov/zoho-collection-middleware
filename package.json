@@ -7,8 +7,7 @@
     "scripts": {
         "start": "node src/server.js",
         "dev": "node --watch src/server.js",
-        "sync:carrier-db": "node sync-carrier-db.js",
-        "postinstall": "npx playwright install chromium"
+        "sync:carrier-db": "node sync-carrier-db.js"
     },
     "keywords": [],
     "author": "",

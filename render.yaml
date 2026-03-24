@@ -11,10 +11,12 @@ services:
       mountPath: /opt/render/project/src/data
       sizeGB: 1
     envVars:
+      - key: PLAYWRIGHT_BROWSERS_PATH
+        value: /app/.playwright-browsers
       - key: PORT
         value: 3001
       - key: MASTER_DB_PATH
-        value: /opt/render/project/src/db/debtor-master-db.json
+        value: /app/db/debtor-master-db.json
       - key: CARRIER_DB_PATH
         value: /opt/render/project/src/data/carrier-db.json
       - key: TELEGRAM_USERS_PATH

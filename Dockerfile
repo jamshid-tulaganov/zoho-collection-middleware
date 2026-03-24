@@ -10,8 +10,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
+# Pin browser path so it matches at both build and runtime
+ENV PLAYWRIGHT_BROWSERS_PATH=/app/.playwright-browsers
+
 COPY package*.json ./
-RUN npm install
+RUN npm install --ignore-scripts
 RUN npx playwright install chromium
 
 COPY . .
