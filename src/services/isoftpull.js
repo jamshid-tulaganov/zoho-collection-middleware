@@ -9,6 +9,21 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const SESSION_PATH = path.resolve(__dirname, "../../data/isoftpull-session.json");
 const BASE_URL = "https://app.isoftpull.com";
 
+// US state abbreviation → full name map for matching
+const STATE_MAP = {
+    AL:"alabama",AK:"alaska",AZ:"arizona",AR:"arkansas",CA:"california",
+    CO:"colorado",CT:"connecticut",DE:"delaware",FL:"florida",GA:"georgia",
+    HI:"hawaii",ID:"idaho",IL:"illinois",IN:"indiana",IA:"iowa",KS:"kansas",
+    KY:"kentucky",LA:"louisiana",ME:"maine",MD:"maryland",MA:"massachusetts",
+    MI:"michigan",MN:"minnesota",MS:"mississippi",MO:"missouri",MT:"montana",
+    NE:"nebraska",NV:"nevada",NH:"new hampshire",NJ:"new jersey",NM:"new mexico",
+    NY:"new york",NC:"north carolina",ND:"north dakota",OH:"ohio",OK:"oklahoma",
+    OR:"oregon",PA:"pennsylvania",RI:"rhode island",SC:"south carolina",
+    SD:"south dakota",TN:"tennessee",TX:"texas",UT:"utah",VT:"vermont",
+    VA:"virginia",WA:"washington",WV:"west virginia",WI:"wisconsin",WY:"wyoming",
+    DC:"district of columbia",
+};
+
 let browser = null;
 let browserContext = null;
 
@@ -68,8 +83,50 @@ async function navigateAuth(page, url) {
     }
 }
 
-async function extractDobFromPage(page) {
-    return page.inputValue('input[placeholder="Date of Birth"]').catch(() => null);
+/** Extract all detail fields from an applicant detail page. */
+async function extractDetailsFromPage(page) {
+    const val = (placeholder) => page.inputValue(`input[placeholder="${placeholder}"]`).catch(() => "");
+    return {
+        dob: await val("Date of Birth"),
+        address: await val("Address"),
+        city: await val("City"),
+        state: await val("State"),
+        zip: await val("Zip Code"),
+        firstName: await val("First Name"),
+        lastName: await val("Last Name"),
+    };
+}
+
+/** Normalize a string for fuzzy comparison. */
+function norm(s) {
+    return (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+}
+
+/** Normalize state — accept "OH", "Ohio", "ohio" and compare as "ohio". */
+function normState(s) {
+    const upper = (s || "").trim().toUpperCase();
+    if (STATE_MAP[upper]) return STATE_MAP[upper];
+    return (s || "").toLowerCase().trim();
+}
+
+/** Check if an applicant on the detail page matches our carrier data. */
+function isAddressMatch(ours, theirs) {
+    // Zip match (first 5 digits)
+    const ourZip = (ours.zip || "").slice(0, 5);
+    const theirZip = (theirs.zip || "").slice(0, 5);
+    if (ourZip && theirZip && ourZip === theirZip) return true;
+
+    // City + State match
+    const cityMatch = norm(ours.city) === norm(theirs.city);
+    const stateMatch = normState(ours.state) === normState(theirs.state);
+    if (cityMatch && stateMatch) return true;
+
+    // Address contains the same street number
+    const ourNum = (ours.address || "").match(/\d+/);
+    const theirNum = (theirs.address || "").match(/\d+/);
+    if (ourNum && theirNum && ourNum[0] === theirNum[0] && stateMatch) return true;
+
+    return false;
 }
 
 /** Human-like delay between actions (2–4 seconds, randomized). */
@@ -81,11 +138,15 @@ function humanDelay() {
 // ── Public API ──────────────────────────────────────────────────────────────
 
 /**
- * Search iSoftPull by name, check every matching applicant one by one until a DOB is found.
- * A company may have multiple records — iterate all of them before giving up.
- * @returns {{ dob: string|null, applicantId: string|null, checked: number }}
+ * Search iSoftPull by name, check each matching applicant, validate by address,
+ * and return the DOB from the first match.
+ *
+ * @param {string} firstName
+ * @param {string} lastName
+ * @param {{ address?, city?, state?, zip? }} match — our carrier data for validation
+ * @returns {{ dob, applicantId, checked, reason? }}
  */
-export function getDobByName(firstName, lastName) {
+export function getDobByName(firstName, lastName, match = {}) {
     return enqueue(async () => {
         const ctx = await ensureContext();
         const page = await ctx.newPage();
@@ -104,32 +165,39 @@ export function getDobByName(firstName, lastName) {
             });
 
             if (!hrefs.length) {
-                // Log why — could be no results or login issue
-                const pageTitle = await page.title().catch(() => "");
                 const pageUrl = page.url();
-                console.log(`[isoftpull] No results for "${query}" (url: ${pageUrl}, title: ${pageTitle})`);
-                return { dob: null, applicantId: null, checked: 0, reason: "no_search_results", pageUrl };
+                console.log(`[isoftpull] No results for "${query}" (url: ${pageUrl})`);
+                return { dob: null, applicantId: null, checked: 0, reason: "no_search_results" };
             }
 
-            // Deduplicate hrefs (search page may have duplicate links per applicant)
             const uniqueHrefs = [...new Set(hrefs)];
+            const hasMatchData = match.city || match.state || match.zip || match.address;
 
-            // Go through each applicant until we find one with a DOB
             for (let i = 0; i < uniqueHrefs.length; i++) {
                 const href = uniqueHrefs[i];
                 const applicantId = href.split("/").pop();
                 await humanDelay();
                 await page.goto(`${BASE_URL}${href}`, { waitUntil: "domcontentloaded" });
-                const dob = await extractDobFromPage(page);
-                if (dob) {
-                    console.log(`[isoftpull] Found DOB on applicant ${applicantId} (checked ${i + 1}/${uniqueHrefs.length})`);
-                    return { dob, applicantId, checked: i + 1 };
+
+                const details = await extractDetailsFromPage(page);
+
+                // If we have address data, validate before accepting
+                if (hasMatchData && !isAddressMatch(match, details)) {
+                    console.log(`[isoftpull] Applicant ${applicantId} — address mismatch (${details.city}, ${details.state} ${details.zip} vs ${match.city}, ${match.state} ${match.zip})`);
+                    continue;
                 }
+
+                if (details.dob) {
+                    console.log(`[isoftpull] ✓ Found DOB on applicant ${applicantId} (checked ${i + 1}/${uniqueHrefs.length}, ${details.city} ${details.state})`);
+                    return { dob: details.dob, applicantId, checked: i + 1 };
+                }
+
+                // Address matched but no DOB on this record
+                console.log(`[isoftpull] Applicant ${applicantId} — address match but no DOB`);
             }
 
-            // All applicants checked, none had a DOB
-            console.log(`[isoftpull] Checked ${uniqueHrefs.length} applicants for "${query}" — none had DOB`);
-            return { dob: null, applicantId: null, checked: uniqueHrefs.length, reason: "no_dob_on_records" };
+            console.log(`[isoftpull] Checked ${uniqueHrefs.length} applicants for "${query}" — no valid match with DOB`);
+            return { dob: null, applicantId: null, checked: uniqueHrefs.length, reason: "no_dob_on_matched_records" };
         } finally {
             await page.close();
         }
@@ -146,8 +214,8 @@ export function getDobById(applicantId) {
         const page = await ctx.newPage();
         try {
             await navigateAuth(page, `${BASE_URL}/client/applicants/${applicantId}`);
-            const dob = await extractDobFromPage(page);
-            return { dob: dob || null };
+            const details = await extractDetailsFromPage(page);
+            return { dob: details.dob || null };
         } finally {
             await page.close();
         }

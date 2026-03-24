@@ -68,11 +68,12 @@ export async function syncIsoftpullDobs({ force = false, limit = 0 } = {}) {
 
     console.log(`[isoftpull-dob] Starting sync: ${toProcess.length} candidates (${candidates.length} missing in Excel, force=${force})`);
 
-    for (const { carrierId, firstName, lastName } of toProcess) {
-        syncProgress.current = { carrierId, firstName, lastName };
+    for (const candidate of toProcess) {
+        const { carrierId, firstName, lastName, address, city, state, zip } = candidate;
+        syncProgress.current = { carrierId, firstName, lastName, city, state };
 
         try {
-            const result = await getDobByName(firstName, lastName);
+            const result = await getDobByName(firstName, lastName, { address, city, state, zip });
             const { dob, applicantId, checked = 0, reason = "" } = result;
 
             if (dob) {
