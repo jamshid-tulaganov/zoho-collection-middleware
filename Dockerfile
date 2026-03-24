@@ -15,7 +15,7 @@ ENV PLAYWRIGHT_BROWSERS_PATH=/app/.playwright-browsers
 
 COPY package*.json ./
 RUN npm install --ignore-scripts
-RUN npx playwright install chromium
+RUN npx playwright install chromium chromium-headless-shell
 
 COPY . .
 
