@@ -22,7 +22,10 @@ function enqueue(fn) {
 
 async function ensureContext() {
     if (!browser?.isConnected()) {
-        browser = await chromium.launch({ headless: true });
+        browser = await chromium.launch({
+            headless: true,
+            args: ["--disable-gpu", "--no-sandbox", "--disable-setuid-sandbox"],
+        });
         browserContext = null;
     }
     if (!browserContext) {

@@ -1,10 +1,9 @@
 services:
   - type: web
     name: zoho-collection-middleware
-    runtime: node
+    runtime: docker
     plan: starter
-    buildCommand: npm install && npx playwright install --with-deps
-    startCommand: npm start
+    dockerfilePath: ./Dockerfile
     healthCheckPath: /
     autoDeploy: true
     disk:
@@ -12,10 +11,6 @@ services:
       mountPath: /opt/render/project/src/data
       sizeGB: 1
     envVars:
-      - key: NODE_VERSION
-        value: 22
-      - key: PLAYWRIGHT_BROWSERS_PATH
-        value: /opt/render/project/.playwright
       - key: PORT
         value: 3001
       - key: MASTER_DB_PATH
