@@ -1,4 +1,5 @@
 import { chromium } from "playwright";
+import { execSync } from "child_process";
 import { env } from "../config/env.js";
 import fs from "fs";
 import path from "path";
@@ -20,12 +21,25 @@ function enqueue(fn) {
     return next;
 }
 
+const LAUNCH_OPTS = {
+    headless: true,
+    args: ["--disable-gpu", "--no-sandbox", "--disable-setuid-sandbox"],
+};
+
 async function ensureContext() {
     if (!browser?.isConnected()) {
-        browser = await chromium.launch({
-            headless: true,
-            args: ["--disable-gpu", "--no-sandbox", "--disable-setuid-sandbox"],
-        });
+        try {
+            browser = await chromium.launch(LAUNCH_OPTS);
+        } catch (err) {
+            if (err.message.includes("Executable doesn't exist")) {
+                console.log("[isoftpull] Chromium not found — installing now...");
+                execSync("npx playwright install chromium", { stdio: "inherit" });
+                browser = await chromium.launch(LAUNCH_OPTS);
+                console.log("[isoftpull] Chromium installed and launched.");
+            } else {
+                throw err;
+            }
+        }
         browserContext = null;
     }
     if (!browserContext) {
