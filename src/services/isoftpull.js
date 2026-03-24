@@ -33,7 +33,7 @@ async function ensureContext() {
         } catch (err) {
             if (err.message.includes("Executable doesn't exist")) {
                 console.log("[isoftpull] Chromium not found — installing now...");
-                execSync("npx playwright install chromium chromium-headless-shell --with-deps", { stdio: "inherit" });
+                execSync("npx playwright install chromium chromium-headless-shell", { stdio: "inherit" });
                 browser = await chromium.launch(LAUNCH_OPTS);
                 console.log("[isoftpull] Chromium installed and launched.");
             } else {
