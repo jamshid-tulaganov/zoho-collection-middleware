@@ -103,7 +103,13 @@ export function getDobByName(firstName, lastName) {
                     .filter((h) => /\/client\/applicants\/\d+$/.test(h));
             });
 
-            if (!hrefs.length) return { dob: null, applicantId: null, checked: 0 };
+            if (!hrefs.length) {
+                // Log why — could be no results or login issue
+                const pageTitle = await page.title().catch(() => "");
+                const pageUrl = page.url();
+                console.log(`[isoftpull] No results for "${query}" (url: ${pageUrl}, title: ${pageTitle})`);
+                return { dob: null, applicantId: null, checked: 0, reason: "no_search_results", pageUrl };
+            }
 
             // Deduplicate hrefs (search page may have duplicate links per applicant)
             const uniqueHrefs = [...new Set(hrefs)];
@@ -122,7 +128,8 @@ export function getDobByName(firstName, lastName) {
             }
 
             // All applicants checked, none had a DOB
-            return { dob: null, applicantId: null, checked: uniqueHrefs.length };
+            console.log(`[isoftpull] Checked ${uniqueHrefs.length} applicants for "${query}" — none had DOB`);
+            return { dob: null, applicantId: null, checked: uniqueHrefs.length, reason: "no_dob_on_records" };
         } finally {
             await page.close();
         }

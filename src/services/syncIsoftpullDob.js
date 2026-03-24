@@ -72,7 +72,8 @@ export async function syncIsoftpullDobs({ force = false, limit = 0 } = {}) {
         syncProgress.current = { carrierId, firstName, lastName };
 
         try {
-            const { dob, applicantId } = await getDobByName(firstName, lastName);
+            const result = await getDobByName(firstName, lastName);
+            const { dob, applicantId, checked = 0, reason = "" } = result;
 
             if (dob) {
                 // Ensure carrier entry exists in db
@@ -94,8 +95,8 @@ export async function syncIsoftpullDobs({ force = false, limit = 0 } = {}) {
                 }
             } else {
                 syncProgress.notFound++;
-                syncProgress.details.push({ carrierId, firstName, lastName, dob: null, status: "not_found" });
-                console.log(`[isoftpull-dob] ✗ [${carrierId}] ${firstName} ${lastName} → not found in iSoftPull`);
+                syncProgress.details.push({ carrierId, firstName, lastName, dob: null, status: "not_found", checked, reason });
+                console.log(`[isoftpull-dob] ✗ [${carrierId}] ${firstName} ${lastName} → ${reason} (checked ${checked} records)`);
             }
         } catch (err) {
             syncProgress.errors++;
