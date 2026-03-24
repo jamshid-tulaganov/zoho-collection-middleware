@@ -5,7 +5,11 @@ import hooksRouter from "./routes/hooks.js";
 import reportsRouter from "./routes/reports.js";
 import carrierDbRouter from "./routes/carrierDb.js";
 import telegramRouter from "./routes/telegram.js";
-import isoftpullRouter from "./routes/isoftpull.js";
+// isoftpull routes loaded conditionally (requires playwright — local only)
+let isoftpullRouter = null;
+try {
+    isoftpullRouter = (await import("./routes/isoftpull.js")).default;
+} catch (_) {}
 import { runFullSync, runDebtorSync, getSyncStatus } from "./services/sync.js";
 import {
     getCarrierDbSyncStatus,
@@ -56,8 +60,8 @@ export function createApp() {
     // ── Telegram webhook / bot-driven report delivery ──
     app.use("/telegram", telegramRouter);
 
-    // ── iSoftPull credit soft-pull ──
-    app.use("/isoftpull", isoftpullRouter);
+    // ── iSoftPull credit soft-pull (local only — requires playwright) ──
+    if (isoftpullRouter) app.use("/isoftpull", isoftpullRouter);
 
     // Convenience aliases matching the carrier-db plan
     const triggerCarrierDbSync = async (req, res) => {

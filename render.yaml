@@ -3,7 +3,7 @@ services:
     name: zoho-collection-middleware
     runtime: node
     plan: starter
-    buildCommand: npm install && npx playwright install chromium chromium-headless-shell
+    buildCommand: npm install
     startCommand: npm start
     healthCheckPath: /
     autoDeploy: true
