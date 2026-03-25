@@ -1,4 +1,6 @@
 import ExcelJS from "exceljs";
+import { env } from "../config/env.js";
+import { loadDobMap, loadMergedMasterDb } from "./dob.js";
 import { readCarrierDb } from "./syncCarrierDb.js";
 
 const HEADERS = [
@@ -142,6 +144,8 @@ function hasZohoCardSwiped(carrier = {}) {
 
 export function loadReportCarriers(query = {}) {
     const db = readCarrierDb();
+    const dobMap = loadDobMap({ logPrefix: "[report]" });
+    const masterDb = loadMergedMasterDb(env.MASTER_DB_PATH, { logPrefix: "[report]", dobMap });
     let carriers = Object.values(db);
     const wantsDebtors = query.type === "debtor" || query.debtors === "true";
     const wantsLoc = query.type === "loc" || query.debtors === "false";
@@ -162,6 +166,23 @@ export function loadReportCarriers(query = {}) {
             carriers = carriers.filter((carrier) => !carrier.derived?.is_debtor);
         }
     }
+
+    carriers = carriers.map((carrier) => {
+        const derived = carrier.derived || {};
+        if (derived.dob) return carrier;
+
+        const fallbackDob = masterDb[carrier.carrier_id]?.dob || dobMap[carrier.carrier_id] || "";
+        if (!fallbackDob) return carrier;
+
+        return {
+            ...carrier,
+            derived: {
+                ...derived,
+                dob: fallbackDob,
+            },
+        };
+    });
+
     if (query.missing_dob === "true") {
         carriers = carriers.filter((carrier) => !carrier.derived?.dob);
     }

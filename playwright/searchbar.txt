@@ -1,0 +1,365 @@
+<div class="actionBar">
+      <div class="left">
+        <form class="form-inline searchBox d-flex" action="/client/applicants" accept-charset="UTF-8" method="get" siq_id="autopick_8591">
+          <span class="material-icons-outlined">
+            search
+          </span>
+          <input type="search" name="query" id="tsearch" placeholder="Search..." class="form-control searchField" aria-label="Search">
+          <span class="material-icons-outlined clear-search" data-clear-search-target="#tsearch">cancel</span>
+              <input type="hidden" name="query_archive[]" id="query_archive_" value="unarchived">
+  
+  
+
+</form>        <ul>
+          <li class="nav-item">
+            <form action="/client/applicants" accept-charset="UTF-8" method="get" siq_id="autopick_1616">
+              <a class="nav-item-hold" href="#" id="dropdownMenuLink" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-haspopup="true" aria-expanded="false">
+                <span class="material-icons-outlined">
+                  filter_alt
+                </span>
+                <span>
+                  Filter
+                </span>
+              </a>
+              <div class="dropdown-menu" aria-labelledby="dropdownMenuLink" data-behaviour="filter-dropdown" data-bs-auto-close="false">
+                <div class="fitlerTopWrap">
+                  <div class="title">Filter</div>
+                  <input type="submit" value="Save View" class="saveView" data-disable-with="Save View">
+                  
+                  
+                  
+                </div>
+                <div id="accordion" class="accordionWrap">
+                  <div class="accordionItem">
+                    <div id="headingOne">
+                      <h5 data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
+                        <div class="form-group form-check m-0">
+                          <label class="m-0">
+                            <input type="checkbox" id="all-statuses" value="" data-parent-for-checkbox-group="status">
+                            <span class="cr"><span class="material-icons">check_box</span></span>
+</label>                        </div>
+                        <span class="material-icons-outlined arrowDown">
+                          keyboard_arrow_down
+                        </span>
+                        <span class="material-icons-outlined arrowUp">
+                          keyboard_arrow_up
+                        </span>
+                        <span>
+                          Status
+                        </span>
+                      </h5>
+                    </div>
+                    <div id="collapseOne" class="collapse show" aria-labelledby="headingOne" data-parent="#accordion">
+                        <div class="form-group form-check">
+                          <label>
+                            <input type="checkbox" name="query_status[]" id="query_status_" value="newly_added" data-checkbox-group="status" data-parent="#all-statuses">
+                            <span class="cr"><span class="material-icons">check_box</span></span>
+                            New
+</label>                        </div>
+                        <div class="form-group form-check">
+                          <label>
+                            <input type="checkbox" name="query_status[]" id="query_status_" value="active" data-checkbox-group="status" data-parent="#all-statuses">
+                            <span class="cr"><span class="material-icons">check_box</span></span>
+                            Active
+</label>                        </div>
+                        <div class="form-group form-check">
+                          <label>
+                            <input type="checkbox" name="query_status[]" id="query_status_" value="closed_won" data-checkbox-group="status" data-parent="#all-statuses">
+                            <span class="cr"><span class="material-icons">check_box</span></span>
+                            Closed Won
+</label>                        </div>
+                        <div class="form-group form-check">
+                          <label>
+                            <input type="checkbox" name="query_status[]" id="query_status_" value="closed_lost" data-checkbox-group="status" data-parent="#all-statuses">
+                            <span class="cr"><span class="material-icons">check_box</span></span>
+                            Closed Lost
+</label>                        </div>
+                    </div>
+                  </div>
+                  <div class="accordionItem">
+                    <div id="headingTwo">
+                      <h5 data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+                        <div class="form-group form-check m-0">
+                          <label class="m-0">
+                            <input type="checkbox" id="all-archive-statuses" value="" data-parent-for-checkbox-group="archive-status">
+                            <span class="cr"><span class="material-icons">indeterminate_check_box</span></span>
+</label>                        </div>
+                        <span class="material-icons-outlined arrowDown">
+                          keyboard_arrow_down
+                        </span>
+                        <span class="material-icons-outlined arrowUp">
+                          keyboard_arrow_up
+                        </span>
+                        <span>
+                          Archived/Unarchived
+                        </span>
+                      </h5>
+                    </div>
+                    <div id="collapseTwo" class="collapse" aria-labelledby="headingTwo" data-parent="#accordion">
+                        <div class="form-group form-check">
+                          <label>
+                            <input type="checkbox" name="query_archive[]" id="query_archive_" value="unarchived" data-checkbox-group="archive-status" data-parent="#all-archive-statuses" checked="checked">
+                            <span class="cr"><span class="material-icons">check_box</span></span>
+                            Unarchived
+</label>                        </div>
+                        <div class="form-group form-check">
+                          <label>
+                            <input type="checkbox" name="query_archive[]" id="query_archive_" value="archived" data-checkbox-group="archive-status" data-parent="#all-archive-statuses">
+                            <span class="cr"><span class="material-icons">check_box</span></span>
+                            Archived
+</label>                        </div>
+                    </div>
+                  </div>
+                  <div class="accordionItem">
+                    <div id="headingThree">
+                      <h5 data-bs-toggle="collapse" data-bs-target="#collapseThree" aria-expanded="true" aria-controls="collapseThree">
+                        <div class="form-group form-check m-0">
+                          <label class="m-0">
+                            <input type="checkbox" id="" value="1">
+                            <span class="cr"><span class="material-icons">check_box</span></span>
+</label>                        </div>
+                        <span class="material-icons-outlined arrowDown">
+                          keyboard_arrow_down
+                        </span>
+                        <span class="material-icons-outlined arrowUp">
+                          keyboard_arrow_up
+                        </span>
+                        <span>
+                          Last Updated
+                        </span>
+                      </h5>
+                    </div>
+                    <div id="collapseThree" class="collapse" aria-labelledby="headingThree" data-parent="#accordion">
+                      <div class="form-group form-check">
+                        <label>
+                          Date Range
+</label>                        <input type="date" name="query_last_updated[min]" id="query_last_updated_min">
+                        to
+                        <input type="date" name="query_last_updated[max]" id="query_last_updated_max">
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+</form>          </li>
+          <li class="nav-item">
+            <form id="applicant-bulk-edit-form" data-bulk-edit-form-for="Applicant" data-item-name="applicant_ids[]" data-plural-selection-text="Applicants" data-checkbox-group="applicant-ids" action="/client/applicants/update_multiple" accept-charset="UTF-8" method="post" siq_id="autopick_5415"><input type="hidden" name="_method" value="put"><input type="hidden" name="authenticity_token" value="aW2XXLT-7fAnHsKQt4VS2WlKVBSLhy9OytkeWhgAdp2jLnEv-i-v7H1M0s8rOfJ9zR6cFc37oIp74k4ZiTI6_w">
+              <a class="nav-item-hold" href="#" title="" id="dropdownMenuLink" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-haspopup="true" aria-expanded="false">
+                <span class="material-icons-outlined">
+                  edit
+                </span>
+                <span>
+                  Edit
+                </span>
+              </a>
+              <div class="dropdown-menu" aria-labelledby="dropdownMenuLink" data-behaviour="edit-dropdown" data-bs-auto-close="false">
+                <div class="fitlerTopWrap mb-3">
+                  <div class="title">Edit</div>
+                  <input type="submit" value="Update" class="saveView">
+                </div>
+                <div style="color: rgba(0, 0, 0, 0.54);">
+                  <p>
+                    <span data-bulk-edit-item-count="">0</span> item(s) chosen
+                  </p>
+                </div>
+                <div id="accordion" class="accordionWrap">
+                  <div class="accordionItem">
+                    <div id="headingOne">
+                      <h5 data-bs-toggle="collapse" data-bs-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">
+                        <span class="material-icons-outlined arrowDown">
+                          keyboard_arrow_down
+                        </span>
+                        <span class="material-icons-outlined arrowUp">
+                          keyboard_arrow_up
+                        </span>
+                        <span>
+                          Status
+                        </span>
+                      </h5>
+                    </div>
+                    <div id="collapseOne" class="collapse show" aria-labelledby="headingOne" data-parent="#accordion">
+                        <div class="form-group form-check">
+                          <label class="form-check-label">
+                            <input type="radio" name="applicant[status]" id="applicant_status_newly_added" value="newly_added" class="form-check-input">
+                            <span class="cr">
+                              <span class="material-icons">
+                                radio_button_checked
+                              </span>
+                            </span>
+                            Newly Added
+</label>                        </div>
+                        <div class="form-group form-check">
+                          <label class="form-check-label">
+                            <input type="radio" name="applicant[status]" id="applicant_status_active" value="active" class="form-check-input">
+                            <span class="cr">
+                              <span class="material-icons">
+                                radio_button_checked
+                              </span>
+                            </span>
+                            Active
+</label>                        </div>
+                        <div class="form-group form-check">
+                          <label class="form-check-label">
+                            <input type="radio" name="applicant[status]" id="applicant_status_closed_won" value="closed_won" class="form-check-input">
+                            <span class="cr">
+                              <span class="material-icons">
+                                radio_button_checked
+                              </span>
+                            </span>
+                            Closed Won
+</label>                        </div>
+                        <div class="form-group form-check">
+                          <label class="form-check-label">
+                            <input type="radio" name="applicant[status]" id="applicant_status_closed_lost" value="closed_lost" class="form-check-input">
+                            <span class="cr">
+                              <span class="material-icons">
+                                radio_button_checked
+                              </span>
+                            </span>
+                            Closed Lost
+</label>                        </div>
+                    </div>
+                  </div>
+                  <div class="accordionItem">
+                    <div id="headingTwo">
+                      <h5 data-bs-toggle="collapse" data-bs-target="#collapseTwo" aria-expanded="false" aria-controls="collapseTwo">
+                        <span class="material-icons-outlined arrowDown">
+                          keyboard_arrow_down
+                        </span>
+                        <span class="material-icons-outlined arrowUp">
+                          keyboard_arrow_up
+                        </span>
+                        <span>
+                          Archive/Unarchive
+                        </span>
+                      </h5>
+                    </div>
+                    <div id="collapseTwo" class="collapse" aria-labelledby="headingTwo" data-parent="#accordion">
+                        <div class="form-group form-check">
+                          <label class="form-check-label">
+                            <input type="radio" name="applicant[archived]" id="applicant_archived_false" value="false" class="form-check-input">
+                            <span class="cr">
+                              <span class="material-icons">
+                                radio_button_checked
+                              </span>
+                            </span>
+                            Unarchive
+</label>                        </div>
+                        <div class="form-group form-check">
+                          <label class="form-check-label">
+                            <input type="radio" name="applicant[archived]" id="applicant_archived_true" value="true" class="form-check-input">
+                            <span class="cr">
+                              <span class="material-icons">
+                                radio_button_checked
+                              </span>
+                            </span>
+                            Archive
+</label>                        </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+</form>          </li>
+        </ul>
+        <!-- Transfer-->
+        <ul>
+          <li class="nav-item">
+            <form data-form="transfer-form" action="/client/applicants/transfer" accept-charset="UTF-8" method="get" siq_id="autopick_2098">
+              <a class="nav-item-hold" href="#" title="" id="dropdownMenuLink" data-bs-toggle="dropdown" data-bs-auto-close="outside" aria-haspopup="true" aria-expanded="false">
+                <span class="material-icons-outlined">
+                  swap_horiz
+                </span>
+                <span>
+                  Transfer
+                </span>
+              </a>
+              <div class="dropdown-menu" aria-labelledby="dropdownMenuLink" data-behaviour="filter-dropdown" data-bs-auto-close="false">
+                <div class="transferTopWrap">
+                  <div class="title">Transfer</div>
+                  <a data-bs-toggle="modal" href="#" data-bs-target="#confirm-transfer-modal">Transfer</a>
+                </div>
+                <div>
+                  <div class="form-inline searchBox mb-3">
+                    <span class="material-icons-outlined">
+                      search
+                    </span>
+                    <input type="text" name="query" data-search="transfer-applicants" placeholder="Search..." class="form-control searchField" aria-label="Search">
+                  </div>
+                  <div class="form-group form-check">
+                    <label>
+                      <input type="checkbox" name="owner" id="owner" value="865" disabled="disabled" checked="checked">
+                      <span class="cr"><span class="material-icons">check_box</span></span>
+                      April  Moore&nbsp;<em>(self)</em>
+</label>                  </div>
+                  <div id="accordion" class="accordionWrap">
+                      <div class="accordionItem">
+                        <div id="heading-0">
+                          <h5 data-bs-toggle="collapse" data-bs-target="#collapse-0" aria-expanded="true" aria-controls="collapse-0">
+                            <div class="nameBox">
+                              <span>
+                                Default
+                              </span>
+                            </div>
+                            <span class="material-icons-outlined arrowDown">
+                              keyboard_arrow_down
+                            </span>
+                            <span class="material-icons-outlined arrowUp">
+                              keyboard_arrow_up
+                            </span>
+                          </h5>
+                        </div>
+                        <div id="collapse-0" class="collapse show" aria-labelledby="heading-0" data-parent="#accordion">
+                          <div>
+                                <div class="form-group form-check">
+                                  <label>
+                                    <input type="checkbox" name="userTransfer" id="userTransfer" value="10378" data-checkbox-group="281-default">
+                                    <span class="cr"><span class="material-icons">check_box</span></span>
+                                    <span class="client-name">
+                                      Jamshid Tulaganov
+                                    </span>
+</label>                                </div>
+                                <div class="form-group form-check">
+                                  <label>
+                                    <input type="checkbox" name="userTransfer" id="userTransfer" value="4517" data-checkbox-group="281-default">
+                                    <span class="cr"><span class="material-icons">check_box</span></span>
+                                    <span class="client-name">
+                                      Shine Taylor
+                                    </span>
+</label>                                </div>
+                                <div class="form-group form-check">
+                                  <label>
+                                    <input type="checkbox" name="userTransfer" id="userTransfer" value="1340" data-checkbox-group="281-default">
+                                    <span class="cr"><span class="material-icons">check_box</span></span>
+                                    <span class="client-name">
+                                      Admin Admin
+                                    </span>
+</label>                                </div>
+                                <div class="form-group form-check">
+                                  <label>
+                                    <input type="checkbox" name="userTransfer" id="userTransfer" value="858" data-checkbox-group="281-default">
+                                    <span class="cr"><span class="material-icons">check_box</span></span>
+                                    <span class="client-name">
+                                      John  Usmanov
+                                    </span>
+</label>                                </div>
+                          </div>
+                        </div>
+                      </div>
+                  </div>
+                </div>
+              </div>
+</form>          </li>
+        </ul>
+      </div>
+      <div class="right">
+        <ul>
+          <li class="nav-item">
+            <a class="nav-item-hold" title="Funnel" href="/client/applicants/new">
+              <span class="icon material-icons-outlined">add_circle_outline</span>
+              <span>
+                Add Applicant
+              </span>
+</a>          </li>
+        </ul>
+      </div>
+    </div>

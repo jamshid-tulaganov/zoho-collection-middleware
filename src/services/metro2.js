@@ -4,6 +4,8 @@
  * for a single carrier given SMP company, Zoho Deal, and master_db entry.
  */
 
+import { normalizeDob } from "./dob.js";
+
 // ── Helpers ─────────────────────────────────────────────────────
 
 export function parseDate(s) {
@@ -121,13 +123,10 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
     if (smpState) sState = smpState;
     if (smpZip) sZip = smpZip;
 
-    // ── DOB + Credit Score from Deal ──
+    // ── DOB + Credit Score from Deal / master DB ──
     let dealDobRaw = deal ? String(deal.Birth_Of_Date || "").trim() : "";
     let dealCreditScore = deal ? String(deal.Credit_Score || "").trim() : "";
-    let dobFormatted = "";
-    if (dealDobRaw && !["null", "None"].includes(dealDobRaw) && dealDobRaw.length >= 10) {
-        dobFormatted = dealDobRaw.slice(5, 7) + dealDobRaw.slice(8, 10) + dealDobRaw.slice(0, 4);
-    }
+    let dobFormatted = normalizeDob(dealDobRaw) || normalizeDob(dbEntry?.dob);
 
     // ── SMP financial fields ──
     const phone = comp ? cleanPhone(comp.contactPhone) : "";
@@ -167,7 +166,7 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
         const existingCreditScore = String(existing.Credit_Score || "");
 
         if (!dobFormatted && existingDob && !["null", "None", ""].includes(existingDob)) {
-            dobFormatted = existingDob;
+            dobFormatted = normalizeDob(existingDob);
         }
         if (["", "null", "None", "0"].includes(dealCreditScore) && !["", "null", "None", "0"].includes(existingCreditScore)) {
             dealCreditScore = existingCreditScore;

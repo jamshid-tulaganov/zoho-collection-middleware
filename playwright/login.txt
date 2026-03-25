@@ -1,0 +1,23 @@
+<div class="shadowBox">
+          <h2 class="mb-3">
+            Sign in to your account
+          </h2>
+          <form class="new_user" id="new_user" action="/users/sign_in" accept-charset="UTF-8" method="post"><input type="hidden" name="authenticity_token" value="FYRDTHeHlRLQsr9oLeEc6FkJ4etyyTGoQyUCyO8NOP80hozNFaB8n6wRTQEJYoqR4YBkupDYqbFwKF6w7_DjAA">
+            <div class="form-group">
+              <label class="fieldTitleDark" for="user_email">Email</label>
+              <input class="form-control" autofocus="autofocus" autocomplete="email" id="exampleInputEmail1" aria_describedby="emailHelp" type="email" value="" name="user[email]">
+            </div>
+            <div class="form-group">
+              <label class="fieldTitleDark" for="user_password">Password</label>
+              <input class="form-control" autocomplete="current-password" id="exampleInputPassword" aria_describedby="passHelp" type="password" name="user[password]">
+            </div>
+              <div class="form-check">
+                <label class="form-check-label fieldTitleDark regular" for="defaultCheck1">
+                  <input type="checkbox" name="remember_me" id="defaultCheck1" value="1" class="form-check-input">
+                  <span class="cr"><span class="material-icons">check_box</span></span>
+                  Remember Me
+                </label>
+              </div>
+            <button name="button" type="submit" class="btn btnDarkBlue" onclick="dataLayer.push({'event': 'login'});">Sign in</button>
+            <a href="/users/password/new">Forgot Password?</a>
+</form>        </div>

@@ -10,3 +10,10 @@ data/*.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+playwright-report/
+data/isoftpull-no-reason-candidates.json
+data/isoftpull-debug.png
+data/isoftpull-candidates.json
+.playwright-mcp
+.mcp.json

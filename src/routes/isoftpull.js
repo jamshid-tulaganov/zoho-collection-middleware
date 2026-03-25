@@ -6,16 +6,16 @@ const router = Router();
 
 /**
  * POST /isoftpull/dob
- * Body: { firstName, lastName }
+ * Body: { firstName, lastName, address?, city?, state?, zip? }
  * Response: { dob: "MM/DD/YYYY" | null, applicantId: string | null }
  */
 router.post("/dob", async (req, res) => {
-    const { firstName, lastName } = req.body;
+    const { firstName, lastName, address, city, state, zip } = req.body;
     if (!firstName || !lastName) {
         return res.status(400).json({ error: "firstName and lastName are required" });
     }
     try {
-        const result = await getDobByName(firstName, lastName);
+        const result = await getDobByName(firstName, lastName, { address, city, state, zip });
         res.json(result);
     } catch (err) {
         console.error("[isoftpull] Error:", err.message);

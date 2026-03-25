@@ -6,6 +6,7 @@ import { getDobByName } from "./isoftpull.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const CANDIDATES_PATH = path.resolve(__dirname, "../../data/isoftpull-candidates.json");
+const DOB_PATH = path.resolve(__dirname, "../../data/dob.json");
 
 // Tracks in-progress sync so we can report live stats
 let syncProgress = null;
@@ -18,12 +19,51 @@ function normalizeDob(dob) {
     return dob.replace(/\//g, ""); // "08/18/1987" → "08181987"
 }
 
+function denormalizeDob(dob) {
+    const raw = String(dob || "").replace(/\D/g, "");
+    if (raw.length !== 8) return null;
+    return `${raw.slice(0, 2)}/${raw.slice(2, 4)}/${raw.slice(4)}`;
+}
+
 /**
  * Load missing-DOB candidates from the pre-extracted JSON file.
  * Returns: Array of { carrierId, firstName, lastName }
  */
 function loadCandidates() {
     return JSON.parse(fs.readFileSync(CANDIDATES_PATH, "utf-8"));
+}
+
+function loadDobMap() {
+    if (!fs.existsSync(DOB_PATH)) return {};
+    return JSON.parse(fs.readFileSync(DOB_PATH, "utf-8"));
+}
+
+function saveDobMap(dobMap) {
+    fs.writeFileSync(DOB_PATH, JSON.stringify(dobMap, null, 2));
+}
+
+function seedDobMapFromKnownData(candidates, db, dobMap) {
+    let fromCandidates = 0;
+    let fromCarrierDb = 0;
+
+    for (const candidate of candidates) {
+        if (!candidate.carrierId || dobMap[candidate.carrierId]) continue;
+
+        if (candidate.dob) {
+            dobMap[candidate.carrierId] = candidate.dob;
+            fromCandidates++;
+            continue;
+        }
+
+        const carrierDob = db[candidate.carrierId]?.derived?.dob;
+        const denormalized = denormalizeDob(carrierDob);
+        if (denormalized) {
+            dobMap[candidate.carrierId] = denormalized;
+            fromCarrierDb++;
+        }
+    }
+
+    return { fromCandidates, fromCarrierDb };
 }
 
 /**
@@ -33,9 +73,9 @@ function loadCandidates() {
  * @param {{ excelPath?: string, force?: boolean }} options
  * @returns {Promise<object>} stats
  */
-/** Delay between companies (3–5 seconds, randomized). */
+/** Delay between companies, kept short for throughput. */
 function delay() {
-    const ms = 3000 + Math.floor(Math.random() * 2000);
+    const ms = 600 + Math.floor(Math.random() * 700);
     return new Promise((r) => setTimeout(r, ms));
 }
 
@@ -46,11 +86,18 @@ function delay() {
 export async function syncIsoftpullDobs({ force = false, limit = 0 } = {}) {
     const db = JSON.parse(fs.readFileSync(env.CARRIER_DB_PATH, "utf-8"));
     const candidates = loadCandidates();
+    const dobMap = loadDobMap();
+    const seeded = seedDobMapFromKnownData(candidates, db, dobMap);
 
-    // If force=false, also skip carriers that already have DOB in carrier-db
+    if (seeded.fromCandidates || seeded.fromCarrierDb) {
+        saveDobMap(dobMap);
+        console.log(`[isoftpull-dob] Seeded dob.json from local data (candidates=${seeded.fromCandidates}, carrierDb=${seeded.fromCarrierDb})`);
+    }
+
+    // If force=false, process only candidates still missing from dob.json after seeding.
     let toProcess = force
         ? candidates
-        : candidates.filter((c) => !db[c.carrierId]?.derived?.dob);
+        : candidates.filter((c) => !dobMap[c.carrierId]);
 
     if (limit > 0) toProcess = toProcess.slice(0, limit);
 
@@ -84,6 +131,7 @@ export async function syncIsoftpullDobs({ force = false, limit = 0 } = {}) {
                 db[carrierId].derived.dob = normalizeDob(dob);
                 db[carrierId].derived.dob_source = "isoftpull";
                 db[carrierId].derived.dob_isoftpull_id = applicantId || null;
+                dobMap[carrierId] = dob;
 
                 syncProgress.fetched++;
                 syncProgress.details.push({ carrierId, firstName, lastName, dob: db[carrierId].derived.dob, status: "fetched" });
@@ -92,6 +140,7 @@ export async function syncIsoftpullDobs({ force = false, limit = 0 } = {}) {
                 // Save after every 10 fetched DOBs so progress is never lost
                 if (syncProgress.fetched % 10 === 0) {
                     fs.writeFileSync(env.CARRIER_DB_PATH, JSON.stringify(db, null, 2));
+                    saveDobMap(dobMap);
                     console.log(`[isoftpull-dob] Auto-saved at ${syncProgress.fetched} DOBs fetched`);
                 }
             } else {
@@ -114,6 +163,7 @@ export async function syncIsoftpullDobs({ force = false, limit = 0 } = {}) {
     // Final save
     if (syncProgress.fetched > 0) {
         fs.writeFileSync(env.CARRIER_DB_PATH, JSON.stringify(db, null, 2));
+        saveDobMap(dobMap);
         console.log(`[isoftpull-dob] Final save: ${syncProgress.fetched} DOBs written to carrier-db.json`);
     }
 

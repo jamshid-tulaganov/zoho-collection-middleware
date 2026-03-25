@@ -10,7 +10,8 @@
  *   6. metro2.js engine              → derived block (all 48 Array fields)
  *
  * No MongoDB dependency — reads/writes a single carrier-db.json file.
- * DOB = zoho.dob_raw only.  Credit score = zoho.credit_score_raw || credit_score_tss.
+ * DOB priority = zoho.dob_raw → debtor-master-db(dob.json merge) → existing cache.
+ * Credit score = zoho.credit_score_raw || credit_score_tss.
  */
 
 import fs from "fs";
@@ -26,6 +27,7 @@ import {
     getCarrierBillingFromGlobal,
 } from "./smp.js";
 import { fetchDeals, ensureZohoToken } from "./zoho.js";
+import { loadMergedMasterDb } from "./dob.js";
 import { computeMetro2, parseDate } from "./metro2.js";
 
 // ── Paths ────────────────────────────────────────────────────────────────────
@@ -67,16 +69,7 @@ function saveCarrierDb(db) {
 }
 
 function loadMasterDb() {
-    if (!MASTER_DB_PATH || !fs.existsSync(MASTER_DB_PATH)) {
-        console.warn("[carrier-db] debtor-master-db.json not found — offline data unavailable.");
-        return {};
-    }
-    try {
-        return JSON.parse(fs.readFileSync(MASTER_DB_PATH, "utf-8"));
-    } catch {
-        console.warn("[carrier-db] Could not parse debtor-master-db.json.");
-        return {};
-    }
+    return loadMergedMasterDb(MASTER_DB_PATH, { logPrefix: "[carrier-db]" });
 }
 
 function loadAccountingDb() {
@@ -904,7 +897,7 @@ export async function runCarrierDbSync() {
                             state: preferredContact.state,
                             zip: preferredContact.zip,
                             phone: preferredContact.phone,
-                            dob: metro2.dateOfBirth || existingDerived.dob || "",
+                            dob: metro2.dateOfBirth || dbEntry.dob || existingDerived.dob || "",
                             credit_score: String(creditScore || accountingEntry?.credit_score || existingDerived.credit_score || ""),
                             date_open: metro2.dateOpenIso || existingDerived.date_open || "",
                             date_first_delinquency: metro2.dateFirstDelinquencyIso || "",

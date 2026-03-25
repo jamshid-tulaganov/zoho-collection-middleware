@@ -41,6 +41,150 @@ const LAUNCH_OPTS = {
     args: ["--disable-gpu", "--no-sandbox", "--disable-setuid-sandbox"],
 };
 
+async function getBodyText(page) {
+    return page.textContent("body").catch(() => "");
+}
+
+async function assertNoGeoBlock(page) {
+    const content = await getBodyText(page);
+    if (content.includes("Foreign Access Forbidden")) {
+        throw new Error("403 Foreign Access Forbidden — enable US VPN and retry");
+    }
+}
+
+async function waitForApplicantSearchPage(page) {
+    await page.locator("#tsearch").waitFor({ state: "visible", timeout: 10000 }).catch(() => {});
+    await page.waitForLoadState("networkidle", { timeout: 5000 }).catch(() => {});
+    await page
+        .waitForFunction(() => {
+            const bodyText = document.body?.innerText || "";
+            if (bodyText.includes("Foreign Access Forbidden")) return true;
+
+            const hasResults = Array.from(document.querySelectorAll('a[href*="/client/applicants/"]'))
+                .some((link) => /\/client\/applicants\/\d+$/.test(link.getAttribute("href") || ""));
+
+            const searchReady = !!document.querySelector('#tsearch, input[name="query"]');
+            const emptyStateReady = bodyText.includes("Archived:") || bodyText.includes("ADD APPLICANT");
+
+            return searchReady && (hasResults || emptyStateReady);
+        }, { timeout: 10000 })
+        .catch(() => {});
+
+    await page.waitForTimeout(500);
+    await assertNoGeoBlock(page);
+}
+
+function buildSearchQueries(firstName, lastName) {
+    const queries = [firstName, lastName]
+        .map((value) => (value || "").trim())
+        .filter(Boolean);
+
+    return [...new Set(queries)];
+}
+
+function buildSearchPlans(firstName, lastName) {
+    return buildSearchQueries(firstName, lastName).map((query) => ({ query, archive: "unarchived" }));
+}
+
+async function collectApplicantRows(page) {
+    const applicants = new Map();
+    let stableRounds = 0;
+    let bottomRounds = 0;
+
+    for (let round = 0; round < 60; round++) {
+        const batch = await page.evaluate(() => {
+            return Array.from(document.querySelectorAll("a"))
+                .map((link) => {
+                    const href = link.getAttribute("href") || "";
+                    if (!/\/client\/applicants\/\d+$/.test(href)) return null;
+
+                    const text = (link.textContent || "").trim();
+                    const name =
+                        text && !/view applicant/i.test(text)
+                            ? text
+                            : (link.closest(".popover-head")?.querySelector("h2")?.textContent || "");
+
+                    return {
+                        href,
+                        name: (name || "").trim(),
+                    };
+                })
+                .filter(Boolean);
+        });
+
+        const sizeBefore = applicants.size;
+        for (const item of batch) {
+            const existing = applicants.get(item.href);
+            if (!existing || (!existing.name && item.name)) {
+                applicants.set(item.href, item);
+            }
+        }
+
+        const noMoreResults = await getBodyText(page)
+            .then((text) => text.includes("No more Applicants to load"))
+            .catch(() => false);
+
+        const scrollState = await page.evaluate(() => {
+            const elements = Array.from(document.querySelectorAll("*"));
+            const scrollables = elements.filter((el) => {
+                const style = window.getComputedStyle(el);
+                return (
+                    el instanceof HTMLElement &&
+                    el.scrollHeight > el.clientHeight + 40 &&
+                    /(auto|scroll)/.test(style.overflowY || "")
+                );
+            });
+
+            const target =
+                scrollables.sort((a, b) => (b.scrollHeight - b.clientHeight) - (a.scrollHeight - a.clientHeight))[0] ||
+                document.scrollingElement ||
+                document.documentElement;
+
+            const beforeTop = target.scrollTop;
+            const maxTop = Math.max(0, target.scrollHeight - target.clientHeight);
+            const step = Math.max(Math.floor(target.clientHeight * 0.9), 1200);
+            const nextTop = Math.min(maxTop, beforeTop + step);
+
+            target.scrollTo({ top: nextTop, behavior: "instant" });
+            window.scrollTo({ top: Math.min(document.documentElement.scrollHeight, window.scrollY + 1800), behavior: "instant" });
+
+            return {
+                beforeTop,
+                afterTop: target.scrollTop,
+                maxTop,
+            };
+        }).catch(() => ({ beforeTop: 0, afterTop: 0, maxTop: 0 }));
+
+        if (applicants.size === sizeBefore) {
+            stableRounds++;
+        } else {
+            stableRounds = 0;
+        }
+
+        if (scrollState.maxTop > 0 && scrollState.afterTop >= scrollState.maxTop - 5) {
+            bottomRounds++;
+        } else {
+            bottomRounds = 0;
+        }
+
+        if (noMoreResults || (stableRounds >= 5 && bottomRounds >= 3)) break;
+
+        await page.mouse.wheel(0, 2400);
+        await page.waitForTimeout(500);
+    }
+
+    return [...applicants.values()];
+}
+
+async function waitForApplicantDetailPage(page) {
+    await page
+        .locator('input[placeholder="Date of Birth"], input[placeholder="First Name"]')
+        .first()
+        .waitFor({ state: "attached", timeout: 10000 })
+        .catch(() => {});
+    await assertNoGeoBlock(page);
+}
+
 async function ensureContext() {
     if (!browser?.isConnected()) {
         try {
@@ -67,6 +211,7 @@ async function ensureContext() {
 async function doLogin(page) {
     console.log("[isoftpull] Logging in...");
     await page.goto(`${BASE_URL}/users/sign_in`, { waitUntil: "domcontentloaded" });
+    await assertNoGeoBlock(page);
     await page.fill("#exampleInputEmail1", env.ISOFTPULL_EMAIL);
     await page.fill("#exampleInputPassword", env.ISOFTPULL_PASSWORD);
     await page.click("button[type=submit].btnDarkBlue");
@@ -77,18 +222,25 @@ async function doLogin(page) {
 
 async function navigateAuth(page, url) {
     await page.goto(url, { waitUntil: "domcontentloaded" });
+    await assertNoGeoBlock(page);
     if (page.url().includes("/sign_in")) {
         await doLogin(page);
         await page.goto(url, { waitUntil: "domcontentloaded" });
+        await assertNoGeoBlock(page);
     }
 }
 
 /** Extract all detail fields from an applicant detail page. */
 async function extractDetailsFromPage(page) {
     const val = (placeholder) => page.inputValue(`input[placeholder="${placeholder}"]`).catch(() => "");
+    const address = await val("Address");
+    const addressLine2 = await val("Address Line 2");
+
     return {
         dob: await val("Date of Birth"),
-        address: await val("Address"),
+        address,
+        addressLine2,
+        mergedAddress: mergeAddressLines(address, addressLine2),
         city: await val("City"),
         state: await val("State"),
         zip: await val("Zip Code"),
@@ -99,7 +251,70 @@ async function extractDetailsFromPage(page) {
 
 /** Normalize a string for fuzzy comparison. */
 function norm(s) {
-    return (s || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+    return (s || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, "");
+}
+
+function collapseWhitespace(value) {
+    return String(value || "").trim().replace(/\s+/g, " ");
+}
+
+function normalizeName(value) {
+    return norm(collapseWhitespace(value));
+}
+
+function mergeAddressLines(...lines) {
+    return collapseWhitespace(lines.filter(Boolean).join(" "));
+}
+
+function normalizeZip(zip) {
+    const digits = String(zip || "").replace(/\D/g, "");
+    if (!digits) return "";
+    if (digits.length === 4) return digits.padStart(5, "0");
+    return digits.slice(0, 5);
+}
+
+function normalizeAddressText(address) {
+    return String(address || "")
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase();
+}
+
+function normalizeAddressValue(address) {
+    const raw = normalizeAddressText(address);
+
+    return collapseWhitespace(
+        raw
+            .replace(/#/g, " unit ")
+            .replace(/\bapt\b|\bapartment\b|\bunit\b|\bsuite\b|\bste\b|\brm\b|\broom\b/g, " unit ")
+            .replace(/\bfl\b|\bfloor\b/g, " floor ")
+            .replace(/\bdr\b/g, " drive ")
+            .replace(/\brd\b/g, " road ")
+            .replace(/\bst\b/g, " street ")
+            .replace(/\bave\b/g, " avenue ")
+            .replace(/\bblvd\b/g, " boulevard ")
+            .replace(/\bln\b/g, " lane ")
+            .replace(/\bct\b/g, " court ")
+            .replace(/\bpkwy\b/g, " parkway ")
+            .replace(/\bhwy\b/g, " highway ")
+            .replace(/\btrl\b/g, " trail ")
+            .replace(/\bter\b/g, " terrace ")
+            .replace(/\bcir\b/g, " circle ")
+            .replace(/[.,/-]/g, " ")
+    );
+}
+
+function normalizeAddressBase(address) {
+    const base = normalizeAddressValue(address).split(/\b(?:unit|floor)\b/)[0];
+    return norm(base);
+}
+
+function isFullNameMatch(firstName, lastName, candidateName) {
+    return normalizeName(`${firstName}${lastName}`) === normalizeName(candidateName);
 }
 
 /** Normalize state — accept "OH", "Ohio", "ohio" and compare as "ohio". */
@@ -111,27 +326,41 @@ function normState(s) {
 
 /** Check if an applicant on the detail page matches our carrier data. */
 function isAddressMatch(ours, theirs) {
-    // Zip match (first 5 digits)
-    const ourZip = (ours.zip || "").slice(0, 5);
-    const theirZip = (theirs.zip || "").slice(0, 5);
-    if (ourZip && theirZip && ourZip === theirZip) return true;
+    const ourMergedAddress = mergeAddressLines(ours.address);
+    const theirMergedAddress = mergeAddressLines(theirs.address, theirs.addressLine2);
+    const ourAddress = normalizeAddressBase(ourMergedAddress);
+    const theirAddress = normalizeAddressBase(theirMergedAddress);
+    const ourAddressFull = normalizeAddressValue(ourMergedAddress);
+    const theirAddressFull = normalizeAddressValue(theirMergedAddress);
+    const addressMatch =
+        !ourAddressFull ||
+        !theirAddressFull ||
+        ourAddressFull.includes(theirAddressFull) ||
+        theirAddressFull.includes(ourAddressFull) ||
+        ourAddress.includes(theirAddress) ||
+        theirAddress.includes(ourAddress);
 
-    // City + State match
-    const cityMatch = norm(ours.city) === norm(theirs.city);
-    const stateMatch = normState(ours.state) === normState(theirs.state);
-    if (cityMatch && stateMatch) return true;
+    const ourZip = normalizeZip(ours.zip);
+    const theirZip = normalizeZip(theirs.zip);
+    const zipMatch = !ourZip || !theirZip || ourZip === theirZip;
 
-    // Address contains the same street number
-    const ourNum = (ours.address || "").match(/\d+/);
-    const theirNum = (theirs.address || "").match(/\d+/);
-    if (ourNum && theirNum && ourNum[0] === theirNum[0] && stateMatch) return true;
+    const cityMatch = !ours.city || !theirs.city || norm(ours.city) === norm(theirs.city);
+    const stateMatch = !ours.state || !theirs.state || normState(ours.state) === normState(theirs.state);
 
-    return false;
+    return addressMatch && zipMatch && cityMatch && stateMatch;
 }
 
-/** Human-like delay between actions (2–4 seconds, randomized). */
+function isDetailAddressMatch(ours, theirs) {
+    return isAddressMatch(ours, theirs);
+}
+
+function isDetailNameMatch(firstName, lastName, details) {
+    return isFullNameMatch(firstName, lastName, `${details.firstName} ${details.lastName}`);
+}
+
+/** Small pacing delay between applicant detail pages. */
 function humanDelay() {
-    const ms = 2000 + Math.floor(Math.random() * 2000);
+    const ms = 400 + Math.floor(Math.random() * 500);
     return new Promise((r) => setTimeout(r, ms));
 }
 
@@ -151,44 +380,68 @@ export function getDobByName(firstName, lastName, match = {}) {
         const ctx = await ensureContext();
         const page = await ctx.newPage();
         try {
-            const query = `${firstName} ${lastName}`.trim();
-            const searchUrl = `${BASE_URL}/client/applicants?query=${encodeURIComponent(query)}&query_archive[]=unarchived`;
+            const searchPlans = buildSearchPlans(firstName, lastName);
+            const seenRows = new Map();
+            let matchedRows = [];
+            let addressMatchedCount = 0;
 
-            await navigateAuth(page, searchUrl);
+            for (const { query, archive } of searchPlans) {
+                const searchUrl = `${BASE_URL}/client/applicants?query=${encodeURIComponent(query)}&query_archive[]=${encodeURIComponent(archive)}`;
 
-            // Collect ALL applicant links matching /client/applicants/<numeric-id>
-            const hrefs = await page.evaluate(() => {
-                const links = Array.from(document.querySelectorAll('a[href*="/client/applicants/"]'));
-                return links
-                    .map((l) => l.getAttribute("href"))
-                    .filter((h) => /\/client\/applicants\/\d+$/.test(h));
-            });
+                await navigateAuth(page, searchUrl);
+                await waitForApplicantSearchPage(page);
 
-            if (!hrefs.length) {
+                const rows = await collectApplicantRows(page);
+                rows.forEach((row) => {
+                    const existing = seenRows.get(row.href);
+                    if (!existing || (!existing.name && row.name)) {
+                        seenRows.set(row.href, row);
+                    }
+                });
+
+                const tableMatches = rows.filter((row) => isFullNameMatch(firstName, lastName, row.name));
+                console.log(`[isoftpull] Search "${query}" [${archive}] returned ${rows.length} applicant rows (${tableMatches.length} exact full-name matches)`);
+
                 const pageUrl = page.url();
-                console.log(`[isoftpull] No results for "${query}" (url: ${pageUrl})`);
-                return { dob: null, applicantId: null, checked: 0, reason: "no_search_results" };
+                const pageTitle = await page.title().catch(() => "");
+                const bodyText = await page.evaluate(() => document.body?.innerText?.slice(0, 500) || "").catch(() => "");
+                if (!tableMatches.length) {
+                    console.log(`[isoftpull] No results for "${query}" [${archive}] (url: ${pageUrl}, title: ${pageTitle})`);
+                    console.log(`[isoftpull] Page content: ${bodyText}`);
+                }
             }
 
-            const uniqueHrefs = [...new Set(hrefs)];
-            const hasMatchData = match.city || match.state || match.zip || match.address;
+            matchedRows = [...seenRows.values()].filter((row) => isFullNameMatch(firstName, lastName, row.name));
 
-            for (let i = 0; i < uniqueHrefs.length; i++) {
-                const href = uniqueHrefs[i];
+            if (!matchedRows.length) {
+                const screenshotPath = path.resolve(__dirname, "../../data/isoftpull-debug.png");
+                await page.screenshot({ path: screenshotPath }).catch(() => {});
+                return { dob: null, applicantId: null, checked: 0, reason: seenRows.size ? "no_name_match" : "no_search_results" };
+            }
+
+            for (let i = 0; i < matchedRows.length; i++) {
+                const href = matchedRows[i].href;
                 const applicantId = href.split("/").pop();
                 await humanDelay();
                 await page.goto(`${BASE_URL}${href}`, { waitUntil: "domcontentloaded" });
+                await waitForApplicantDetailPage(page);
 
                 const details = await extractDetailsFromPage(page);
 
-                // If we have address data, validate before accepting
-                if (hasMatchData && !isAddressMatch(match, details)) {
+                if (!isDetailNameMatch(firstName, lastName, details)) {
+                    console.log(`[isoftpull] Applicant ${applicantId} — detail name mismatch (${details.firstName} ${details.lastName})`);
+                    continue;
+                }
+
+                if (!isDetailAddressMatch(match, details)) {
                     console.log(`[isoftpull] Applicant ${applicantId} — address mismatch (${details.city}, ${details.state} ${details.zip} vs ${match.city}, ${match.state} ${match.zip})`);
                     continue;
                 }
 
+                addressMatchedCount++;
+
                 if (details.dob) {
-                    console.log(`[isoftpull] ✓ Found DOB on applicant ${applicantId} (checked ${i + 1}/${uniqueHrefs.length}, ${details.city} ${details.state})`);
+                    console.log(`[isoftpull] ✓ Found DOB on applicant ${applicantId} (checked ${i + 1}/${matchedRows.length}, ${details.city} ${details.state})`);
                     return { dob: details.dob, applicantId, checked: i + 1 };
                 }
 
@@ -196,8 +449,13 @@ export function getDobByName(firstName, lastName, match = {}) {
                 console.log(`[isoftpull] Applicant ${applicantId} — address match but no DOB`);
             }
 
-            console.log(`[isoftpull] Checked ${uniqueHrefs.length} applicants for "${query}" — no valid match with DOB`);
-            return { dob: null, applicantId: null, checked: uniqueHrefs.length, reason: "no_dob_on_matched_records" };
+            console.log(`[isoftpull] Checked ${matchedRows.length} applicants for "${firstName} ${lastName}" — no valid match with DOB`);
+            return {
+                dob: null,
+                applicantId: null,
+                checked: matchedRows.length,
+                reason: addressMatchedCount ? "no_dob_on_matched_records" : "no_address_match",
+            };
         } finally {
             await page.close();
         }
@@ -214,6 +472,7 @@ export function getDobById(applicantId) {
         const page = await ctx.newPage();
         try {
             await navigateAuth(page, `${BASE_URL}/client/applicants/${applicantId}`);
+            await waitForApplicantDetailPage(page);
             const details = await extractDetailsFromPage(page);
             return { dob: details.dob || null };
         } finally {

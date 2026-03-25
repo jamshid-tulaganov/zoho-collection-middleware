@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install:*)",
+      "Bash(npx playwright:*)",
+      "Bash(npm show:*)",
+      "mcp__playwright__browser_click",
+      "mcp__playwright__browser_snapshot",
+      "mcp__playwright__browser_navigate",
+      "Bash(node:*)",
+      "mcp__playwright__browser_run_code",
+      "Bash(python3:*)"
+    ]
+  },
+  "enabledMcpjsonServers": [
+    "playwright"
+  ]
+}

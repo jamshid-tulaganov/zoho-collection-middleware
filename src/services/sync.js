@@ -22,6 +22,7 @@ import PaymentMonth from "../models/PaymentMonth.js";
 import Transaction from "../models/Transaction.js";
 import { fetchCompanies, fetchAllInvoices, fetchUnpaidInvoices, fetchBillingHistory } from "./smp.js";
 import { fetchDeals, fetchExistingStation, ensureZohoToken } from "./zoho.js";
+import { loadMergedMasterDb } from "./dob.js";
 import { computeMetro2, parseDate } from "./metro2.js";
 
 let lastSyncResult = null;
@@ -122,8 +123,7 @@ async function createDbLoader() {
         };
     }
 
-    const raw = fs.readFileSync(dbPath, "utf-8");
-    const data = JSON.parse(raw);
+    const data = loadMergedMasterDb(dbPath, { logPrefix: "[sync]" });
     console.log(`[sync] Using debtor-master-db.json (${Object.keys(data).length} carriers)`);
     return {
         source: "json-file",
