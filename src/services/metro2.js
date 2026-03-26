@@ -42,15 +42,26 @@ function splitAddress(address) {
 
     const upper = a1.toUpperCase();
     const markers = [
-        [" SUITE", "SUITE"], [" APT", "APT"], [" UNIT", "UNIT"],
-        [" STE", "STE"], [" FLOOR", "FLOOR"], [" FL ", "FL "], [" #", "#"],
+        [" SUITE", "SUITE"],
+        [" APT", "APT"],
+        [" UNIT", "UNIT"],
+        [" STE", "STE"],
+        [" FLOOR", "FLOOR"],
+        [" FL ", "FL "],
+        [" #", "#"],
     ];
 
     for (const [search, marker] of markers) {
         if (upper.includes(search)) {
-            const re = new RegExp(` ${marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}.*`, "i");
+            const re = new RegExp(
+                ` ${marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}.*`,
+                "i",
+            );
             const street = a1.replace(re, "").trim();
-            const reApt = new RegExp(`^.*? ${marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`, "i");
+            const reApt = new RegExp(
+                `^.*? ${marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`,
+                "i",
+            );
             const apt = a1.replace(reApt, marker).trim();
             if (street.length > 0 && street.length < a1.length) {
                 a1 = street;
@@ -96,7 +107,11 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
     }
 
     // ── Address: SMP primary → Deal fallback ──
-    let smpAddr1 = "", smpAddr2 = "", smpCity = "", smpState = "", smpZip = "";
+    let smpAddr1 = "",
+        smpAddr2 = "",
+        smpCity = "",
+        smpState = "",
+        smpZip = "";
     if (comp) {
         const ao = comp.address || {};
         smpAddr1 = (ao.addressLine1 || "").trim();
@@ -107,8 +122,8 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
     }
 
     let dealAddr = deal ? (deal.Address || "").trim() : "";
-    let a1 = smpAddr1 || dealAddr;
-    let a2 = smpAddr2;
+    let a1 = dealAddr;
+    let a2 = null;
 
     if (!a2) {
         const split = splitAddress(a1);
@@ -137,7 +152,11 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
     let acctOpenDate = "";
     if (deal) {
         const appDate = String(deal.Application_Date || "").trim();
-        if (appDate && !["null", "None"].includes(appDate) && appDate.length >= 10) {
+        if (
+            appDate &&
+            !["null", "None"].includes(appDate) &&
+            appDate.length >= 10
+        ) {
             acctOpenDate = appDate.slice(0, 10);
         }
     }
@@ -165,22 +184,33 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
         const existingDob = String(existing.Date_of_Birth || "");
         const existingCreditScore = String(existing.Credit_Score || "");
 
-        if (!dobFormatted && existingDob && !["null", "None", ""].includes(existingDob)) {
+        if (
+            !dobFormatted &&
+            existingDob &&
+            !["null", "None", ""].includes(existingDob)
+        ) {
             dobFormatted = normalizeDob(existingDob);
         }
-        if (["", "null", "None", "0"].includes(dealCreditScore) && !["", "null", "None", "0"].includes(existingCreditScore)) {
+        if (
+            ["", "null", "None", "0"].includes(dealCreditScore) &&
+            !["", "null", "None", "0"].includes(existingCreditScore)
+        ) {
             dealCreditScore = existingCreditScore;
         }
     }
 
     // Former debtor = not debtor now, but has stored delinq date
-    const wasFormer = !isDebtor && !["", "null", "None"].includes(existingDelinqDate);
+    const wasFormer =
+        !isDebtor && !["", "null", "None"].includes(existingDelinqDate);
 
     // ── Highest Credit = Credit Score ──
     let highestCredit = 0;
     if (dealCreditScore && !["null", "None", "0"].includes(dealCreditScore)) {
         highestCredit = Math.floor(Number(dealCreditScore)) || 0;
-    } else if (smpCreditScore && !["null", "None", "0"].includes(smpCreditScore)) {
+    } else if (
+        smpCreditScore &&
+        !["null", "None", "0"].includes(smpCreditScore)
+    ) {
         highestCredit = Math.floor(Number(smpCreditScore)) || 0;
     }
     if (!highestCredit && dbEntry.credit_score) {
@@ -197,7 +227,8 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
 
     // ── Payment History Profile (24-char) ──
     const hasOpenDate = acctOpenDate !== "";
-    let openYear = 0, openMonth = 0;
+    let openYear = 0,
+        openMonth = 0;
     if (hasOpenDate) {
         openYear = parseInt(acctOpenDate.slice(0, 4));
         openMonth = parseInt(acctOpenDate.slice(5, 7));
@@ -205,13 +236,20 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
 
     // Parse delinquency date
     let hasDelinqDate = false;
-    let delinqYear = 0, delinqMonth = 0;
+    let delinqYear = 0,
+        delinqMonth = 0;
     if (dateFirstDelinquency && dateFirstDelinquency.length >= 7) {
         hasDelinqDate = true;
         delinqYear = parseInt(dateFirstDelinquency.slice(0, 4));
         delinqMonth = parseInt(dateFirstDelinquency.slice(5, 7));
-    } else if (existingDelinqDate && !["null", "None", ""].includes(existingDelinqDate)) {
-        if (existingDelinqDate.includes("-") && existingDelinqDate.length >= 7) {
+    } else if (
+        existingDelinqDate &&
+        !["null", "None", ""].includes(existingDelinqDate)
+    ) {
+        if (
+            existingDelinqDate.includes("-") &&
+            existingDelinqDate.length >= 7
+        ) {
             hasDelinqDate = true;
             delinqYear = parseInt(existingDelinqDate.slice(0, 4));
             delinqMonth = parseInt(existingDelinqDate.slice(5, 7));
@@ -224,7 +262,8 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
 
     // Parse closed date
     let hasClosedDate = false;
-    let closedYear = 0, closedMonth = 0;
+    let closedYear = 0,
+        closedMonth = 0;
     if (dateClosed && dateClosed.length >= 7) {
         hasClosedDate = true;
         closedYear = parseInt(dateClosed.slice(0, 4));
@@ -260,11 +299,18 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
         let code = "0";
 
         // Before account opened → B
-        if (hasOpenDate && (mYear < openYear || (mYear === openYear && mMonth < openMonth))) {
+        if (
+            hasOpenDate &&
+            (mYear < openYear || (mYear === openYear && mMonth < openMonth))
+        ) {
             code = "B";
         }
         // After close + grace → D
-        else if (hasClosedDate && closeDStartAbs > 0 && mAbs >= closeDStartAbs) {
+        else if (
+            hasClosedDate &&
+            closeDStartAbs > 0 &&
+            mAbs >= closeDStartAbs
+        ) {
             code = "D";
         }
         // Collection / GGR placement means the account is in collections
@@ -278,11 +324,16 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
             code = "B";
         }
         // Delinquent period → graduated codes
-        else if (hasDelinqDate && (mYear > delinqYear || (mYear === delinqYear && mMonth >= delinqMonth))) {
+        else if (
+            hasDelinqDate &&
+            (mYear > delinqYear ||
+                (mYear === delinqYear && mMonth >= delinqMonth))
+        ) {
             if (hasClosedDate && closeDStartAbs > 0 && mAbs >= closeDStartAbs) {
                 code = "D";
             } else {
-                const monthsPast = (mYear - delinqYear) * 12 + (mMonth - delinqMonth);
+                const monthsPast =
+                    (mYear - delinqYear) * 12 + (mMonth - delinqMonth);
                 if (monthsPast <= 0) code = "0";
                 else if (monthsPast <= 6) code = String(monthsPast);
                 else code = "G";
@@ -328,7 +379,7 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
 
     return {
         clientId: cid,
-        companyName: comp ? (comp.name || "").trim() : (dbEntry.company || ""),
+        companyName: comp ? (comp.name || "").trim() : dbEntry.company || "",
 
         // Section A
         associationCode: "1",
