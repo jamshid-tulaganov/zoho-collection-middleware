@@ -94,6 +94,12 @@ export const env = {
     WEX_EMAIL: process.env.WEX_EMAIL || "",
     WEX_PASSWORD: process.env.WEX_PASSWORD || "",
     WEX_HEADLESS: process.env.WEX_HEADLESS !== "false",
+
+    // Local Playwright daemon (runs on team machine, proxied from Render)
+    DAEMON_URL: process.env.DAEMON_URL || "http://localhost:9002",
+    DAEMON_AUTH_TOKEN: process.env.DAEMON_AUTH_TOKEN || "",
+    DAEMON_ENABLED: process.env.DAEMON_ENABLED !== "false",
+    DAEMON_REQUEST_TIMEOUT_MS: Number(process.env.DAEMON_REQUEST_TIMEOUT_MS || 35000),
 };
 
 export function validateEnvironment() {

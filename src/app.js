@@ -5,6 +5,7 @@ import hooksRouter from "./routes/hooks.js";
 import reportsRouter from "./routes/reports.js";
 import carrierDbRouter from "./routes/carrierDb.js";
 import telegramRouter from "./routes/telegram.js";
+import dobSyncRouter from "./routes/dobSync.js";
 // isoftpull routes loaded conditionally (requires playwright — local only)
 let isoftpullRouter = null;
 try {
@@ -68,8 +69,11 @@ export function createApp() {
     // ── iSoftPull credit soft-pull (local only — requires playwright) ──
     if (isoftpullRouter) app.use("/isoftpull", isoftpullRouter);
 
-    // ── WEX DOB lookup (local only — requires playwright) ──
+    // ── WEX DOB lookup ──
     if (wexRouter) app.use("/wex", wexRouter);
+
+    // ── DOB Sync Orchestrator (WEX + iSoftPull via daemon) ──
+    app.use("/dob-sync", dobSyncRouter);
 
     // Convenience aliases matching the carrier-db plan
     const triggerCarrierDbSync = async (req, res) => {

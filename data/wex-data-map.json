@@ -1,0 +1,250 @@
+{
+  "_description": "WEX (Salesforce Experience Cloud) data structure map — discovered by exploring the portal",
+  "_portal_url": "https://wexinc.my.site.com/communities/s",
+  "_login_user": "TSS Fuel Team",
+  "_discovered_at": "2026-03-26",
+
+  "navigation": {
+    "search": "Global search bar at top — searches across all object types",
+    "search_categories": ["All", "Leads", "Opportunities", "Application Requests", "Online Applications", "Beneficial Owner Information", "Files", "Campaigns"],
+    "top_nav": ["Home", "Sales", "Analytics", "Libraries"],
+    "search_url_pattern": "https://wexinc.my.site.com/communities/s/global-search/{query}",
+    "app_detail_url_pattern": "https://wexinc.my.site.com/communities/s/onlineapplication/{salesforce_record_id}/{app_name}",
+    "record_detail_url_pattern": "https://wexinc.my.site.com/communities/s/detail/{salesforce_record_id}",
+    "related_list_url_pattern": "https://wexinc.my.site.com/communities/s/relatedlist/{parent_record_id}/{relationship_api_name}"
+  },
+
+  "data_path_to_dob": [
+    "1. Search by company name → Online Applications results",
+    "2. Click OnlineApplication record → get BOE link (Beneficial Owner Information)",
+    "3. Click BOE link → get Beneficial Owners related list",
+    "4. Click BOP (Beneficial Owner Prong) record → DOB is here"
+  ],
+
+  "objects": {
+    "OnlineApplication__c": {
+      "description": "Main application record — one per client registration",
+      "search_result_columns": ["Legal Business Name", "State/Province", "Offer", "Application Stage", "Status", "Credit Decision", "Created By", "Created Date"],
+      "key_fields": {
+        "header": {
+          "Application_Name": "Application-799329",
+          "Carrier_ID_Number__c": "NOTE: This field exists but was NOT visible in the test record — may only be populated for approved apps",
+          "Offer": "Octane Partner Funded",
+          "Program": "Octane Partner Funded",
+          "Account": "CNN Enterprise LLC (link to Account object)",
+          "Opportunity": "CNN Enterprise LLC (link to Opportunity object)",
+          "Beneficial_Owner_Status": "Passed",
+          "Beneficial_Owner_Information__c": "BOE-20250527-2141947 (link to BOE record — THIS IS THE KEY LINK TO DOB)",
+          "Internal_Info": "free text notes",
+          "Num_Cards_Needed": 2,
+          "Membership_Number": "",
+          "Offer_Name_WF_TXT": "TruckStaff Solutions Partner Funded",
+          "Contract_Number": ""
+        },
+        "right_side": {
+          "Currency": "USD - U.S. Dollar",
+          "Projected_Spend": "USD 0.00",
+          "Team_Drivers_Slip_Seat": "",
+          "Credit_Line_Approved": "USD 0.00",
+          "Business_Verification_Source": "DNB",
+          "Other_Business_Verification": "",
+          "Decision_Comments": "",
+          "Auto_Decision_Comments": "Application failed due to high risk activity, not eligible for resubmit.",
+          "Internal_Review_Recommendation": "Recommend Decline",
+          "Platform": "LLC - EFS Child",
+          "Credit_Info_Status": "",
+          "Funding": "Partner Funded"
+        },
+        "credit_decisioning_section": "collapsed — likely has credit score data",
+        "company_information_section": {
+          "Promotional_Code": "",
+          "Type_of_Business": "Limited Liability Company",
+          "Legal_Business_Name__c": "CNN Enterprise LLC",
+          "Federal_Tax_ID": "334513949",
+          "Trade_Name": "CNN Enterprise LLC",
+          "MC_Number": "",
+          "Street_Address": "625 N. Patrick St. Apt.200",
+          "DOT_Number": "4395166"
+        },
+        "payment_section": {
+          "Payment_Method": "",
+          "Prepaid": "",
+          "Invoice_Delivery": "Email",
+          "Security_Deposit": "",
+          "Days_Of_Payment": "",
+          "Security_Deposit_Amount": "",
+          "Payment_Frequency": "",
+          "Payment_Terms": "",
+          "Account_Type": ""
+        },
+        "bank_account_setup": {
+          "Financial_Institution": "",
+          "Checking_Account_Number": "",
+          "ABA_Routing_Number": ""
+        },
+        "proprietor_section": {
+          "_description": "Proprietor, Partner, or Corporate Officer — this has DOB but may be empty",
+          "First_Name": "Nikki",
+          "Last_Name": "Asberry",
+          "Title": "Other Officer",
+          "Date_of_Birth": "EMPTY in this record (DOB is in BOP instead)",
+          "Social_Security_Number": "",
+          "Home_Address": "",
+          "City": "",
+          "State_Province": "",
+          "Zip_Code": "",
+          "Country": "US",
+          "Work_Email": "",
+          "Home_Phone": ""
+        },
+        "card_setup_section": {
+          "Card_Shipping_Attention": "",
+          "Embossing_Line_1_Company_Name": "CNN Enterprise LLC",
+          "Card_Shipping_First_Name": "Nikki",
+          "Card_Shipping_Last_Name": "Asberry",
+          "Card_Shipping_Address_Line_1": "625 N. Patrick St. Apt.200",
+          "Card_Shipping_Address_Line_2": "",
+          "Card_Shipping_City": "Alexandria",
+          "Card_Shipping_State_Province": "VA",
+          "Card_Shipping_Postal_Code": "22314",
+          "Card_Shipping_Country": "US",
+          "ULSD_Fuel_Quantity": 200,
+          "Daily_Cash_Limit": "USD 0.00",
+          "Daily_DEF_Gallons": 30,
+          "Propane_Quantity": 0,
+          "Gasoline_Quantity": "",
+          "Natural_Gas_Quantity": 0
+        },
+        "system_information": {
+          "Created_By": "CreditApplication Site Guest User, 5/27/2025 11:40 AM",
+          "Last_Modified_By": "Kathleen Scroggins, 6/12/2025 4:40 PM"
+        }
+      },
+      "related_lists": {
+        "Activities": "tasks and events",
+        "Notes_Attachments": "uploaded documents (e.g. application PDF)",
+        "Authorized_Contacts": "first name, last name, phone number",
+        "Driver_Setups": "",
+        "Online_Application_History": "audit trail of status changes"
+      }
+    },
+
+    "Beneficial_Owner_Information__c": {
+      "description": "BOE — Beneficial Owner Entity — links OnlineApplication to individual Beneficial Owners",
+      "salesforce_id_prefix": "a2d",
+      "name_format": "BOE-YYYYMMDD-NNNNNNN",
+      "key_fields": {
+        "Record_Type": "Fleet Card - Locked",
+        "Beneficial_Owner_Entity_Name": "BOE-20250527-2141947",
+        "Owner": "Salesforce Integration",
+        "Record_Status": "Active",
+        "Currency": "USD - U.S. Dollar",
+        "No_Beneficial_Owners": false,
+        "Program": ""
+      },
+      "entity_information": {
+        "Account": "CNN Enterprise LLC",
+        "Legal_Structure": "Limited Liability Company",
+        "Opportunity": "CNN Enterprise LLC",
+        "Verification_Status": "Passed",
+        "Online_Application": "Application-799329",
+        "Certified_By": "Nikki Asberry",
+        "Language_Preference": "English",
+        "Certified_Date": "5/27/2025",
+        "Country_Code": "US",
+        "Beneficial_Owner_Signed_Date": "5/27/2025"
+      },
+      "related_lists": {
+        "Beneficial_Owners__r": "THE KEY RELATED LIST — contains individual BOP records with DOB",
+        "Notes_Attachments": "",
+        "Beneficial_Owner_Information_History": "audit trail"
+      }
+    },
+
+    "Beneficial_Owner_Prong__c": {
+      "description": "BOP — Individual beneficial owner record — THIS IS WHERE DOB LIVES",
+      "salesforce_id_prefix": "a2o",
+      "name_format": "BOP-YYYYMMDD-NNNNNNN",
+      "record_types": ["Beneficial Owner – Locked", "Control Person – Locked"],
+      "key_fields": {
+        "information": {
+          "Beneficial_Owner_Name": "BOP-20250527-3012570",
+          "Verification_Status": "Passed",
+          "Beneficial_Owner_Entity": "BOE-20250527-2141947 (link back to parent BOE)",
+          "Verification_Failures": ""
+        },
+        "beneficial_owner_information": {
+          "First_Name__c": "Nikki",
+          "Last_Name__c": "Asberry",
+          "Title": "Manager",
+          "Date_Of_Birth__c": "10/16/1981 ← THIS IS THE DOB WE NEED",
+          "Social_Security_Number": "XXX-XX-7276 (masked)",
+          "Passport_Number_Other_Government_ID": "",
+          "Country_Of_Issue": "",
+          "Address_Line_1": "5970 Annaberg Pl",
+          "Address_Line_2": "",
+          "City": "Burke",
+          "State": "VA",
+          "Postal_Code": "22015",
+          "Country": "United States"
+        },
+        "lexis_nexis_response": "collapsed section — may have additional verification data"
+      },
+      "system_information": {
+        "Created_By": "CreditApplication Site Guest User",
+        "Last_Modified_By": "Kathleen Scroggins"
+      }
+    }
+  },
+
+  "aura_api_patterns": {
+    "base_url": "https://wexinc.my.site.com/communities/s/sfsites/aura",
+    "method": "POST",
+    "content_type": "application/x-www-form-urlencoded; charset=UTF-8",
+    "key_endpoints": {
+      "search": "SearchUiController.searchResultsKeyword — global search by company name",
+      "get_record": "aura.RecordUi.getRecordWithFields — get record fields by ID",
+      "get_related_list": "RelatedListContainerDataProvider.getRecords — get child records (e.g. Beneficial Owners from BOE)",
+      "get_record_gvp": "RecordGvp.getRecord — another way to get record data"
+    },
+    "auth": {
+      "method": "Aura CSRF token extracted from page JavaScript after login",
+      "token_location": "window.$A.getToken() or window.$A.Hi.client.Ac",
+      "session": "Salesforce session cookies (sid, etc.) — persisted via Playwright storageState"
+    },
+    "fwuid": "VEhtaDlVRkdCeTJiZFhuOTVYYjRJQTJEa1N5enhOU3R5QWl2VzNveFZTbGcxMy4tMjE0NzQ4MzY0OC4xMzEwNzIwMA",
+    "app": "siteforce:communityApp"
+  },
+
+  "matching_strategy": {
+    "problem": "WEX has no carrierId field — must match by company name + personal data validation",
+    "primary_match": "Search WEX by company name → check Legal_Business_Name matches",
+    "validation_fields": {
+      "from_carrier_db": ["company", "derived.first_name", "derived.last_name", "derived.addr1", "derived.city", "derived.state", "derived.zip"],
+      "from_wex_bop": ["First_Name__c", "Last_Name__c", "Address_Line_1", "City", "State", "Postal_Code"],
+      "from_wex_app": ["Legal_Business_Name__c", "Street_Address", "Federal_Tax_ID", "DOT_Number"]
+    },
+    "confidence_scoring": "match on name + at least 2 address fields = high confidence"
+  },
+
+  "example_record": {
+    "carrier_id": "14187",
+    "company": "CNN Enterprise LLC",
+    "wex_app_id": "a3PVP000001LxcP2AS",
+    "wex_app_name": "Application-799329",
+    "wex_boe_id": "a2dVP0000040bgPYAQ",
+    "wex_boe_name": "BOE-20250527-2141947",
+    "wex_bop_id": "a2oVP00000EcbeRYAR",
+    "wex_bop_name": "BOP-20250527-3012570",
+    "owner_first_name": "Nikki",
+    "owner_last_name": "Asberry",
+    "dob": "10/16/1981",
+    "address": "5970 Annaberg Pl",
+    "city": "Burke",
+    "state": "VA",
+    "zip": "22015",
+    "ssn_last4": "7276",
+    "federal_tax_id": "334513949",
+    "dot_number": "4395166"
+  }
+}
