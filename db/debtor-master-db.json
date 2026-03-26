@@ -7026,7 +7026,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "02021984"
+    }
   },
   "5748618": {
     "carrier_id": "5748618",
@@ -18083,7 +18086,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "10021984"
+    }
   },
   "5753682": {
     "carrier_id": "5753682",
@@ -18505,7 +18511,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "04071964"
+    }
   },
   "5753692": {
     "carrier_id": "5753692",
@@ -20319,7 +20328,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "06211978"
+    }
   },
   "5754016": {
     "carrier_id": "5754016",
@@ -25900,7 +25912,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "03251994"
+    }
   },
   "5756252": {
     "carrier_id": "5756252",
@@ -33985,7 +34000,10 @@
       }
     },
     "total_debt": 6334.6,
-    "total_collected": 4066.19
+    "total_collected": 4066.19,
+    "derived": {
+      "dob": "08261991"
+    }
   },
   "5758152": {
     "carrier_id": "5758152",
@@ -39924,7 +39942,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "10161992"
+    }
   },
   "5758867": {
     "carrier_id": "5758867",
@@ -41235,7 +41256,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "06061974"
+    }
   },
   "5759007": {
     "carrier_id": "5759007",
@@ -42285,7 +42309,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "09261993"
+    }
   },
   "5759268": {
     "carrier_id": "5759268",
@@ -43418,7 +43445,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "08101993"
+    }
   },
   "5759656": {
     "carrier_id": "5759656",
@@ -46052,7 +46082,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "03151988"
+    }
   },
   "5759786": {
     "carrier_id": "5759786",
@@ -49009,7 +49042,10 @@
       }
     },
     "total_debt": 10348.37,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "09081972"
+    }
   },
   "5760423": {
     "carrier_id": "5760423",
@@ -50109,7 +50145,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "03071998"
+    }
   },
   "5760497": {
     "carrier_id": "5760497",
@@ -51403,7 +51442,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "01301968"
+    }
   },
   "5760572": {
     "carrier_id": "5760572",
@@ -55196,7 +55238,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "09031994"
+    }
   },
   "5761262": {
     "carrier_id": "5761262",
@@ -55978,7 +56023,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "07251979"
+    }
   },
   "5761378": {
     "carrier_id": "5761378",
@@ -58934,7 +58982,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "03151981"
+    }
   },
   "5761804": {
     "carrier_id": "5761804",
@@ -64095,7 +64146,10 @@
       }
     },
     "total_debt": 1630.71,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "08091984"
+    }
   },
   "5762849": {
     "carrier_id": "5762849",
@@ -66236,7 +66290,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "11051983"
+    }
   },
   "5763108": {
     "carrier_id": "5763108",
@@ -68676,7 +68733,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "03271988"
+    }
   },
   "5763634": {
     "carrier_id": "5763634",
@@ -70687,7 +70747,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "12191987"
+    }
   },
   "5763682": {
     "carrier_id": "5763682",
@@ -75423,7 +75486,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "01051963"
+    }
   },
   "5764245": {
     "carrier_id": "5764245",
@@ -78421,7 +78487,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "07051979"
+    }
   },
   "5764487": {
     "carrier_id": "5764487",
@@ -79920,7 +79989,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "11101979"
+    }
   },
   "5765070": {
     "carrier_id": "5765070",
@@ -82054,7 +82126,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "02281967"
+    }
   },
   "5765344": {
     "carrier_id": "5765344",
@@ -86955,7 +87030,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "08061956"
+    }
   },
   "5765976": {
     "carrier_id": "5765976",
@@ -92483,7 +92561,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "11101979"
+    }
   },
   "5766620": {
     "carrier_id": "5766620",
@@ -93298,7 +93379,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "02271982"
+    }
   },
   "5766669": {
     "carrier_id": "5766669",
@@ -101999,7 +102083,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "04102001"
+    }
   },
   "5767536": {
     "carrier_id": "5767536",
@@ -109625,7 +109712,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "10311984"
+    }
   },
   "5768319": {
     "carrier_id": "5768319",
@@ -110627,7 +110717,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "10161988"
+    }
   },
   "5768328": {
     "carrier_id": "5768328",
@@ -112425,7 +112518,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "11271978"
+    }
   },
   "5768461": {
     "carrier_id": "5768461",
@@ -113918,7 +114014,10 @@
       }
     },
     "total_debt": 18298.34,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "04201985"
+    }
   },
   "5768547": {
     "carrier_id": "5768547",
@@ -114680,7 +114779,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "04081992"
+    }
   },
   "5768548": {
     "carrier_id": "5768548",
@@ -123968,7 +124070,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "08261975"
+    }
   },
   "5769595": {
     "carrier_id": "5769595",
@@ -127525,7 +127630,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "01191988"
+    }
   },
   "5770043": {
     "carrier_id": "5770043",
@@ -129901,7 +130009,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "09271990"
+    }
   },
   "5770327": {
     "carrier_id": "5770327",
@@ -131418,7 +131529,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "10091983"
+    }
   },
   "5770598": {
     "carrier_id": "5770598",
@@ -132466,7 +132580,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "02051992"
+    }
   },
   "5770699": {
     "carrier_id": "5770699",
@@ -133331,7 +133448,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "09031962"
+    }
   },
   "5770757": {
     "carrier_id": "5770757",
@@ -133733,7 +133853,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "08141997"
+    }
   },
   "5770904": {
     "carrier_id": "5770904",
@@ -138261,7 +138384,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "06031965"
+    }
   },
   "5771295": {
     "carrier_id": "5771295",
@@ -143274,7 +143400,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "07091989"
+    }
   },
   "5771615": {
     "carrier_id": "5771615",
@@ -152927,7 +153056,10 @@
     },
     "total_debt": 0,
     "total_collected": 0,
-    "dob": "04111986"
+    "dob": "04111986",
+    "derived": {
+      "dob": "03101988"
+    }
   },
   "5772438": {
     "carrier_id": "5772438",
@@ -219405,7 +219537,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "12091985"
+    }
   },
   "5778121": {
     "carrier_id": "5778121",
@@ -225152,7 +225287,10 @@
     },
     "total_debt": 0,
     "total_collected": 0,
-    "dob": "05031997"
+    "dob": "05031997",
+    "derived": {
+      "dob": "04091993"
+    }
   },
   "5778516": {
     "carrier_id": "5778516",
@@ -258873,7 +259011,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "08221977"
+    }
   },
   "5781279": {
     "carrier_id": "5781279",
@@ -260136,7 +260277,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "11091987"
+    }
   },
   "5781411": {
     "carrier_id": "5781411",
@@ -261913,7 +262057,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "12181986"
+    }
   },
   "5781577": {
     "carrier_id": "5781577",
@@ -262297,7 +262444,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "01251993"
+    }
   },
   "5781679": {
     "carrier_id": "5781679",
@@ -263014,7 +263164,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "12021979"
+    }
   },
   "5781747": {
     "carrier_id": "5781747",
@@ -263166,7 +263319,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "02241978"
+    }
   },
   "5781775": {
     "carrier_id": "5781775",
@@ -263718,7 +263874,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "03181970"
+    }
   },
   "5781827": {
     "carrier_id": "5781827",
@@ -265743,7 +265902,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "01281986"
+    }
   },
   "5781857": {
     "carrier_id": "5781857",
@@ -266115,7 +266277,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "06231985"
+    }
   },
   "5781858": {
     "carrier_id": "5781858",
@@ -266547,7 +266712,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "01111983"
+    }
   },
   "5781860": {
     "carrier_id": "5781860",
@@ -269334,7 +269502,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "04251986"
+    }
   },
   "5781893": {
     "carrier_id": "5781893",
@@ -279476,7 +279647,10 @@
       }
     },
     "total_debt": 1673.67,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "04141988"
+    }
   },
   "5782910": {
     "carrier_id": "5782910",
@@ -282733,7 +282907,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "07071986"
+    }
   },
   "5783039": {
     "carrier_id": "5783039",
@@ -285793,7 +285970,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "05201993"
+    }
   },
   "5783281": {
     "carrier_id": "5783281",
@@ -288139,7 +288319,10 @@
       }
     },
     "total_debt": 648.58,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "04301983"
+    }
   },
   "5783514": {
     "carrier_id": "5783514",
@@ -293270,7 +293453,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "08241981"
+    }
   },
   "5783933": {
     "carrier_id": "5783933",
@@ -295335,7 +295521,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "11231995"
+    }
   },
   "5783995": {
     "carrier_id": "5783995",
@@ -297469,7 +297658,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "06201978"
+    }
   },
   "5784150": {
     "carrier_id": "5784150",
@@ -299255,7 +299447,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "10111992"
+    }
   },
   "5784325": {
     "carrier_id": "5784325",
@@ -300037,7 +300232,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "10011971"
+    }
   },
   "5784330": {
     "carrier_id": "5784330",
@@ -303885,7 +304083,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "02121977"
+    }
   },
   "5784825": {
     "carrier_id": "5784825",
@@ -306970,7 +307171,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "12291972"
+    }
   },
   "5785244": {
     "carrier_id": "5785244",
@@ -311397,7 +311601,10 @@
       }
     },
     "total_debt": 168.81,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "05271984"
+    }
   },
   "5785513": {
     "carrier_id": "5785513",
@@ -311714,7 +311921,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "01261971"
+    }
   },
   "5785514": {
     "carrier_id": "5785514",
@@ -322950,7 +323160,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "08221985"
+    }
   },
   "5786069": {
     "carrier_id": "5786069",
@@ -323457,7 +323670,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "03151986"
+    }
   },
   "5786071": {
     "carrier_id": "5786071",
@@ -324417,7 +324633,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "06091988"
+    }
   },
   "5786264": {
     "carrier_id": "5786264",
@@ -328885,7 +329104,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "06171988"
+    }
   },
   "5786847": {
     "carrier_id": "5786847",
@@ -333741,7 +333963,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "07291990"
+    }
   },
   "5787191": {
     "carrier_id": "5787191",
@@ -334048,7 +334273,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "05171979"
+    }
   },
   "5787193": {
     "carrier_id": "5787193",
@@ -334743,7 +334971,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "04111985"
+    }
   },
   "5787268": {
     "carrier_id": "5787268",
@@ -335663,7 +335894,10 @@
       }
     },
     "total_debt": 2456.99,
-    "total_collected": 2456.99
+    "total_collected": 2456.99,
+    "derived": {
+      "dob": "06181980"
+    }
   },
   "5787384": {
     "carrier_id": "5787384",
@@ -338032,7 +338266,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "01221983"
+    }
   },
   "5787808": {
     "carrier_id": "5787808",
@@ -342550,7 +342787,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "05291982"
+    }
   },
   "5788390": {
     "carrier_id": "5788390",
@@ -344242,7 +344482,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "11031991"
+    }
   },
   "5788531": {
     "carrier_id": "5788531",
@@ -351756,7 +351999,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "03221999"
+    }
   },
   "5789319": {
     "carrier_id": "5789319",
@@ -355296,7 +355542,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "04201988"
+    }
   },
   "5789481": {
     "carrier_id": "5789481",
@@ -358328,7 +358577,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "03131994"
+    }
   },
   "5789810": {
     "carrier_id": "5789810",
@@ -360462,7 +360714,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "10211960"
+    }
   },
   "5789993": {
     "carrier_id": "5789993",
@@ -362656,7 +362911,10 @@
       }
     },
     "total_debt": 1167.33,
-    "total_collected": 1167.33
+    "total_collected": 1167.33,
+    "derived": {
+      "dob": "11231987"
+    }
   },
   "5790286": {
     "carrier_id": "5790286",
@@ -363028,7 +363286,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "10141978"
+    }
   },
   "5790317": {
     "carrier_id": "5790317",
@@ -364002,7 +364263,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "02011977"
+    }
   },
   "5790434": {
     "carrier_id": "5790434",
@@ -369539,7 +369803,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "09171997"
+    }
   },
   "5790851": {
     "carrier_id": "5790851",
@@ -372057,7 +372324,10 @@
       }
     },
     "total_debt": 683.09,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "03231980"
+    }
   },
   "5791238": {
     "carrier_id": "5791238",
@@ -385076,7 +385346,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "05021984"
+    }
   },
   "5792532": {
     "carrier_id": "5792532",
@@ -397103,7 +397376,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "09281987"
+    }
   },
   "5793227": {
     "carrier_id": "5793227",
@@ -404889,7 +405165,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "04081994"
+    }
   },
   "5793633": {
     "carrier_id": "5793633",
@@ -599976,7 +600255,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "03151977"
+    }
   },
   "5806646": {
     "carrier_id": "5806646",
@@ -600829,7 +601111,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "02071994"
+    }
   },
   "5806748": {
     "carrier_id": "5806748",
@@ -602687,7 +602972,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "01111964"
+    }
   },
   "5807093": {
     "carrier_id": "5807093",
@@ -603525,7 +603813,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "05091988"
+    }
   },
   "5807262": {
     "carrier_id": "5807262",
@@ -603577,7 +603868,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "07281974"
+    }
   },
   "5807263": {
     "carrier_id": "5807263",
@@ -604270,7 +604564,10 @@
       }
     },
     "total_debt": 3962.99,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "06291988"
+    }
   },
   "5807321": {
     "carrier_id": "5807321",
@@ -604337,7 +604634,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "10271988"
+    }
   },
   "5807323": {
     "carrier_id": "5807323",
@@ -606218,7 +606518,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "07241997"
+    }
   },
   "5807540": {
     "carrier_id": "5807540",
@@ -607253,7 +607556,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "08161988"
+    }
   },
   "5807591": {
     "carrier_id": "5807591",
@@ -607588,7 +607894,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "04081977"
+    }
   },
   "5807597": {
     "carrier_id": "5807597",
@@ -607850,7 +608159,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "08091995"
+    }
   },
   "5807598": {
     "carrier_id": "5807598",
@@ -608810,7 +609122,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "05091995"
+    }
   },
   "5807749": {
     "carrier_id": "5807749",
@@ -609128,7 +609443,10 @@
       }
     },
     "total_debt": 17322.08,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "01281967"
+    }
   },
   "5807771": {
     "carrier_id": "5807771",
@@ -609295,7 +609613,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "07161974"
+    }
   },
   "5807902": {
     "carrier_id": "5807902",
@@ -609650,7 +609971,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "01161989"
+    }
   },
   "5808006": {
     "carrier_id": "5808006",
@@ -610335,7 +610659,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "12041995"
+    }
   },
   "5808042": {
     "carrier_id": "5808042",
@@ -610677,7 +611004,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "02101989"
+    }
   },
   "5808116": {
     "carrier_id": "5808116",
@@ -611482,7 +611812,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "06301999"
+    }
   },
   "5808215": {
     "carrier_id": "5808215",
@@ -612343,7 +612676,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "07201971"
+    }
   },
   "5808392": {
     "carrier_id": "5808392",
@@ -613238,7 +613574,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "09061985"
+    }
   },
   "5808501": {
     "carrier_id": "5808501",
@@ -614194,7 +614533,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "06051998"
+    }
   },
   "5808547": {
     "carrier_id": "5808547",
@@ -614591,7 +614933,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "05031979"
+    }
   },
   "5808617": {
     "carrier_id": "5808617",
@@ -614863,7 +615208,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "07011995"
+    }
   },
   "5808622": {
     "carrier_id": "5808622",
@@ -615678,7 +616026,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "07051977"
+    }
   },
   "5808807": {
     "carrier_id": "5808807",
@@ -617405,7 +617756,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "05131953"
+    }
   },
   "5808947": {
     "carrier_id": "5808947",
@@ -618440,7 +618794,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "08311991"
+    }
   },
   "5809071": {
     "carrier_id": "5809071",
@@ -620156,7 +620513,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "12171995"
+    }
   },
   "5809223": {
     "carrier_id": "5809223",
@@ -620967,7 +621327,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "03271973"
+    }
   },
   "5809302": {
     "carrier_id": "5809302",
@@ -625364,7 +625727,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "06141988"
+    }
   },
   "5810150": {
     "carrier_id": "5810150",
@@ -625628,7 +625994,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "01051981"
+    }
   },
   "5810275": {
     "carrier_id": "5810275",
@@ -626413,7 +626782,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "07011999"
+    }
   },
   "5810426": {
     "carrier_id": "5810426",
@@ -627223,7 +627595,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "09301976"
+    }
   },
   "5810638": {
     "carrier_id": "5810638",
@@ -628557,7 +628932,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "10071997"
+    }
   },
   "5810857": {
     "carrier_id": "5810857",
@@ -628864,7 +629242,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "04061998"
+    }
   },
   "5810919": {
     "carrier_id": "5810919",
@@ -629644,7 +630025,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "06041986"
+    }
   },
   "5811115": {
     "carrier_id": "5811115",
@@ -630132,7 +630516,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "04031981"
+    }
   },
   "5811144": {
     "carrier_id": "5811144",
@@ -631426,7 +631813,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "04301989"
+    }
   },
   "5811301": {
     "carrier_id": "5811301",
@@ -632046,7 +632436,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "01041990"
+    }
   },
   "5811363": {
     "carrier_id": "5811363",
@@ -632444,7 +632837,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "02031996"
+    }
   },
   "5811550": {
     "carrier_id": "5811550",
@@ -632486,7 +632882,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "03061984"
+    }
   },
   "5811555": {
     "carrier_id": "5811555",
@@ -632903,7 +633302,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "09142002"
+    }
   },
   "5811602": {
     "carrier_id": "5811602",
@@ -633936,7 +634338,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "09291971"
+    }
   },
   "5811706": {
     "carrier_id": "5811706",
@@ -634720,7 +635125,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "02031981"
+    }
   },
   "5811799": {
     "carrier_id": "5811799",
@@ -635150,7 +635558,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "11061981"
+    }
   },
   "5811931": {
     "carrier_id": "5811931",
@@ -638041,7 +638452,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "02071995"
+    }
   },
   "5812198": {
     "carrier_id": "5812198",
@@ -660113,7 +660527,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "11181978"
+    }
   },
   "5817255": {
     "carrier_id": "5817255",
@@ -660298,7 +660715,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "05301980"
+    }
   },
   "5817275": {
     "carrier_id": "5817275",
@@ -660448,7 +660868,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "04201986"
+    }
   },
   "5817286": {
     "carrier_id": "5817286",
@@ -661102,7 +661525,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "01011982"
+    }
   },
   "5817543": {
     "carrier_id": "5817543",
@@ -661134,7 +661560,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "12231958"
+    }
   },
   "5817546": {
     "carrier_id": "5817546",
@@ -661539,7 +661968,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "11291976"
+    }
   },
   "5817690": {
     "carrier_id": "5817690",
@@ -661571,7 +662003,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "03292002"
+    }
   },
   "5817695": {
     "carrier_id": "5817695",
@@ -661724,7 +662159,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "11211982"
+    }
   },
   "5817720": {
     "carrier_id": "5817720",
@@ -661831,7 +662269,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "05061984"
+    }
   },
   "5817724": {
     "carrier_id": "5817724",
@@ -661946,7 +662387,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "03121979"
+    }
   },
   "5817806": {
     "carrier_id": "5817806",
@@ -662046,7 +662490,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "02151993"
+    }
   },
   "5817808": {
     "carrier_id": "5817808",
@@ -662121,7 +662568,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "09221974"
+    }
   },
   "5817816": {
     "carrier_id": "5817816",
@@ -662175,7 +662625,10 @@
       }
     },
     "total_debt": 2227.82,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "01041991"
+    }
   },
   "5817867": {
     "carrier_id": "5817867",
@@ -662222,7 +662675,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "06232003"
+    }
   },
   "5817869": {
     "carrier_id": "5817869",
@@ -662329,7 +662785,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "07221996"
+    }
   },
   "5817878": {
     "carrier_id": "5817878",
@@ -662371,7 +662830,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "03271993"
+    }
   },
   "5817955": {
     "carrier_id": "5817955",
@@ -662559,7 +663021,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "05061996"
+    }
   },
   "5817964": {
     "carrier_id": "5817964",
@@ -662646,7 +663111,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "12131985"
+    }
   },
   "5817968": {
     "carrier_id": "5817968",
@@ -662861,7 +663329,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "01221993"
+    }
   },
   "5818083": {
     "carrier_id": "5818083",
@@ -662938,7 +663409,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "07271989"
+    }
   },
   "5818107": {
     "carrier_id": "5818107",
@@ -663372,7 +663846,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "10121968"
+    }
   },
   "5818217": {
     "carrier_id": "5818217",
@@ -663726,7 +664203,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "03041999"
+    }
   },
   "5818417": {
     "carrier_id": "5818417",
@@ -663758,7 +664238,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "09241981"
+    }
   },
   "5818558": {
     "carrier_id": "5818558",
@@ -663835,7 +664318,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "01011980"
+    }
   },
   "5818580": {
     "carrier_id": "5818580",
@@ -664217,7 +664703,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "02241991"
+    }
   },
   "5818771": {
     "carrier_id": "5818771",
@@ -664294,7 +664783,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "10171995"
+    }
   },
   "5818972": {
     "carrier_id": "5818972",
@@ -664445,7 +664937,10 @@
       }
     },
     "total_debt": 13997.31,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "12311988"
+    }
   },
   "5819003": {
     "carrier_id": "5819003",
@@ -664675,7 +665170,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "11061958"
+    }
   },
   "5819105": {
     "carrier_id": "5819105",
@@ -664916,7 +665414,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "06221989"
+    }
   },
   "5819171": {
     "carrier_id": "5819171",
@@ -664958,7 +665459,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "06301997"
+    }
   },
   "5819172": {
     "carrier_id": "5819172",
@@ -664990,7 +665494,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "08091989"
+    }
   },
   "5819176": {
     "carrier_id": "5819176",
@@ -665052,7 +665559,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "09071993"
+    }
   },
   "5819180": {
     "carrier_id": "5819180",
@@ -665299,7 +665809,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "07221976"
+    }
   },
   "5819296": {
     "carrier_id": "5819296",
@@ -665432,7 +665945,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "02261985"
+    }
   },
   "5819398": {
     "carrier_id": "5819398",
@@ -665538,7 +666054,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "11211955"
+    }
   },
   "5819527": {
     "carrier_id": "5819527",
@@ -665815,7 +666334,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "06231978"
+    }
   },
   "5819692": {
     "carrier_id": "5819692",
@@ -666138,7 +666660,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "08131986"
+    }
   },
   "5819800": {
     "carrier_id": "5819800",
@@ -666255,7 +666780,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "04161983"
+    }
   },
   "5820110": {
     "carrier_id": "5820110",
@@ -666297,7 +666825,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "12181994"
+    }
   },
   "5820111": {
     "carrier_id": "5820111",
@@ -666372,7 +666903,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "11301991"
+    }
   },
   "5820151": {
     "carrier_id": "5820151",
@@ -666404,7 +666938,10 @@
       }
     },
     "total_debt": 0,
-    "total_collected": 0
+    "total_collected": 0,
+    "derived": {
+      "dob": "02251984"
+    }
   },
   "5820270": {
     "carrier_id": "5820270",
