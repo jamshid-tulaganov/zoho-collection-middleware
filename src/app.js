@@ -10,6 +10,11 @@ let isoftpullRouter = null;
 try {
     isoftpullRouter = (await import("./routes/isoftpull.js")).default;
 } catch (_) {}
+// wex routes loaded conditionally (requires playwright — local only)
+let wexRouter = null;
+try {
+    wexRouter = (await import("./routes/wex.js")).default;
+} catch (_) {}
 import { runFullSync, runDebtorSync, getSyncStatus } from "./services/sync.js";
 import {
     getCarrierDbSyncStatus,
@@ -62,6 +67,9 @@ export function createApp() {
 
     // ── iSoftPull credit soft-pull (local only — requires playwright) ──
     if (isoftpullRouter) app.use("/isoftpull", isoftpullRouter);
+
+    // ── WEX DOB lookup (local only — requires playwright) ──
+    if (wexRouter) app.use("/wex", wexRouter);
 
     // Convenience aliases matching the carrier-db plan
     const triggerCarrierDbSync = async (req, res) => {

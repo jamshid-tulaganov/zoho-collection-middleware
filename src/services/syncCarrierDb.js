@@ -858,12 +858,22 @@ export async function runCarrierDbSync() {
                         creditScore = safeNum(existingDerived.credit_score);
                     }
 
+                    // ── Preserve existing WEX data (populated by syncWexDob) ──
+                    const wexBlock = existingEntry.wex || null;
+
+                    // ── WEX DOB takes priority if present ──
+                    const wexDob = wexBlock?.owners?.find((o) => o.dob)?.dob || "";
+                    const wexDob8 = wexDob
+                        ? wexDob.slice(5, 7) + wexDob.slice(8, 10) + wexDob.slice(0, 4)
+                        : "";
+
                     carrierDb[cid] = {
                         carrier_id: cid,
                         company: accountingEntry?.company || comp?.name?.trim() || dbEntry.company || existingEntry.company || "",
                         smp: smpBlock,
                         zoho: zohoBlock,
                         accounting: accountingEntry,
+                        wex: wexBlock,
                         invoices: smpInvoices.map((inv) => ({
                                 invoice_number: String(inv.invoiceNumber || inv.id || ""),
                                 total_amount: safeNum(inv.totalAmount),
@@ -897,7 +907,7 @@ export async function runCarrierDbSync() {
                             state: preferredContact.state,
                             zip: preferredContact.zip,
                             phone: preferredContact.phone,
-                            dob: metro2.dateOfBirth || dbEntry.dob || existingDerived.dob || "",
+                            dob: wexDob8 || metro2.dateOfBirth || dbEntry.dob || existingDerived.dob || "",
                             credit_score: String(creditScore || accountingEntry?.credit_score || existingDerived.credit_score || ""),
                             date_open: metro2.dateOpenIso || existingDerived.date_open || "",
                             date_first_delinquency: metro2.dateFirstDelinquencyIso || "",

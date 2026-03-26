@@ -89,6 +89,11 @@ export const env = {
     // iSoftPull (Playwright login)
     ISOFTPULL_EMAIL: process.env.ISOFTPULL_EMAIL || "",
     ISOFTPULL_PASSWORD: process.env.ISOFTPULL_PASSWORD || "",
+
+    // WEX (Salesforce Experience Cloud — Playwright login)
+    WEX_EMAIL: process.env.WEX_EMAIL || "",
+    WEX_PASSWORD: process.env.WEX_PASSWORD || "",
+    WEX_HEADLESS: process.env.WEX_HEADLESS !== "false",
 };
 
 export function validateEnvironment() {
