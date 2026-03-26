@@ -217,6 +217,10 @@ function normalizeReportAddress(carrier = {}) {
 
     if (line2) {
         line1 = removeEmbeddedAddressLine(line1, line2);
+        const split = splitSecondaryAddress(line1);
+        if (split.line2) {
+            line1 = split.line1;
+        }
     } else {
         const split = splitSecondaryAddress(line1);
         line1 = split.line1;
