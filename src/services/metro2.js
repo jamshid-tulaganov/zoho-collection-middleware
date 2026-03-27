@@ -260,10 +260,29 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
         closedMonth = parseInt(dateClosed.slice(5, 7));
     }
 
-    // Close grace: D starts 2 months after close month
+    // Active non-debtors with a recent last payment (1-2 months ago)
+    // are treated as recently closed for reporting.
+    let recentPaymentClosed = false;
+    if (!isDebtor && !isClosed && dateOfLastPayment && dateOfLastPayment.length >= 10) {
+        const monthsSinceLastPayment =
+            (RY - parseInt(dateOfLastPayment.slice(0, 4))) * 12 +
+            (RM - parseInt(dateOfLastPayment.slice(5, 7)));
+        if (monthsSinceLastPayment >= 1 && monthsSinceLastPayment <= 2) {
+            recentPaymentClosed = true;
+            isClosed = true;
+            if (!dateClosed) {
+                dateClosed = dateOfLastPayment.slice(0, 10);
+                hasClosedDate = true;
+                closedYear = parseInt(dateClosed.slice(0, 4));
+                closedMonth = parseInt(dateClosed.slice(5, 7));
+            }
+        }
+    }
+
+    // Close grace: regular closes keep grace; recent-payment closes start D immediately.
     let closeDStartAbs = 0;
     if (hasClosedDate) {
-        closeDStartAbs = closedYear * 12 + closedMonth + 2;
+        closeDStartAbs = closedYear * 12 + closedMonth + (recentPaymentClosed ? 0 : 2);
     }
 
     // Collection start
@@ -279,6 +298,18 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
     }
 
     const coveredMonths = invoiceMonths || {};
+    const coveredMonthKeys = Object.keys(coveredMonths).filter((k) => /^\d{4}-\d{2}$/.test(k));
+    const hasCoverageData = coveredMonthKeys.length > 0;
+    let firstCoveredAbs = 0;
+    for (const key of coveredMonthKeys) {
+        const year = parseInt(key.slice(0, 4));
+        const month = parseInt(key.slice(5, 7));
+        if (isNaN(year) || isNaN(month)) continue;
+        const abs = year * 12 + month;
+        if (!firstCoveredAbs || abs < firstCoveredAbs) firstCoveredAbs = abs;
+    }
+    const openAbs = hasOpenDate ? openYear * 12 + openMonth : 0;
+
     let paymentHistoryProfile = "";
     for (let n = 0; n < 24; n++) {
         const totalMonths = RY * 12 + RM - 1 - n;
@@ -309,9 +340,17 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
         else if (hasCollectionStart && mAbs >= collectionStartAbs) {
             code = "G";
         }
-        // No invoice/payment evidence for the month → B
+        // No invoice/payment evidence for the month:
+        // - gap between open date and first observed invoice/payment month → O
+        // - otherwise → B
         else if (!coveredMonths[monthKey]) {
-            code = "B";
+            const inOpenToFirstCoverageGap =
+                hasCoverageData &&
+                hasOpenDate &&
+                firstCoveredAbs > 0 &&
+                mAbs >= openAbs &&
+                mAbs < firstCoveredAbs;
+            code = inOpenToFirstCoverageGap ? "O" : "B";
         }
         // Delinquent period → graduated codes (with 2026‑special rule)
         else if (
@@ -372,6 +411,7 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
     }
     if (isClosed && acctStatus === "11") acctStatus = "13";
     if (wasFormer && hasClosedDate) acctStatus = "13";
+    const accountType = isClosed ? "13" : "15";
 
     // ── Field truncation ──
     if (fn.length > 20) fn = fn.slice(0, 20);
@@ -416,7 +456,7 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
 
         // Section C
         portfolioType: "C",
-        accountType: "15",
+        accountType,
         dateOpen: acctOpenFmt,
         dateFirstDelinquency: dateFirstDelinqFmt,
         dateLastPayment: dateLastPaymentFmt,

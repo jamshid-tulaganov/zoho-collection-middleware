@@ -280,7 +280,7 @@ export function carrierToRow(carrier) {
         "JointConsumerInformationIndicator": "",
         "Customer Account Number": carrier.carrier_id,
         "Portfolio Type": "C",
-        "Account Type": "15",
+        "Account Type": derived.account_type || "15",
         "Date Open": isoToMmddyyyy(derived.date_open),
         "Date of First Delinquency": isoToMmddyyyy(derived.date_first_delinquency),
         "Date of Last Payment": isoToMmddyyyy(derived.date_last_payment),
@@ -335,6 +335,10 @@ export function loadReportCarriers(query = {}) {
         if (wantsLoc) {
             carriers = carriers.filter((carrier) => !carrier.derived?.is_debtor);
         }
+    }
+
+    if (query.include_inactive !== "true") {
+        carriers = carriers.filter((carrier) => !carrier.derived?.is_closed);
     }
 
     carriers = carriers.map((carrier) => {

@@ -939,6 +939,7 @@ export async function runCarrierDbSync() {
                             date_first_delinquency: metro2.dateFirstDelinquencyIso || "",
                             date_last_payment: metro2.dateLastPaymentIso || "",
                             date_closed: metro2.dateClosedIso || "",
+                            account_type: metro2.accountType || existingDerived.account_type || "15",
                             account_status: metro2.accountStatus || "11",
                             payment_history_profile: metro2.paymentHistoryProfile || "",
                             credit_limit: metro2.creditLimit ?? existingDerived.credit_limit ?? 0,

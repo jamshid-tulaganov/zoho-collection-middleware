@@ -121,7 +121,30 @@ function commandRequestsSync(text = "") {
     return /\b(sync|refresh|fresh|update)\b/i.test(String(text || ""));
 }
 
-async function generateAndSendArrayReport(chatId, { syncFirst = false } = {}) {
+function parseReportCommand(text = "") {
+    const normalized = String(text || "").trim().toLowerCase();
+    const command = normalized.split(/\s+/)[0];
+
+    if (command === "/report_active") {
+        return { mode: "active", syncFirst: false };
+    }
+    if (command === "/report_inactive") {
+        return { mode: "inactive", syncFirst: false };
+    }
+    if (command === "/report_update") {
+        return { mode: "active", syncFirst: true };
+    }
+    if (command === "/report_all") {
+        return { mode: "all", syncFirst: false };
+    }
+
+    return {
+        mode: "active",
+        syncFirst: commandRequestsSync(normalized),
+    };
+}
+
+async function generateAndSendArrayReport(chatId, { syncFirst = false, mode = "active" } = {}) {
     if (syncFirst) {
         await sendTelegramMessage(chatId, "Refreshing carrier-db.json before building the report...");
         const syncResult = await runCarrierDbSync();
@@ -132,9 +155,15 @@ async function generateAndSendArrayReport(chatId, { syncFirst = false } = {}) {
         await sendTelegramMessage(chatId, "Generating the Array report from carrier-db.json...");
     }
 
-    const carriers = loadReportCarriers({});
+    const reportQuery = (mode === "inactive" || mode === "all") ? { include_inactive: "true" } : {};
+    let carriers = loadReportCarriers(reportQuery);
+    if (mode === "inactive") {
+        carriers = carriers.filter((carrier) => carrier?.derived?.is_closed);
+    }
     if (!carriers.length) {
-        throw new Error("carrier-db.json is empty. Run a sync first.");
+        throw new Error(mode === "inactive"
+            ? "No inactive carriers found in carrier-db.json."
+            : "No active carriers found in carrier-db.json. Run a sync first.");
     }
 
     const fileName = buildArrayReportFilename(new Date());
@@ -150,7 +179,7 @@ async function generateAndSendArrayReport(chatId, { syncFirst = false } = {}) {
             chatId,
             filePath,
             fileName,
-            `Array report ready: ${result.rowCount} carriers, ${result.columnCount} columns`
+            `Array ${mode} report ready: ${result.rowCount} carriers, ${result.columnCount} columns`
         );
         return result;
     } finally {
@@ -160,8 +189,10 @@ async function generateAndSendArrayReport(chatId, { syncFirst = false } = {}) {
 
 async function handleReportCommand(chatId, text) {
     try {
+        const parsed = parseReportCommand(text);
         await generateAndSendArrayReport(chatId, {
-            syncFirst: commandRequestsSync(text),
+            syncFirst: parsed.syncFirst,
+            mode: parsed.mode,
         });
     } catch (err) {
         console.error("[telegram] report failed:", err.message);
@@ -174,7 +205,11 @@ async function setTelegramCommands() {
     await callTelegram("setMyCommands", {
         commands: [
             { command: "start", description: "Register for report delivery" },
-            { command: "report", description: "Generate Array credit report" },
+            { command: "report", description: "Generate active Array report" },
+            { command: "report_active", description: "Generate active clients report" },
+            { command: "report_inactive", description: "Generate inactive clients report" },
+            { command: "report_update", description: "Sync data then generate active report" },
+            { command: "report_all", description: "Generate active + inactive report" },
         ],
     });
     commandsRegistered = true;
@@ -267,7 +302,9 @@ router.post("/webhook", async (req, res) => {
         return;
     }
 
-    if (!text.toLowerCase().startsWith("/report")) {
+    const supportedCommands = ["/report", "/report_active", "/report_inactive", "/report_update", "/report_all"];
+    const commandToken = text.toLowerCase().split(/\s+/)[0];
+    if (!supportedCommands.includes(commandToken)) {
         return res.json({ ok: true, ignored: true });
     }
 
