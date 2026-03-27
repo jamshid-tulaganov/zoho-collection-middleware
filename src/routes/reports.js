@@ -28,7 +28,10 @@ router.get("/generate", async (req, res) => {
         }
 
         const generatedAt = new Date();
-        const filename = buildArrayReportFilename(generatedAt);
+        const filename = buildArrayReportFilename(
+            generatedAt,
+            req.query.debtor_report === "true" ? "debtors" : ""
+        );
         const compactOptional = req.query.compact !== "false";
 
         res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");

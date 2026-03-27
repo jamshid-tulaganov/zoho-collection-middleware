@@ -7,7 +7,10 @@
     "scripts": {
         "start": "node src/server.js",
         "dev": "node --watch src/server.js",
-        "sync:carrier-db": "node sync-carrier-db.js"
+        "sync:carrier-db": "node sync-carrier-db.js",
+        "import:tss-collection": "node scripts/import-tss-collection-sheet.js --dry-run",
+        "import:tss-collection:apply": "node scripts/import-tss-collection-sheet.js --apply",
+        "import:tss-collection:cmp": "node scripts/import-tss-collection-sheet.js --dry-run --check-cmp"
     },
     "keywords": [],
     "author": "",

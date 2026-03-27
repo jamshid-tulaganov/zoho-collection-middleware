@@ -137,6 +137,9 @@ function parseReportCommand(text = "") {
     if (command === "/report_all") {
         return { mode: "all", syncFirst: false };
     }
+    if (command === "/report_debtors") {
+        return { mode: "debtors", syncFirst: false };
+    }
 
     return {
         mode: "active",
@@ -155,18 +158,25 @@ async function generateAndSendArrayReport(chatId, { syncFirst = false, mode = "a
         await sendTelegramMessage(chatId, "Generating the Array report from carrier-db.json...");
     }
 
-    const reportQuery = (mode === "inactive" || mode === "all") ? { include_inactive: "true" } : {};
-    let carriers = loadReportCarriers(reportQuery);
-    if (mode === "inactive") {
-        carriers = carriers.filter((carrier) => carrier?.derived?.is_closed);
+    let carriers;
+    if (mode === "debtors") {
+        carriers = loadReportCarriers({ debtor_report: "true" });
+    } else {
+        const reportQuery = (mode === "inactive" || mode === "all") ? { include_inactive: "true" } : {};
+        carriers = loadReportCarriers(reportQuery);
+        if (mode === "inactive") {
+            carriers = carriers.filter((carrier) => carrier?.derived?.is_closed);
+        }
     }
     if (!carriers.length) {
         throw new Error(mode === "inactive"
             ? "No inactive carriers found in carrier-db.json."
-            : "No active carriers found in carrier-db.json. Run a sync first.");
+            : mode === "debtors"
+                ? "No debtors found in carrier-db.json. Run a sync first."
+                : "No active carriers found in carrier-db.json. Run a sync first.");
     }
 
-    const fileName = buildArrayReportFilename(new Date());
+    const fileName = buildArrayReportFilename(new Date(), mode === "debtors" ? "debtors" : "");
     const filePath = path.join(os.tmpdir(), `${Date.now()}-${fileName}`);
 
     try {
@@ -210,6 +220,7 @@ async function setTelegramCommands() {
             { command: "report_inactive", description: "Generate inactive clients report" },
             { command: "report_update", description: "Sync data then generate active report" },
             { command: "report_all", description: "Generate active + inactive report" },
+            { command: "report_debtors", description: "Generate Array report for debtors only" },
         ],
     });
     commandsRegistered = true;
@@ -302,7 +313,7 @@ router.post("/webhook", async (req, res) => {
         return;
     }
 
-    const supportedCommands = ["/report", "/report_active", "/report_inactive", "/report_update", "/report_all"];
+    const supportedCommands = ["/report", "/report_active", "/report_inactive", "/report_update", "/report_all", "/report_debtors"];
     const commandToken = text.toLowerCase().split(/\s+/)[0];
     if (!supportedCommands.includes(commandToken)) {
         return res.json({ ok: true, ignored: true });

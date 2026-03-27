@@ -37,7 +37,7 @@ const DESC_ROW = [
 const REQUIRED_ROW = [
     "R", "R", null, "R", null, "R", null, "R", "R", "R", null, null, null, null,
     null, null, null, null, null, null, null, null, null, null, null, null, null,
-    "R", "R", "R", "R", null, null, null, "R", null, null, null, null, null, "R",
+    "R", "R", "R", "R", null, "R", null, "R", null, null, null, null, null, "R",
     null, null, null, "R", "R", null, "R",
 ];
 
@@ -248,6 +248,10 @@ export function carrierToRow(carrier) {
     const reportCloseDate = derived.is_debtor
         ? derived.date_last_payment
         : ((derived.is_closed || derived.was_former_debtor) ? derived.date_closed : "");
+    const firstDelinquencyDate =
+        (derived.is_debtor && !derived.is_closed)
+            ? derived.date_first_delinquency
+            : "";
     const address = normalizeReportAddress(carrier);
 
     return {
@@ -282,7 +286,7 @@ export function carrierToRow(carrier) {
         "Portfolio Type": "C",
         "Account Type": derived.account_type || "15",
         "Date Open": isoToMmddyyyy(derived.date_open),
-        "Date of First Delinquency": isoToMmddyyyy(derived.date_first_delinquency),
+        "Date of First Delinquency": isoToMmddyyyy(firstDelinquencyDate),
         "Date of Last Payment": isoToMmddyyyy(derived.date_last_payment),
         "Date Closed": isoToMmddyyyy(reportCloseDate),
         "Account Status": derived.account_status || "11",
@@ -317,6 +321,36 @@ export function loadReportCarriers(query = {}) {
     const dobMap = loadDobMap({ logPrefix: "[report]" });
     const masterDb = loadMergedMasterDb(env.MASTER_DB_PATH, { logPrefix: "[report]", dobMap });
     let carriers = Object.values(db);
+
+    if (query.debtor_report === "true") {
+        carriers = carriers.filter((carrier) =>
+            Boolean(carrier.derived?.is_debtor)
+            || hasCmpTag(carrier, 1)
+            || (Array.isArray(carrier.debtor_sources) && carrier.debtor_sources.length > 0)
+        );
+        if (query.include_inactive !== "true") {
+            carriers = carriers.filter((carrier) => !carrier.derived?.is_closed);
+        }
+        carriers = carriers.map((carrier) => {
+            const derived = carrier.derived || {};
+            if (derived.dob) return carrier;
+            const fallbackDob = masterDb[carrier.carrier_id]?.dob || dobMap[carrier.carrier_id] || "";
+            if (!fallbackDob) return carrier;
+            return {
+                ...carrier,
+                derived: {
+                    ...derived,
+                    dob: fallbackDob,
+                },
+            };
+        });
+        if (query.missing_dob === "true") {
+            carriers = carriers.filter((carrier) => !carrier.derived?.dob);
+        }
+        carriers.sort((a, b) => String(a.carrier_id || "").localeCompare(String(b.carrier_id || "")));
+        return carriers;
+    }
+
     const wantsDebtors = query.type === "debtor" || query.debtors === "true";
     const wantsLoc = query.type === "loc" || query.debtors === "false";
 
@@ -425,8 +459,9 @@ function styleDataRow(row, index) {
     });
 }
 
-export function buildArrayReportFilename(date = new Date()) {
-    return `Array_Credit_Report_${buildDateStamp(date)}.xlsx`;
+export function buildArrayReportFilename(date = new Date(), suffix = "") {
+    const extra = suffix ? `_${suffix}` : "";
+    return `Array_Credit_Report_${buildDateStamp(date)}${extra}.xlsx`;
 }
 
 export function buildArrayReportWorkbook({

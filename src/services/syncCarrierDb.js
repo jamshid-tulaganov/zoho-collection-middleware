@@ -423,9 +423,9 @@ function buildInvoiceData(cid, comp, dbEntry = {}, existingEntry = {}, invoiceIn
     const fourWeeksAgo = new Date(today);
     fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
 
-    const isDebtor = comp
-        ? (comp.tags || []).some((t) => t.id === 1)
-        : (dbEntry.debtor_sources || []).length > 0;
+    const smpDebtor = comp ? (comp.tags || []).some((t) => t.id === 1) : false;
+    const masterDebtor = (dbEntry.debtor_sources || []).length > 0;
+    const isDebtor = comp ? (smpDebtor || masterDebtor) : masterDebtor;
 
     let dateFirstDelinquency = "";
     let dateOfLastPayment = "";
@@ -579,6 +579,13 @@ function isRecentPayment(dateStr) {
     const oneMonthAgo = new Date();
     oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
     return dateStr >= oneMonthAgo.toISOString().slice(0, 10);
+}
+
+function normalizeMasterPlacementDate(raw) {
+    if (raw === null || raw === undefined) return "";
+    const s = String(raw).trim();
+    if (s.length >= 10 && s[4] === "-") return s.slice(0, 10);
+    return "";
 }
 
 function deriveCollectionStartDate(ggrData, ggrSubmissionDate) {
@@ -861,7 +868,7 @@ export async function runCarrierDbSync() {
                         billingIndex,
                         ""
                     );
-                    const {
+                    let {
                         ggrData,
                         ggrSubmissionDate,
                         collectionStartDate,
@@ -872,6 +879,19 @@ export async function runCarrierDbSync() {
                         fallbackGgrData,
                         fallbackGgrSubmissionDate
                     );
+                    const masterPlacementDate = normalizeMasterPlacementDate(
+                        dbEntry.collection_placement_date ?? existingEntry.collection_placement_date
+                    );
+                    if (masterPlacementDate && invoiceData.isDebtor) {
+                        if (!collectionStartDate || masterPlacementDate < collectionStartDate) {
+                            collectionStartDate = masterPlacementDate;
+                        }
+                    }
+                    if (collectionStartDate && isRecentPayment(invoiceData.dateOfLastPayment)) {
+                        if (!masterPlacementDate) {
+                            collectionStartDate = "";
+                        }
+                    }
                     const earliestDelinquencyPeriodEnd =
                         dbEntry.earliest_delinquency_period_end
                         || existingEntry.earliest_delinquency_period_end
@@ -926,6 +946,10 @@ export async function runCarrierDbSync() {
                         debtor_periods: debtorPeriods,
                         ggr_data: ggrData,
                         ggr_submission_date: ggrSubmissionDate,
+                        collection_placement_date:
+                            dbEntry.collection_placement_date
+                            ?? existingEntry.collection_placement_date
+                            ?? null,
                         earliest_delinquency_period_end: earliestDelinquencyPeriodEnd,
                         derived: {
                             first_name: preferredContact.first_name,
