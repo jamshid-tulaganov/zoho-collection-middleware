@@ -350,7 +350,7 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
                 firstCoveredAbs > 0 &&
                 mAbs >= openAbs &&
                 mAbs < firstCoveredAbs;
-            code = inOpenToFirstCoverageGap ? "O" : "B";
+            code = inOpenToFirstCoverageGap ? "0" : "B";
         }
         // Delinquent period → graduated codes (with 2026‑special rule)
         else if (
