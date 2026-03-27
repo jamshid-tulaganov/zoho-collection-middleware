@@ -2,10 +2,17 @@
 /**
  * Scrape DOBs from iSoftPull for carriers missing DOB.
  *
- * Usage:  node scripts/scrape-dob.js [--limit 100] [--force]
+ * Usage:
+ *   node scripts/scrape-dob.js [--limit 100] [--force]
+ *   node scripts/scrape-dob.js --source cmpClients [--limit 100]
+ *   node scripts/scrape-dob.js --cmp [--limit 100]
  *
- * Reads & writes data/isoftpull-candidates.json  (adds dob field in-place)
- * Resumes automatically — skips candidates that already have a dob value.
+ * Default source : data/isoftpull-candidates.json
+ * CMP source     : data/cmpClients.json  (built by build-cmp-clients.js)
+ *
+ * The source file is updated in-place with the found dob field — already
+ * resolved records (dob !== "") are skipped automatically, making the run
+ * resume-safe if interrupted.
  */
 
 import { chromium } from "playwright";
@@ -15,7 +22,17 @@ import { fileURLToPath } from "url";
 import { env } from "../src/config/env.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const CANDIDATES_PATH = path.resolve(__dirname, "../data/isoftpull-candidates.json");
+
+// --source cmpClients  →  read/write data/cmpClients.json (from build-cmp-clients.js)
+// default             →  read/write data/isoftpull-candidates.json
+const _args = process.argv.slice(2);
+const _sourceIdx = _args.indexOf("--source");
+const _useCmp = (_sourceIdx !== -1 && _args[_sourceIdx + 1] === "cmpClients") || _args.includes("--cmp");
+
+const CANDIDATES_PATH = _useCmp
+    ? path.resolve(__dirname, "../data/cmpClients.json")
+    : path.resolve(__dirname, "../data/isoftpull-candidates.json");
+
 const BASE_URL = "https://app.isoftpull.com";
 
 // US state abbreviation → full name

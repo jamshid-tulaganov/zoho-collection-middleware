@@ -64,6 +64,14 @@ export const env = {
         path.resolve(projectRoot, "db/accounting-client-db.json")
     ),
 
+    // SMP incremental-sync cache — stores all invoices + billing history between full resyncs.
+    // On each sync only today's new records are fetched and merged in, cutting sync time from
+    // ~10 min down to seconds after the first full fetch.
+    SMP_CACHE_PATH: resolveFromProjectRoot(
+        process.env.SMP_CACHE_PATH,
+        path.resolve(projectRoot, "db/smp-data-cache.json")
+    ),
+
     // Collection / bad-debtor spreadsheet data converted to JSON by invoice number
     COLLECTION_DB_PATH: resolveFromProjectRoot(
         process.env.COLLECTION_DB_PATH,

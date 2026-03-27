@@ -19,10 +19,10 @@ import path from "path";
 import { env } from "../config/env.js";
 import {
     fetchCompanies,
-    fetchAllInvoicesGlobal,
+    fetchInvoicesIncremental,
     indexInvoicesByCarrier,
     getCarrierInvoicesFromIndex,
-    fetchAllBillingHistoryGlobal,
+    fetchBillingIncremental,
     indexBillingHistoryByCarrier,
     getCarrierBillingFromGlobal,
 } from "./smp.js";
@@ -562,6 +562,22 @@ function isActiveCollectionRow(row = {}) {
     return remaining > 0;
 }
 
+/**
+ * Returns true if the given ISO date string (YYYY-MM-DD) falls within the
+ * last calendar month from today.
+ *
+ * Business rule (Justin): carriers who made a payment within the last month
+ * are actively paying — G codes must NOT be applied to them even if they
+ * exist in the collection-placement DB. G codes only activate once the last
+ * payment is more than one month old.
+ */
+function isRecentPayment(dateStr) {
+    if (!dateStr || dateStr.length < 10) return false;
+    const oneMonthAgo = new Date();
+    oneMonthAgo.setMonth(oneMonthAgo.getMonth() - 1);
+    return dateStr >= oneMonthAgo.toISOString().slice(0, 10);
+}
+
 function deriveCollectionStartDate(ggrData, ggrSubmissionDate) {
     const activeRows = (ggrData?.ggr_invoices || []).filter((item) => isActiveCollectionRow(item));
     if (!activeRows.length) return "";
@@ -612,6 +628,10 @@ function buildCollectionDataForCarrier(
         if (collectionStartDate && lastPaymentDate && lastPaymentDate >= collectionStartDate) {
             collectionStartDate = "";
         }
+        // Justin: recent payment (within last month) → no G codes, treat as normal.
+        if (collectionStartDate && isRecentPayment(lastPaymentDate)) {
+            collectionStartDate = "";
+        }
         return {
             ggrData: fallbackGgrData || null,
             ggrSubmissionDate: fallbackSubmissionDate || fallbackGgrData?.ggr_submission_date || null,
@@ -659,10 +679,14 @@ function buildCollectionDataForCarrier(
         .map((row) => row.ggr_submission_date)
         .find((value) => String(value || "").length >= 10)
         || null;
-    const collectionStartDate = deriveCollectionStartDate(
+    let collectionStartDate = deriveCollectionStartDate(
         { ggr_invoices: eligibleGgrInvoices },
         eligibleSubmissionDate
     );
+    // Justin: recent payment (within last month) → no G codes, treat as normal.
+    if (collectionStartDate && isRecentPayment(lastPaymentDate)) {
+        collectionStartDate = "";
+    }
 
     return {
         ggrData: {
@@ -745,22 +769,24 @@ export async function runCarrierDbSync() {
             const allCompanies = new Map([...locMap, ...debtorMap]);
             console.log(`[carrier-db]   Total unique companies: ${allCompanies.size}`);
 
-            // ── Step 3c: Fetch all SMP invoices globally + index ──────────
+            // ── Step 3c: Fetch SMP invoices (incremental cache) ───────────
+            // First run: full paginated fetch saved to db/smp-data-cache.json (~slow).
+            // Re-syncs: only today's new records are fetched and merged in (~seconds).
             syncProgress.phase = "fetching_smp_invoices";
             syncProgress.lastHeartbeatAt = new Date().toISOString();
-            console.log("[carrier-db] Step 3c: Fetching all SMP invoices...");
-            const allInvoices = await fetchAllInvoicesGlobal();
+            console.log("[carrier-db] Step 3c: Fetching SMP invoices (incremental)...");
+            const allInvoices = await fetchInvoicesIncremental(env.SMP_CACHE_PATH);
             const invoiceIndex = indexInvoicesByCarrier(allInvoices);
-            console.log(`[carrier-db]   Total invoices fetched: ${allInvoices.length} (${invoiceIndex.size} carriers)`);
+            console.log(`[carrier-db]   Invoices: ${allInvoices.length} total (${invoiceIndex.size} carriers)`);
 
-            // ── Step 3d: Fetch all billing history globally + index ────────
-            // Tries global endpoint first; falls back to batched per-company if API requires carrierId
+            // ── Step 3d: Fetch SMP billing history (incremental cache) ────
+            // Same strategy: full fetch once, then only today's new transactions.
             syncProgress.phase = "fetching_smp_billing";
             syncProgress.lastHeartbeatAt = new Date().toISOString();
-            console.log("[carrier-db] Step 3d: Fetching all SMP billing history...");
-            const allBilling = await fetchAllBillingHistoryGlobal(allCompanies, 15);
+            console.log("[carrier-db] Step 3d: Fetching SMP billing history (incremental)...");
+            const allBilling = await fetchBillingIncremental(env.SMP_CACHE_PATH, allCompanies, 15);
             const billingIndex = indexBillingHistoryByCarrier(allBilling);
-            console.log(`[carrier-db]   Total billing txns fetched: ${allBilling.length} (${billingIndex.size} carriers)`);
+            console.log(`[carrier-db]   Billing: ${allBilling.length} total (${billingIndex.size} carriers)`);
 
             // ── Step 4: Process union of all sources ────────────────────────
             const carrierIds = new Set([

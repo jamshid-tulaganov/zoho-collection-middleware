@@ -1,3 +1,4 @@
+import fs from "fs";
 import { env } from "../config/env.js";
 
 let smpToken = "";
@@ -268,4 +269,227 @@ export async function fetchBillingHistory(companyId) {
         `billing-history?page=0&size=100&sort=createDate,desc&carrierId=${companyId}`
     );
     return legacyScoped.content || [];
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Incremental SMP cache
+//
+// Strategy:
+//   • First run  → full paginated fetch of all invoices + billing history,
+//     saved to db/smp-data-cache.json.  Slow (~10 min) but happens only once.
+//   • Re-syncs   → fetch pages sorted by createDate desc, stop as soon as
+//     every record on a page is older than lastFetchedAt.  Merge new records
+//     into the cache by ID and save.  Typically 1-3 API pages → seconds.
+//
+// Cache schema:
+//   {
+//     invoicesLastFetchedAt:  ISO string,
+//     billingLastFetchedAt:   ISO string,
+//     invoices:  { [id]: invoice },
+//     billing:   { [id]: transaction }
+//   }
+// ─────────────────────────────────────────────────────────────────────────────
+
+function loadSmpCache(cachePath) {
+    try {
+        if (cachePath && fs.existsSync(cachePath)) {
+            return JSON.parse(fs.readFileSync(cachePath, "utf-8"));
+        }
+    } catch {
+        console.warn("[SMP-cache] Could not read cache — will do a full fetch.");
+    }
+    return { invoicesLastFetchedAt: null, billingLastFetchedAt: null, invoices: {}, billing: {} };
+}
+
+function saveSmpCache(cachePath, cache) {
+    if (!cachePath) return;
+    try {
+        fs.writeFileSync(cachePath, JSON.stringify(cache, null, 2), "utf-8");
+    } catch (err) {
+        console.warn(`[SMP-cache] Could not save cache: ${err.message}`);
+    }
+}
+
+/**
+ * Fetch all invoices using an incremental cache.
+ *
+ * On the first call (no cache): fetches everything and saves to cache.
+ * On subsequent calls: fetches only pages newer than the last fetch timestamp,
+ * merges them into the cache, and returns the full merged set as a flat array.
+ *
+ * @param {string} cachePath - Absolute path to db/smp-data-cache.json
+ * @returns {Promise<Array>} Full invoice list (cached + new)
+ */
+export async function fetchInvoicesIncremental(cachePath) {
+    const cache = loadSmpCache(cachePath);
+    const since = cache.invoicesLastFetchedAt || null;
+    const fetchedAt = new Date().toISOString();
+    const newInvoices = [];
+    let isIncremental = Boolean(since);
+
+    console.log(
+        since
+            ? `[SMP-cache] Incremental invoice fetch — new records since ${since}`
+            : "[SMP-cache] Full invoice fetch (no cache found)"
+    );
+
+    for (let page = 0; page <= 500; page++) {
+        const data = await smpGet(`invoices?page=${page}&size=200&sort=createDate,desc`);
+        const content = data.content || [];
+        if (!content.length) break;
+
+        if (since) {
+            // In incremental mode stop once every record on this page is older
+            // than the last fetch timestamp (they're already in the cache).
+            const hasNew = content.some((inv) => String(inv.createDate || "") >= since);
+            if (!hasNew) break;
+            newInvoices.push(...content.filter((inv) => String(inv.createDate || "") >= since));
+        } else {
+            newInvoices.push(...content);
+        }
+
+        if (content.length < 200) break;
+    }
+
+    // Merge into cache (keyed by id — newer API record overwrites stale cache)
+    for (const inv of newInvoices) {
+        const key = String(inv.id || inv.invoiceId || "");
+        if (key) cache.invoices[key] = inv;
+    }
+    cache.invoicesLastFetchedAt = fetchedAt;
+    saveSmpCache(cachePath, cache);
+
+    const all = Object.values(cache.invoices);
+    console.log(
+        `[SMP-cache] Invoices — ${newInvoices.length} new/updated, ${all.length} total in cache`
+    );
+    return all;
+}
+
+/**
+ * Fetch all billing-history using an incremental cache.
+ *
+ * Same strategy as fetchInvoicesIncremental: full fetch on first run,
+ * incremental (today's records only) on subsequent runs.
+ *
+ * @param {string} cachePath - Absolute path to db/smp-data-cache.json
+ * @param {Map<string,object>} [companyMap] - Fallback for per-company fetch
+ * @param {number} [concurrency=15]
+ * @returns {Promise<Array>} Full billing transaction list (cached + new)
+ */
+export async function fetchBillingIncremental(cachePath, companyMap = new Map(), concurrency = 15) {
+    const cache = loadSmpCache(cachePath);
+    const since = cache.billingLastFetchedAt || null;
+    const fetchedAt = new Date().toISOString();
+    const newTxns = [];
+
+    console.log(
+        since
+            ? `[SMP-cache] Incremental billing fetch — new records since ${since}`
+            : "[SMP-cache] Full billing fetch (no cache found)"
+    );
+
+    // ── Attempt global endpoint ──────────────────────────────────────────────
+    let usedGlobal = false;
+    try {
+        const firstPage = await smpGet(`billing-history?page=0&size=200&sort=createDate,desc`);
+        const firstContent = firstPage.content || [];
+
+        if (firstContent.length > 0) {
+            usedGlobal = true;
+
+            const processPage = (content) => {
+                if (since) {
+                    const hasNew = content.some((t) => String(t.createDate || "") >= since);
+                    if (!hasNew) return false; // signal: stop paging
+                    newTxns.push(...content.filter((t) => String(t.createDate || "") >= since));
+                } else {
+                    newTxns.push(...content);
+                }
+                return true;
+            };
+
+            if (processPage(firstContent) && firstContent.length >= 200) {
+                for (let page = 1; page <= 500; page++) {
+                    const data = await smpGet(
+                        `billing-history?page=${page}&size=200&sort=createDate,desc`
+                    );
+                    const content = data.content || [];
+                    if (!content.length) break;
+                    if (!processPage(content)) break;
+                    if (content.length < 200) break;
+                }
+            }
+        }
+    } catch (err) {
+        console.warn(`[SMP-cache] Global billing endpoint failed: ${err.message}`);
+    }
+
+    // ── Fallback: per-company (only on first full fetch) ────────────────────
+    if (!usedGlobal && companyMap.size) {
+        if (since) {
+            // Incremental per-company: fetch page 0 for each company, keep only new records
+            console.log(`[SMP-cache] Incremental per-company billing for ${companyMap.size} companies...`);
+            const entries = [...companyMap.entries()];
+            for (let i = 0; i < entries.length; i += concurrency) {
+                const batch = entries.slice(i, i + concurrency);
+                const results = await Promise.allSettled(
+                    batch.map(async ([carrierId, comp]) => {
+                        const companyId = comp?.id;
+                        if (!companyId) return [];
+                        try {
+                            const data = await smpGet(
+                                `companies/${companyId}/billing-history?page=0&size=100&sort=createDate,desc`
+                            );
+                            return (data.content || [])
+                                .filter((t) => String(t.createDate || "") >= since)
+                                .map((t) => ({ ...t, carrierId }));
+                        } catch { return []; }
+                    })
+                );
+                for (const r of results) {
+                    if (r.status === "fulfilled") newTxns.push(...r.value);
+                }
+            }
+        } else {
+            // Full per-company fetch (same as original fetchAllBillingHistoryGlobal)
+            console.log(`[SMP-cache] Full per-company billing for ${companyMap.size} companies...`);
+            const entries = [...companyMap.entries()];
+            for (let i = 0; i < entries.length; i += concurrency) {
+                const batch = entries.slice(i, i + concurrency);
+                const results = await Promise.allSettled(
+                    batch.map(async ([carrierId, comp]) => {
+                        const companyId = comp?.id;
+                        if (!companyId) return [];
+                        try {
+                            const data = await smpGet(
+                                `companies/${companyId}/billing-history?page=0&size=100&sort=createDate,desc`
+                            );
+                            return (data.content || []).map((t) => ({ ...t, carrierId }));
+                        } catch { return []; }
+                    })
+                );
+                for (const r of results) {
+                    if (r.status === "fulfilled") newTxns.push(...r.value);
+                }
+                if ((i + concurrency) % 150 === 0) {
+                    console.log(`[SMP-cache]   ... billing: ${i + concurrency}/${entries.length} companies`);
+                }
+            }
+        }
+    }
+
+    // Merge into cache (keyed by id)
+    for (const txn of newTxns) {
+        const key = String(txn.id || "");
+        if (key) cache.billing[key] = txn;
+    }
+    cache.billingLastFetchedAt = fetchedAt;
+    saveSmpCache(cachePath, cache);
+
+    const all = Object.values(cache.billing);
+    console.log(
+        `[SMP-cache] Billing — ${newTxns.length} new/updated, ${all.length} total in cache`
+    );
+    return all;
 }
