@@ -4,9 +4,10 @@
  * for a single carrier given SMP company, Zoho Deal, and master_db entry.
  */
 
+import dayjs from "dayjs"; // <-- NEW: date helper
 import { normalizeDob } from "./dob.js";
 
-// ── Helpers ─────────────────────────────────────────────────────
+/* ── Helpers ──────────────────────────────────────────────────────── */
 
 export function parseDate(s) {
     if (!s) return null;
@@ -54,12 +55,12 @@ function splitAddress(address) {
     for (const [search, marker] of markers) {
         if (upper.includes(search)) {
             const re = new RegExp(
-                ` ${marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}.*`,
+                ` ${marker.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&")}.*`,
                 "i",
             );
             const street = a1.replace(re, "").trim();
             const reApt = new RegExp(
-                `^.*? ${marker.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}`,
+                `^.*? ${marker.replace(/[.*+?^${}()|[\\]\\\\]/g, "\\$&")}`,
                 "i",
             );
             const apt = a1.replace(reApt, marker).trim();
@@ -73,19 +74,8 @@ function splitAddress(address) {
     return { a1, a2 };
 }
 
-// ── Main computation ────────────────────────────────────────────
+/* ── Main computation ─────────────────────────────────────────────── */
 
-/**
- * Compute all Metro 2 fields for a single carrier.
- *
- * @param {string} cid - Carrier ID
- * @param {object} comp - SMP company object (or null)
- * @param {object} deal - Zoho Deal object (or null)
- * @param {object} dbEntry - debtor-master-db entry (or {})
- * @param {object} existing - existing CMP_Fund_Stations record from COQL (or null)
- * @param {object} invoiceData - { invoiceMonths, lastInvDate, dateFirstDelinquency, dateOfLastPayment, isClosed, dateClosed }
- * @returns {object} Metro 2 fields
- */
 export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
     const today = new Date();
     const RY = today.getFullYear();
@@ -164,7 +154,7 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
     // ── Debtor check ──
     const isDebtor = invoiceData.isDebtor;
 
-    // ── Dates from invoiceData ──
+    // ── Dates & other numbers from invoiceData ──
     let {
         dateFirstDelinquency,
         dateOfLastPayment,
@@ -225,7 +215,7 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
         currentBalance = Math.min(Math.round(amountPastDue), 999999999);
     }
 
-    // ── Payment History Profile (24-char) ──
+    // ── Payment History Profile (24‑char) ──
     const hasOpenDate = acctOpenDate !== "";
     let openYear = 0,
         openMonth = 0;
@@ -276,6 +266,7 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
         closeDStartAbs = closedYear * 12 + closedMonth + 2;
     }
 
+    // Collection start
     let hasCollectionStart = false;
     let collectionStartAbs = 0;
     if (collectionStartDate && collectionStartDate.length >= 7) {
@@ -318,25 +309,51 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
         else if (hasCollectionStart && mAbs >= collectionStartAbs) {
             code = "G";
         }
-        // If we have no invoice/payment evidence for the month from either
-        // spreadsheet history or CMP, treat it as no-payment-data.
+        // No invoice/payment evidence for the month → B
         else if (!coveredMonths[monthKey]) {
             code = "B";
         }
-        // Delinquent period → graduated codes
+        // Delinquent period → graduated codes (with 2026‑special rule)
         else if (
             hasDelinqDate &&
             (mYear > delinqYear ||
                 (mYear === delinqYear && mMonth >= delinqMonth))
         ) {
+            // Closed accounts still win the "D" code (grace period applies)
             if (hasClosedDate && closeDStartAbs > 0 && mAbs >= closeDStartAbs) {
                 code = "D";
             } else {
+                // How many months have passed since the first‑delinquency month?
                 const monthsPast =
                     (mYear - delinqYear) * 12 + (mMonth - delinqMonth);
-                if (monthsPast <= 0) code = "0";
-                else if (monthsPast <= 6) code = String(monthsPast);
-                else code = "G";
+
+                // ── NEW SPECIAL CASE ────────────────────────────────────────
+                // - First delinquency is in the year 2026
+                // - The delinquency is 0‑2 months old (monthsPast ≤ 2)
+                // - There is a recorded last‑payment date that occurs AFTER the
+                //   first‑delinquency date (i.e. a payment was made)
+                // If all of the above are true we treat the month as "1"
+                // (the normal 30‑day delinquency) instead of falling into the
+                // generic "G" (greater‑than‑6‑months) bucket.
+                if (
+                    delinqYear === 2026 && // first delinquency in 2026
+                    monthsPast <= 2 && // not longer than 2 months
+                    dateOfLastPayment && // we have a last‑payment date
+                    dateOfLastPayment.length >= 10 && // quick sanity check
+                    dayjs(dateOfLastPayment).isAfter(
+                        dayjs(dateFirstDelinquency),
+                    )
+                ) {
+                    code = "1"; // 30‑day delinquency
+                }
+                // ── END OF SPECIAL CASE ────────────────────────────────────────
+                else if (monthsPast <= 0) {
+                    code = "0";
+                } else if (monthsPast <= 6) {
+                    code = String(monthsPast);
+                } else {
+                    code = "G";
+                }
             }
         }
         paymentHistoryProfile += code;
