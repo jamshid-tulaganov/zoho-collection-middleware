@@ -3,6 +3,34 @@ import { env } from "../config/env.js";
 
 let smpToken = "";
 
+function normalizeCarrierId(value) {
+    const cid = String(value || "").trim();
+    return cid && cid !== "0" ? cid : "";
+}
+
+function extractCarrierIdFromTxn(txn = {}, companyIdToCarrierId = new Map()) {
+    const directCarrierId = normalizeCarrierId(
+        txn.carrierId
+        || txn.carrier_id
+        || txn.companyCarrierId
+        || txn.company?.carrierId
+    );
+    if (directCarrierId) return directCarrierId;
+
+    const rawCompanyId = txn.companyId || txn.company?.id || txn.company_id;
+    const companyId = String(rawCompanyId || "").trim();
+    if (companyId && companyIdToCarrierId.has(companyId)) {
+        return companyIdToCarrierId.get(companyId);
+    }
+
+    return "";
+}
+
+function enrichBillingTxn(txn = {}, companyIdToCarrierId = new Map()) {
+    const carrierId = extractCarrierIdFromTxn(txn, companyIdToCarrierId);
+    return carrierId ? { ...txn, carrierId } : txn;
+}
+
 export async function refreshSmpToken() {
     const response = await fetch(`${env.SMP_BASE_URL}/api/authenticate`, {
         method: "POST",
@@ -241,6 +269,10 @@ export function indexBillingHistoryByCarrier(transactions) {
         if (!map.has(cid)) map.set(cid, []);
         map.get(cid).push(txn);
     }
+    // Keep newest first so downstream "latest payment" logic is deterministic.
+    for (const [, arr] of map) {
+        arr.sort((a, b) => String(b.createDate || "").localeCompare(String(a.createDate || "")));
+    }
     return map;
 }
 
@@ -325,11 +357,13 @@ export async function fetchInvoicesIncremental(cachePath) {
     const since = cache.invoicesLastFetchedAt || null;
     const fetchedAt = new Date().toISOString();
     const newInvoices = [];
-    let isIncremental = Boolean(since);
+    const overlapSince = since
+        ? new Date(Math.max(0, new Date(since).getTime() - (72 * 60 * 60 * 1000))).toISOString()
+        : null;
 
     console.log(
         since
-            ? `[SMP-cache] Incremental invoice fetch — new records since ${since}`
+            ? `[SMP-cache] Incremental invoice fetch — new records since ${since} (72h overlap)`
             : "[SMP-cache] Full invoice fetch (no cache found)"
     );
 
@@ -338,12 +372,12 @@ export async function fetchInvoicesIncremental(cachePath) {
         const content = data.content || [];
         if (!content.length) break;
 
-        if (since) {
+        if (overlapSince) {
             // In incremental mode stop once every record on this page is older
             // than the last fetch timestamp (they're already in the cache).
-            const hasNew = content.some((inv) => String(inv.createDate || "") >= since);
+            const hasNew = content.some((inv) => String(inv.createDate || "") >= overlapSince);
             if (!hasNew) break;
-            newInvoices.push(...content.filter((inv) => String(inv.createDate || "") >= since));
+            newInvoices.push(...content.filter((inv) => String(inv.createDate || "") >= overlapSince));
         } else {
             newInvoices.push(...content);
         }
@@ -382,6 +416,11 @@ export async function fetchBillingIncremental(cachePath, companyMap = new Map(),
     const since = cache.billingLastFetchedAt || null;
     const fetchedAt = new Date().toISOString();
     const newTxns = [];
+    const companyIdToCarrierId = new Map(
+        [...companyMap.entries()]
+            .filter(([, comp]) => comp?.id)
+            .map(([carrierId, comp]) => [String(comp.id), String(carrierId)])
+    );
 
     console.log(
         since
@@ -399,12 +438,13 @@ export async function fetchBillingIncremental(cachePath, companyMap = new Map(),
             usedGlobal = true;
 
             const processPage = (content) => {
+                const enriched = content.map((t) => enrichBillingTxn(t, companyIdToCarrierId));
                 if (since) {
-                    const hasNew = content.some((t) => String(t.createDate || "") >= since);
+                    const hasNew = enriched.some((t) => String(t.createDate || "") >= since);
                     if (!hasNew) return false; // signal: stop paging
-                    newTxns.push(...content.filter((t) => String(t.createDate || "") >= since));
+                    newTxns.push(...enriched.filter((t) => String(t.createDate || "") >= since));
                 } else {
-                    newTxns.push(...content);
+                    newTxns.push(...enriched);
                 }
                 return true;
             };
@@ -428,7 +468,7 @@ export async function fetchBillingIncremental(cachePath, companyMap = new Map(),
     // ── Fallback: per-company (only on first full fetch) ────────────────────
     if (!usedGlobal && companyMap.size) {
         if (since) {
-            // Incremental per-company: fetch page 0 for each company, keep only new records
+            // Incremental per-company: paginate until records are older than since.
             console.log(`[SMP-cache] Incremental per-company billing for ${companyMap.size} companies...`);
             const entries = [...companyMap.entries()];
             for (let i = 0; i < entries.length; i += concurrency) {
@@ -438,12 +478,24 @@ export async function fetchBillingIncremental(cachePath, companyMap = new Map(),
                         const companyId = comp?.id;
                         if (!companyId) return [];
                         try {
-                            const data = await smpGet(
-                                `companies/${companyId}/billing-history?page=0&size=100&sort=createDate,desc`
-                            );
-                            return (data.content || [])
-                                .filter((t) => String(t.createDate || "") >= since)
-                                .map((t) => ({ ...t, carrierId }));
+                            const txns = [];
+                            for (let page = 0; page <= 50; page++) {
+                                const data = await smpGet(
+                                    `companies/${companyId}/billing-history?page=${page}&size=100&sort=createDate,desc`
+                                );
+                                const content = (data.content || []).map((t) => ({ ...t, carrierId }));
+                                if (!content.length) break;
+
+                                const hasNew = content.some((t) => String(t.createDate || "") >= since);
+                                if (hasNew) {
+                                    txns.push(...content.filter((t) => String(t.createDate || "") >= since));
+                                } else {
+                                    break;
+                                }
+
+                                if (content.length < 100) break;
+                            }
+                            return txns;
                         } catch { return []; }
                     })
                 );
@@ -452,7 +504,7 @@ export async function fetchBillingIncremental(cachePath, companyMap = new Map(),
                 }
             }
         } else {
-            // Full per-company fetch (same as original fetchAllBillingHistoryGlobal)
+            // Full per-company fetch (paginated)
             console.log(`[SMP-cache] Full per-company billing for ${companyMap.size} companies...`);
             const entries = [...companyMap.entries()];
             for (let i = 0; i < entries.length; i += concurrency) {
@@ -462,10 +514,17 @@ export async function fetchBillingIncremental(cachePath, companyMap = new Map(),
                         const companyId = comp?.id;
                         if (!companyId) return [];
                         try {
-                            const data = await smpGet(
-                                `companies/${companyId}/billing-history?page=0&size=100&sort=createDate,desc`
-                            );
-                            return (data.content || []).map((t) => ({ ...t, carrierId }));
+                            const txns = [];
+                            for (let page = 0; page <= 200; page++) {
+                                const data = await smpGet(
+                                    `companies/${companyId}/billing-history?page=${page}&size=100&sort=createDate,desc`
+                                );
+                                const content = (data.content || []).map((t) => ({ ...t, carrierId }));
+                                if (!content.length) break;
+                                txns.push(...content);
+                                if (content.length < 100) break;
+                            }
+                            return txns;
                         } catch { return []; }
                     })
                 );

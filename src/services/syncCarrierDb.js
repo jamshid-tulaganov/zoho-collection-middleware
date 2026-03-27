@@ -500,6 +500,7 @@ function buildInvoiceData(cid, comp, dbEntry = {}, existingEntry = {}, invoiceIn
     }
 
     // Latest positive CMP transaction determines the last payment signal.
+    // We scan all rows and keep the max createDate to avoid order-dependent bugs.
     const txns = getCarrierBillingFromGlobal(billingIndex, cid);
     for (const txn of txns) {
         const amt = safeNum(txn.amount);
@@ -508,9 +509,11 @@ function buildInvoiceData(cid, comp, dbEntry = {}, existingEntry = {}, invoiceIn
             invoiceMonths[dt.slice(0, 7)] = true;
         }
         if (amt > 0 && dt.length >= 10) {
-            dateOfLastPayment = dt.slice(0, 10);
-            actualPayment = amt;
-            break;
+            const iso = dt.slice(0, 10);
+            if (!dateOfLastPayment || iso > dateOfLastPayment) {
+                dateOfLastPayment = iso;
+                actualPayment = amt;
+            }
         }
     }
 
