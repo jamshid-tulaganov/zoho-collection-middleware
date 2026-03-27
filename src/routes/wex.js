@@ -1,23 +1,20 @@
 import { Router } from "express";
-import { lookupWexDob, hasWexConfig, getWexStatus } from "../services/wex.js";
-import { getDaemonHealth } from "../clients/daemonClient.js";
+import { lookupWexDob, hasWexConfig } from "../services/wex.js";
+import { syncWexDobs, getWexSyncProgress, getWexDobStats } from "../services/syncWexDob.js";
 
 const router = Router();
 
 /**
  * GET /wex/status
- * Check WEX + daemon connectivity.
+ * Check if WEX is configured and ready.
  */
-router.get("/status", async (_req, res) => {
-    try {
-        const status = await getWexStatus();
-        res.json({
-            configured: hasWexConfig(),
-            ...status,
-        });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
+router.get("/status", (_req, res) => {
+    res.json({
+        configured: hasWexConfig(),
+        message: hasWexConfig()
+            ? "WEX credentials configured"
+            : "WEX_EMAIL and WEX_PASSWORD are not set",
+    });
 });
 
 /**
@@ -25,11 +22,16 @@ router.get("/status", async (_req, res) => {
  * Single DOB lookup from WEX by company name.
  *
  * Body: { carrierId, companyName, firstName?, lastName? }
+ * Response: full WEX lookup result (status, dob, application data, owners)
  */
 router.post("/dob", async (req, res) => {
+    if (!hasWexConfig()) {
+        return res.status(503).json({ error: "WEX credentials not configured" });
+    }
+
     const { carrierId, companyName, firstName, lastName } = req.body;
-    if (!companyName) {
-        return res.status(400).json({ error: "companyName is required" });
+    if (!carrierId || !companyName) {
+        return res.status(400).json({ error: "carrierId and companyName are required" });
     }
 
     try {
@@ -42,16 +44,69 @@ router.post("/dob", async (req, res) => {
 });
 
 /**
- * GET /wex/daemon-health
- * Check local daemon connectivity + browser stats.
+ * GET /wex/dob-stats
+ * Summary: how many DOBs from WEX, how many still missing.
  */
-router.get("/daemon-health", async (_req, res) => {
+router.get("/dob-stats", (_req, res) => {
     try {
-        const health = await getDaemonHealth();
-        res.json(health);
+        res.json(getWexDobStats());
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
+});
+
+/**
+ * GET /wex/sync-progress
+ * Live progress of the running (or last completed) WEX DOB sync.
+ */
+router.get("/sync-progress", (_req, res) => {
+    const progress = getWexSyncProgress();
+    if (!progress) return res.json({ message: "No WEX sync has run yet" });
+    res.json(progress);
+});
+
+/**
+ * GET /wex/sync-dob
+ * Start batch WEX DOB sync for carriers missing DOB.
+ * Runs in background. Poll /wex/sync-progress to monitor.
+ *
+ * Query params:
+ *   ?force=true  — re-lookup even carriers that already have a DOB
+ *   ?limit=50    — max carriers to process (0 = all)
+ */
+router.get("/sync-dob", (req, res) => {
+    if (!hasWexConfig()) {
+        return res.status(503).json({ error: "WEX credentials not configured" });
+    }
+
+    const progress = getWexSyncProgress();
+    if (progress?.running) {
+        return res.status(409).json({
+            message: "WEX sync already in progress",
+            progress: {
+                processed: progress.processed,
+                toProcess: progress.toProcess,
+                fetched: progress.fetched,
+                notFound: progress.notFound,
+                errors: progress.errors,
+                current: progress.current || null,
+            },
+        });
+    }
+
+    const force = req.query.force === "true";
+    const limit = parseInt(req.query.limit) || 0;
+
+    res.json({
+        message: "WEX DOB sync started",
+        force,
+        limit: limit || "all",
+        pollAt: "/wex/sync-progress",
+    });
+
+    syncWexDobs({ force, limit }).catch((err) =>
+        console.error("[wex] Sync error:", err.message)
+    );
 });
 
 export default router;

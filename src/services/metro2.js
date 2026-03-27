@@ -122,15 +122,13 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
     }
 
     let dealAddr = deal ? (deal.Address || "").trim() : "";
-    // SMP primary (already split into line1/line2) → Deal fallback (needs splitting)
-    let a1 = smpAddr1 || dealAddr;
-    let a2 = smpAddr2 || null;
+    let a1 = dealAddr;
+    let a2 = null;
 
-    if (!smpAddr1 && !a2) {
-        // Only split the deal address string — SMP addr is already pre-split
+    if (!a2) {
         const split = splitAddress(a1);
         a1 = split.a1;
-        a2 = split.a2 || null;
+        a2 = split.a2;
     }
 
     let sCity = deal ? (deal.City || "").trim() : "";
@@ -317,14 +315,8 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
         }
         // Collection / GGR placement means the account is in collections
         // starting that month, regardless of invoice coverage.
-        // Exception: if the placement is in the current reporting month,
-        // use "1" (first month past due) instead of "G" — the placement
-        // just happened so it hasn't aged into a full collection yet.
         else if (hasCollectionStart && mAbs >= collectionStartAbs) {
-            const currentMonthAbs = RY * 12 + RM;
-            code = (collectionStartAbs === currentMonthAbs && mAbs === collectionStartAbs)
-                ? "1"
-                : "G";
+            code = "G";
         }
         // If we have no invoice/payment evidence for the month from either
         // spreadsheet history or CMP, treat it as no-payment-data.
