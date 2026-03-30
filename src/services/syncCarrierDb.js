@@ -347,16 +347,29 @@ function applyAccountingFallbacks(comp, deal, accountingEntry = null) {
     const fallbackDeal = deal
         ? {
             ...deal,
-            First_name: deal.First_name || accountingEntry.first_name || "",
-            Last_Name: deal.Last_Name || accountingEntry.last_name || "",
-            Address: deal.Address || accountingEntry.address?.line1 || accountingEntry.address?.raw || "",
-            City: deal.City || accountingEntry.address?.city || "",
-            State: deal.State || accountingEntry.address?.state || "",
-            Zip_Code: deal.Zip_Code || accountingEntry.address?.zip || "",
-            Credit_Score: deal.Credit_Score || accountingEntry.credit_score || "",
-            Application_Date: deal.Application_Date || accountingEntry.application_date || "",
+            // Source priority for key profile fields: accounting -> zoho -> cmp
+            First_name: accountingEntry.first_name || deal.First_name || "",
+            Last_Name: accountingEntry.last_name || deal.Last_Name || "",
+            Address: accountingEntry.address?.line1 || accountingEntry.address?.raw || deal.Address || "",
+            City: accountingEntry.address?.city || deal.City || "",
+            State: accountingEntry.address?.state || deal.State || "",
+            Zip_Code: accountingEntry.address?.zip || deal.Zip_Code || "",
+            Credit_Score: accountingEntry.credit_score || deal.Credit_Score || "",
+            Application_Date: accountingEntry.application_date || deal.Application_Date || "",
         }
-        : null;
+        : {
+            id: "",
+            Stage: "Card Swiped",
+            First_name: accountingEntry.first_name || "",
+            Last_Name: accountingEntry.last_name || "",
+            Address: accountingEntry.address?.line1 || accountingEntry.address?.raw || "",
+            City: accountingEntry.address?.city || "",
+            State: accountingEntry.address?.state || "",
+            Zip_Code: accountingEntry.address?.zip || "",
+            Birth_Of_Date: "",
+            Credit_Score: accountingEntry.credit_score || "",
+            Application_Date: accountingEntry.application_date || "",
+        };
 
     return { comp: fallbackComp, deal: fallbackDeal };
 }

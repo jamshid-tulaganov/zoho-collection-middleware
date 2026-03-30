@@ -82,16 +82,16 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
     const fourWeeksAgo = new Date(today);
     fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
 
-    // ── Contact: SMP owners → Deal fallback ──
+    // ── Contact priority: accounting/Zoho(deal) → SMP owners ──
     let fn = deal ? (deal.First_name || "").trim() : "";
     let ln = deal ? (deal.Last_Name || "").trim() : "";
-    if (comp) {
+    if (comp && (!fn || !ln)) {
         const owners = comp.owners || [];
         if (owners.length) {
             const sf = (owners[0].firstName || "").trim();
             const sl = (owners[0].lastName || "").trim();
-            if (sf) fn = sf;
-            if (sl) ln = sl;
+            if (!fn && sf) fn = sf;
+            if (!ln && sl) ln = sl;
         }
     }
 
@@ -123,9 +123,9 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
     let sCity = deal ? (deal.City || "").trim() : "";
     let sState = deal ? (deal.State || "").trim() : "";
     let sZip = deal ? (deal.Zip_Code || "").trim() : "";
-    if (smpCity) sCity = smpCity;
-    if (smpState) sState = smpState;
-    if (smpZip) sZip = smpZip;
+    if (!sCity && smpCity) sCity = smpCity;
+    if (!sState && smpState) sState = smpState;
+    if (!sZip && smpZip) sZip = smpZip;
 
     // ── DOB + Credit Score from Deal / master DB ──
     let dealDobRaw = deal ? String(deal.Birth_Of_Date || "").trim() : "";
