@@ -922,7 +922,8 @@ export async function runCarrierDbSync() {
 
                     // ── Offline / spreadsheet data ────────────────────────
                     const billingCycle = dbEntry.billing_cycle || existingEntry.billing_cycle || "";
-                    const creditScoreTss = dbEntry.credit_score || existingEntry.credit_score_tss || 0;
+                    // common-carriers-db uses "cs" for credit score; debtor-master used "credit_score"
+                    const creditScoreTss = dbEntry.cs || dbEntry.credit_score || existingEntry.credit_score_tss || 0;
                     const debtorSources = dbEntry.debtor_sources || existingEntry.debtor_sources || [];
                     const debtorPeriods = dbEntry.debtor_periods || existingEntry.debtor_periods || [];
                     // ── Invoice / billing from pre-indexed maps (no API calls) ──
@@ -950,10 +951,17 @@ export async function runCarrierDbSync() {
                         fallbackGgrData,
                         fallbackGgrSubmissionDate
                     );
-                    const masterPlacementDate = normalizeMasterPlacementDate(
-                        dbEntry.collection_placement_date ?? existingEntry.collection_placement_date
-                    );
-                    if (masterPlacementDate && invoiceData.isDebtor) {
+                    // common-carriers-db uses collection_placement_dates (array) — take earliest.
+                    // Fall back to old singular field for backwards compatibility.
+                    const rawPlacementDates = Array.isArray(dbEntry.collection_placement_dates)
+                        ? dbEntry.collection_placement_dates.filter((d) => String(d || "").length >= 10)
+                        : [];
+                    const earliestPlacementDate = rawPlacementDates.length > 0
+                        ? [...rawPlacementDates].sort()[0]
+                        : (dbEntry.collection_placement_date ?? existingEntry.collection_placement_date);
+                    const masterPlacementDate = normalizeMasterPlacementDate(earliestPlacementDate);
+                    // G code applies to all carriers with a placement date — not only active debtors.
+                    if (masterPlacementDate) {
                         if (!collectionStartDate || masterPlacementDate < collectionStartDate) {
                             collectionStartDate = masterPlacementDate;
                         }
@@ -1017,10 +1025,12 @@ export async function runCarrierDbSync() {
                         debtor_periods: debtorPeriods,
                         ggr_data: ggrData,
                         ggr_submission_date: ggrSubmissionDate,
-                        collection_placement_date:
-                            dbEntry.collection_placement_date
-                            ?? existingEntry.collection_placement_date
-                            ?? null,
+                        // Persist the resolved earliest placement date (singular) for downstream use
+                        collection_placement_date: masterPlacementDate || null,
+                        // Also persist the full array from common-carriers-db for reference
+                        collection_placement_dates: rawPlacementDates.length > 0
+                            ? rawPlacementDates
+                            : (dbEntry.collection_placement_dates || existingEntry.collection_placement_dates || []),
                         earliest_delinquency_period_end: earliestDelinquencyPeriodEnd,
                         derived: {
                             first_name: preferredContact.first_name,
@@ -1033,7 +1043,12 @@ export async function runCarrierDbSync() {
                             phone: preferredContact.phone,
                             dob: wexDob8 || metro2.dateOfBirth || dbEntry.dob || existingDerived.dob || "",
                             credit_score: String(creditScore || accountingEntry?.credit_score || existingDerived.credit_score || ""),
-                            date_open: metro2.dateOpenIso || existingDerived.date_open || "",
+                            date_open:
+                                dbEntry.open_date                      // common-carriers-db (primary)
+                                || accountingEntry?.application_date   // accounting spreadsheet
+                                || metro2.dateOpenIso                  // zoho deal fallback
+                                || existingDerived.date_open
+                                || "",
                             date_first_delinquency: metro2.dateFirstDelinquencyIso || "",
                             date_last_payment: metro2.dateLastPaymentIso || "",
                             date_closed: metro2.dateClosedIso || "",

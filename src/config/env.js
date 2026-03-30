@@ -52,10 +52,10 @@ export const env = {
     TELEGRAM_CHAT_ID: process.env.TELEGRAM_CHAT_ID || "",
     TELEGRAM_SECRET_TOKEN: process.env.TELEGRAM_SECRET_TOKEN || "",
 
-    // Master DB (offline spreadsheet data)
+    // Master DB (common carriers — replaces debtor-master-db.json)
     MASTER_DB_PATH: resolveFromProjectRoot(
         process.env.MASTER_DB_PATH,
-        path.resolve(projectRoot, "db/debtor-master-db.json")
+        path.resolve(projectRoot, "db/common-carriers-db.json")
     ),
 
     // Accounting spreadsheet data converted to JSON for contact fallback

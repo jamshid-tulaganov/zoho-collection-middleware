@@ -137,9 +137,12 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
     const creditLimit = comp ? Math.floor(Number(comp.creditLimit || 0)) : 0;
     const smpCreditScore = comp ? String(comp.creditScore || "").trim() : "";
 
-    // Account open date = Deal Application_Date
+    // Account open date: common-carriers-db open_date (primary) → Deal Application_Date (fallback)
     let acctOpenDate = "";
-    if (deal) {
+    const dbOpenDate = String(dbEntry?.open_date || "").trim();
+    if (dbOpenDate && !["null", "None"].includes(dbOpenDate) && dbOpenDate.length >= 10) {
+        acctOpenDate = dbOpenDate.slice(0, 10);
+    } else if (deal) {
         const appDate = String(deal.Application_Date || "").trim();
         if (
             appDate &&
@@ -308,15 +311,11 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
         }
     }
 
-    let lastPaymentWithin30Days = false;
-    if (dateOfLastPayment && dateOfLastPayment.length >= 10) {
-        const d = new Date(`${dateOfLastPayment.slice(0, 10)}T00:00:00Z`);
-        if (!Number.isNaN(d.getTime())) {
-            const diffDays = Math.floor((today.getTime() - d.getTime()) / 86400000);
-            lastPaymentWithin30Days = diffDays >= 0 && diffDays <= 30;
-        }
-    }
-    const useDProfile = Boolean(isClosed && lastPaymentWithin30Days && hasLastPaymentDate);
+    // All closed accounts with a known date show D codes — no 30-day restriction.
+    const useDProfile = Boolean(isClosed && (hasClosedDate || hasLastPaymentDate));
+
+    // Parse delinquency absolute month for 2/3/4/5 codes
+    const delinqAbs = hasDelinqDate ? delinqYear * 12 + delinqMonth : 0;
 
     let paymentHistoryProfile = "";
     for (let n = 0; n < 24; n++) {
@@ -325,26 +324,43 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
         const mMonth = (totalMonths % 12) + 1;
         const mAbs = mYear * 12 + mMonth;
 
-        let code = "O";
+        // Per Array spec: 0=current(0-29d), 1=30-59d, 2=60-89d, 3=90-119d,
+        //                 4=120-149d, 5=150-179d, 6=180d+
+        //                 B=before open, D=no history (closed), G=collection, L=charge-off
+        let code = "0"; // default: current / pays as agreed
 
-        // Before account opened → B
+        // Before account opened → B (no payment history prior to open)
         if (hasOpenDate && mAbs < openAbs) {
             code = "B";
         }
-        // Inactive clients with a payment in the last 30 days → D from last-payment month onward.
-        else if (useDProfile && mAbs >= lastPaymentAbs) {
+        // Closed account: months at/after close grace period → D (no data after closure)
+        else if (useDProfile && mAbs >= closeDStartAbs) {
             code = "D";
         }
-        // Collection placement month → G.
+        // Collection placement month → G (one G per collection event)
         else if (hasCollectionStart && mAbs === collectionStartAbs) {
             code = "G";
+        }
+        // Delinquency progression: 1(30d) → 2(60d) → 3(90d) → 4(120d) → 5(150d) → 6(180d+)
+        else if (hasDelinqDate && mAbs >= delinqAbs) {
+            const monthsPastDue = mAbs - delinqAbs;
+            if (monthsPastDue >= 5) code = "6";
+            else if (monthsPastDue >= 4) code = "5";
+            else if (monthsPastDue >= 3) code = "4";
+            else if (monthsPastDue >= 2) code = "3";
+            else if (monthsPastDue >= 1) code = "2";
+            else code = "1"; // first month of delinquency: 30-59d
         }
         paymentHistoryProfile += code;
     }
 
     // ── Account Status (graduated) ──
+    // Closed accounts: always "13". Delinquency graduation only applies to open/active accounts.
     let acctStatus = "11";
-    if (hasDelinqDate && (isDebtor || (hasDelinqDate && !hasClosedDate))) {
+    if (isClosed) {
+        acctStatus = "13";
+    } else if (hasDelinqDate) {
+        // Active delinquent account: graduate 71→78→80→82→83→84 by months past due
         const monthsPastNow = (RY - delinqYear) * 12 + (RM - delinqMonth);
         if (monthsPastNow >= 6) acctStatus = "84";
         else if (monthsPastNow >= 5) acctStatus = "83";
@@ -353,8 +369,9 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
         else if (monthsPastNow >= 2) acctStatus = "78";
         else if (monthsPastNow >= 1) acctStatus = "71";
     }
-    if (isClosed && acctStatus === "11") acctStatus = "13";
     if (wasFormer && hasClosedDate) acctStatus = "13";
+
+    // accountType: "13" = closed, "15" = open/active
     const accountType = isClosed ? "13" : "15";
 
     // ── Field truncation ──
