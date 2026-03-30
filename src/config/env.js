@@ -58,6 +58,18 @@ export const env = {
         path.resolve(projectRoot, "db/common-carriers-db.json")
     ),
 
+    // Live snapshot of fetched SMP (CMP) companies — written on each sync
+    CMP_DATA_PATH: resolveFromProjectRoot(
+        process.env.CMP_DATA_PATH,
+        path.resolve(projectRoot, "db/cmp-data.json")
+    ),
+
+    // Live snapshot of fetched Zoho deals — written on each sync
+    ZOHO_DEALS_PATH: resolveFromProjectRoot(
+        process.env.ZOHO_DEALS_PATH,
+        path.resolve(projectRoot, "db/zoho-deals.json")
+    ),
+
     // Accounting spreadsheet data converted to JSON for contact fallback
     ACCOUNTING_DB_PATH: resolveFromProjectRoot(
         process.env.ACCOUNTING_DB_PATH,

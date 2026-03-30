@@ -36,6 +36,8 @@ const CARRIER_DB_PATH = env.CARRIER_DB_PATH;
 const MASTER_DB_PATH  = env.MASTER_DB_PATH;
 const ACCOUNTING_DB_PATH = env.ACCOUNTING_DB_PATH;
 const COLLECTION_DB_PATH = env.COLLECTION_DB_PATH;
+const CMP_DATA_PATH = env.CMP_DATA_PATH;
+const ZOHO_DEALS_PATH = env.ZOHO_DEALS_PATH;
 
 // ── State ────────────────────────────────────────────────────────────────────
 
@@ -66,6 +68,26 @@ function saveCarrierDb(db) {
     if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
     fs.writeFileSync(CARRIER_DB_PATH, JSON.stringify(db, null, 2), "utf-8");
     console.log(`[carrier-db] Saved ${Object.keys(db).length} carriers → ${CARRIER_DB_PATH}`);
+}
+
+function saveCmpData(allCompanies) {
+    if (!CMP_DATA_PATH) return;
+    const obj = {};
+    for (const [cid, comp] of allCompanies) {
+        obj[cid] = comp;
+    }
+    fs.writeFileSync(CMP_DATA_PATH, JSON.stringify(obj, null, 2), "utf-8");
+    console.log(`[carrier-db] Saved ${allCompanies.size} CMP companies → ${CMP_DATA_PATH}`);
+}
+
+function saveZohoDeals(dealByCid) {
+    if (!ZOHO_DEALS_PATH) return;
+    const obj = {};
+    for (const [cid, deal] of dealByCid) {
+        obj[cid] = deal;
+    }
+    fs.writeFileSync(ZOHO_DEALS_PATH, JSON.stringify(obj, null, 2), "utf-8");
+    console.log(`[carrier-db] Saved ${dealByCid.size} Zoho deals → ${ZOHO_DEALS_PATH}`);
 }
 
 function loadMasterDb() {
@@ -374,7 +396,7 @@ function applyAccountingFallbacks(comp, deal, accountingEntry = null) {
     return { comp: fallbackComp, deal: fallbackDeal };
 }
 
-function buildPreferredContactData(deal, accountingEntry, comp, existingDerived = {}) {
+function buildPreferredContactData(deal, accountingEntry, comp, existingDerived = {}, dbEntry = {}) {
     const owner = comp?.owners?.[0] || {};
     const addr = comp?.address || {};
 
@@ -383,6 +405,7 @@ function buildPreferredContactData(deal, accountingEntry, comp, existingDerived 
             deal?.First_name
             || accountingEntry?.first_name
             || owner.firstName
+            || dbEntry.first_name
             || existingDerived.first_name
             || ""
         ).trim(),
@@ -390,6 +413,7 @@ function buildPreferredContactData(deal, accountingEntry, comp, existingDerived 
             deal?.Last_Name
             || accountingEntry?.last_name
             || owner.lastName
+            || dbEntry.last_name
             || existingDerived.last_name
             || ""
         ).trim(),
@@ -397,6 +421,7 @@ function buildPreferredContactData(deal, accountingEntry, comp, existingDerived 
             deal?.Address
             || accountingEntry?.address?.line1
             || addr.addressLine1
+            || dbEntry.address
             || existingDerived.addr1
             || ""
         ).trim(),
@@ -404,6 +429,7 @@ function buildPreferredContactData(deal, accountingEntry, comp, existingDerived 
             deal?.City
             || accountingEntry?.address?.city
             || addr.city
+            || dbEntry.city
             || existingDerived.city
             || ""
         ).trim(),
@@ -411,6 +437,7 @@ function buildPreferredContactData(deal, accountingEntry, comp, existingDerived 
             deal?.State
             || accountingEntry?.address?.state
             || addr.state
+            || dbEntry.state
             || existingDerived.state
             || ""
         ).trim(),
@@ -418,12 +445,14 @@ function buildPreferredContactData(deal, accountingEntry, comp, existingDerived 
             deal?.Zip_Code
             || accountingEntry?.address?.zip
             || addr.postalCode
+            || dbEntry.zip_code
             || existingDerived.zip
             || ""
         ).trim(),
         phone: normalizePhone10(
             accountingEntry?.phone
             || comp?.contactPhone
+            || dbEntry.phone_number
             || existingDerived.phone
             || ""
         ),
@@ -834,6 +863,7 @@ export async function runCarrierDbSync() {
                 if (cid) dealByCid.set(cid, deal);
             }
             console.log(`[carrier-db]   Deals: ${deals.length} (${dealByCid.size} with valid cid)`);
+            saveZohoDeals(dealByCid);
 
             // ── Step 3: Fetch SMP companies ──────────────────────────────────
             syncProgress.phase = "fetching_smp_companies";
@@ -849,6 +879,7 @@ export async function runCarrierDbSync() {
             const debtorCids = new Set(debtorMap.keys());
             const allCompanies = new Map([...locMap, ...debtorMap]);
             console.log(`[carrier-db]   Total unique companies: ${allCompanies.size}`);
+            saveCmpData(allCompanies);
 
             // ── Step 3c: Fetch SMP invoices (incremental cache) ───────────
             // First run: full paginated fetch saved to db/smp-data-cache.json (~slow).
@@ -865,7 +896,7 @@ export async function runCarrierDbSync() {
             syncProgress.phase = "fetching_smp_billing";
             syncProgress.lastHeartbeatAt = new Date().toISOString();
             console.log("[carrier-db] Step 3d: Fetching SMP billing history (incremental)...");
-            const allBilling = await fetchBillingIncremental(env.SMP_CACHE_PATH, allCompanies, 15);
+            const allBilling = await fetchBillingIncremental(env.SMP_CACHE_PATH, allCompanies);
             const billingIndex = indexBillingHistoryByCarrier(allBilling);
             console.log(`[carrier-db]   Billing: ${allBilling.length} total (${billingIndex.size} carriers)`);
 
@@ -911,7 +942,7 @@ export async function runCarrierDbSync() {
                     const smpBlock = comp ? buildSmpBlock(comp) : (existingEntry.smp || null);
                     const zohoBlock = liveDeal ? buildZohoBlock(liveDeal) : (existingEntry.zoho || null);
                     const existingDerived = buildDefaultDerived(existingEntry);
-                    const preferredContact = buildPreferredContactData(deal, accountingEntry, comp, existingDerived);
+                    const preferredContact = buildPreferredContactData(deal, accountingEntry, comp, existingDerived, dbEntry);
                     const nowIso = new Date().toISOString();
                     const carrierCompanies = [
                         accountingEntry?.company,

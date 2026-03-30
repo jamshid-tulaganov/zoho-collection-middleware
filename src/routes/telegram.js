@@ -125,24 +125,15 @@ function parseReportCommand(text = "") {
     const normalized = String(text || "").trim().toLowerCase();
     const command = normalized.split(/\s+/)[0];
 
-    if (command === "/report_active") {
-        return { mode: "active", syncFirst: false };
-    }
-    if (command === "/report_inactive") {
-        return { mode: "inactive", syncFirst: false };
-    }
     if (command === "/report_update") {
-        return { mode: "active", syncFirst: true };
+        return { mode: "report", syncFirst: true };
     }
-    if (command === "/report_all") {
-        return { mode: "all", syncFirst: false };
-    }
-    if (command === "/report_debtors") {
-        return { mode: "debtors", syncFirst: false };
+    if (command === "/report_collections") {
+        return { mode: "collections", syncFirst: false };
     }
 
     return {
-        mode: "active",
+        mode: "report",
         syncFirst: commandRequestsSync(normalized),
     };
 }
@@ -159,24 +150,27 @@ async function generateAndSendArrayReport(chatId, { syncFirst = false, mode = "a
     }
 
     let carriers;
-    if (mode === "debtors") {
-        carriers = loadReportCarriers({ debtor_report: "true" });
+    if (mode === "collections") {
+        // Carriers that have been sent to collections (collection_placement_date is set)
+        carriers = loadReportCarriers({ include_inactive: "true", scope: "all" });
+        carriers = carriers.filter((carrier) =>
+            Boolean(carrier.collection_placement_date)
+            || (Array.isArray(carrier.collection_placement_dates) && carrier.collection_placement_dates.length > 0)
+        );
     } else {
-        const reportQuery = (mode === "inactive" || mode === "all") ? { include_inactive: "true" } : {};
-        carriers = loadReportCarriers(reportQuery);
-        if (mode === "inactive") {
-            carriers = carriers.filter((carrier) => carrier?.derived?.is_closed);
-        }
+        // Include both active and inactive carriers; no is_closed filtering.
+        carriers = loadReportCarriers({ include_inactive: "true", scope: "all" });
     }
     if (!carriers.length) {
-        throw new Error(mode === "inactive"
-            ? "No inactive carriers found in carrier-db.json."
-            : mode === "debtors"
-                ? "No debtors found in carrier-db.json. Run a sync first."
-                : "No active carriers found in carrier-db.json. Run a sync first.");
+        throw new Error(
+            mode === "collections"
+                ? "No carriers with a collection date found in carrier-db.json."
+                : "No carriers found in carrier-db.json. Run a sync first."
+        );
     }
 
-    const fileName = buildArrayReportFilename(new Date(), mode === "debtors" ? "debtors" : "");
+    const modeLabel = mode === "collections" ? "collections" : "";
+    const fileName = buildArrayReportFilename(new Date(), modeLabel);
     const filePath = path.join(os.tmpdir(), `${Date.now()}-${fileName}`);
 
     try {
@@ -189,7 +183,7 @@ async function generateAndSendArrayReport(chatId, { syncFirst = false, mode = "a
             chatId,
             filePath,
             fileName,
-            `Array ${mode} report ready: ${result.rowCount} carriers, ${result.columnCount} columns`
+            `Array ${mode} report: ${result.rowCount} carriers, ${result.columnCount} columns`
         );
         return result;
     } finally {
@@ -215,12 +209,9 @@ async function setTelegramCommands() {
     await callTelegram("setMyCommands", {
         commands: [
             { command: "start", description: "Register for report delivery" },
-            { command: "report", description: "Generate active Array report" },
-            { command: "report_active", description: "Generate active clients report" },
-            { command: "report_inactive", description: "Generate inactive clients report" },
-            { command: "report_update", description: "Sync data then generate active report" },
-            { command: "report_all", description: "Generate active + inactive report" },
-            { command: "report_debtors", description: "Generate Array report for debtors only" },
+            { command: "report", description: "Generate Array report (all carriers)" },
+            { command: "report_update", description: "Sync data, then generate report" },
+            { command: "report_collections", description: "Carriers with a collection sent date" },
         ],
     });
     commandsRegistered = true;
@@ -313,7 +304,7 @@ router.post("/webhook", async (req, res) => {
         return;
     }
 
-    const supportedCommands = ["/report", "/report_active", "/report_inactive", "/report_update", "/report_all", "/report_debtors"];
+    const supportedCommands = ["/report", "/report_update", "/report_collections"];
     const commandToken = text.toLowerCase().split(/\s+/)[0];
     if (!supportedCommands.includes(commandToken)) {
         return res.json({ ok: true, ignored: true });

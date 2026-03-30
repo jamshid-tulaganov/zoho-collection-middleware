@@ -82,7 +82,7 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
     const fourWeeksAgo = new Date(today);
     fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
 
-    // ── Contact priority: accounting/Zoho(deal) → SMP owners ──
+    // ── Contact priority: accounting/Zoho(deal) → SMP owners → common-carriers-db ──
     let fn = deal ? (deal.First_name || "").trim() : "";
     let ln = deal ? (deal.Last_Name || "").trim() : "";
     if (comp && (!fn || !ln)) {
@@ -94,6 +94,8 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
             if (!ln && sl) ln = sl;
         }
     }
+    if (!fn) fn = String(dbEntry?.first_name || "").trim();
+    if (!ln) ln = String(dbEntry?.last_name || "").trim();
 
     // ── Address: SMP primary → Deal fallback ──
     let smpAddr1 = "",
@@ -126,6 +128,11 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
     if (!sCity && smpCity) sCity = smpCity;
     if (!sState && smpState) sState = smpState;
     if (!sZip && smpZip) sZip = smpZip;
+    // Fall back to common-carriers-db flat fields if no SMP/Deal address
+    if (!a1) a1 = String(dbEntry?.address || "").trim();
+    if (!sCity) sCity = String(dbEntry?.city || "").trim();
+    if (!sState) sState = String(dbEntry?.state || "").trim();
+    if (!sZip) sZip = String(dbEntry?.zip_code || "").trim();
 
     // ── DOB + Credit Score from Deal / master DB ──
     let dealDobRaw = deal ? String(deal.Birth_Of_Date || "").trim() : "";
