@@ -152,14 +152,14 @@ async function generateAndSendArrayReport(chatId, { syncFirst = false, mode = "a
     let carriers;
     if (mode === "collections") {
         // Carriers that have been sent to collections (collection_placement_date is set)
-        carriers = loadReportCarriers({ include_inactive: "true", scope: "all" });
+        carriers = loadReportCarriers({ include_inactive: "true" });
         carriers = carriers.filter((carrier) =>
             Boolean(carrier.collection_placement_date)
             || (Array.isArray(carrier.collection_placement_dates) && carrier.collection_placement_dates.length > 0)
         );
     } else {
-        // Include both active and inactive carriers; no is_closed filtering.
-        carriers = loadReportCarriers({ include_inactive: "true", scope: "all" });
+        // LOC report: active + inactive, debtors excluded by loadReportCarriers default
+        carriers = loadReportCarriers({ include_inactive: "true" });
     }
     if (!carriers.length) {
         throw new Error(

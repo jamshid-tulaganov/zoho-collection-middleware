@@ -338,6 +338,7 @@ export async function fetchBillingHistory(companyId) {
 const BILLING_CONCURRENCY    = 50;   // parallel company requests
 const BILLING_SAVE_INTERVAL  = 50;   // save progress every N companies
 const BILLING_REFRESH_DAYS   = 7;    // re-fetch a carrier's billing if >7 days old
+const BILLING_RETAIN_MONTHS  = 26;   // only keep transactions within this many months (payment history = 24)
 
 function billingCachePath(basePath) {
     if (!basePath) return "";
@@ -355,13 +356,31 @@ function loadJsonFile(filePath, fallback) {
     return fallback;
 }
 
+// Compact JSON (no indentation) to minimise in-memory string size during stringify.
 function saveJsonFile(filePath, data) {
     if (!filePath) return;
     try {
-        fs.writeFileSync(filePath, JSON.stringify(data, null, 2), "utf-8");
+        fs.writeFileSync(filePath, JSON.stringify(data), "utf-8");
     } catch (err) {
         console.warn(`[SMP-cache] Could not save ${filePath}: ${err.message}`);
     }
+}
+
+// Only store the 5 fields we actually use — drops 80-90 % of raw SMP payload size.
+function slimBillingTxn(txn) {
+    return {
+        id:         txn.id,
+        carrierId:  txn.carrierId,
+        amount:     txn.amount,
+        createDate: txn.createDate,
+        refNum:     txn.refNum,
+    };
+}
+
+function billingRetainCutoff() {
+    const d = new Date();
+    d.setMonth(d.getMonth() - BILLING_RETAIN_MONTHS);
+    return d.toISOString().slice(0, 7); // "YYYY-MM"
 }
 
 // ── Invoice cache helpers ────────────────────────────────────────────────────
@@ -413,9 +432,15 @@ function loadBillingCache(basePath) {
 
 function saveBillingCache(basePath, cache) {
     const bPath = billingCachePath(basePath);
+    // Prune transactions older than BILLING_RETAIN_MONTHS before writing
+    const cutoff = billingRetainCutoff();
+    const pruned = {};
+    for (const [key, txn] of Object.entries(cache.billing)) {
+        if (String(txn.createDate || "") >= cutoff) pruned[key] = txn;
+    }
     saveJsonFile(bPath, {
         billingLastFetchedAt: cache.billingLastFetchedAt,
-        billing: cache.billing,
+        billing: pruned,
         billingPartialCarrierIds: [...cache.billingPartialCarrierIds],
         billingCarrierFetchedAt: cache.billingCarrierFetchedAt,
     });
@@ -554,9 +579,12 @@ export async function fetchBillingIncremental(cachePath, companyMap = new Map(),
                 }
             }
 
+            const cutoffGlobal = billingRetainCutoff();
             for (const txn of newTxns) {
                 const key = String(txn.id || "");
-                if (key) cache.billing[key] = txn;
+                if (key && String(txn.createDate || "") >= cutoffGlobal) {
+                    cache.billing[key] = slimBillingTxn(txn);
+                }
             }
             cache.billingLastFetchedAt = fetchedAt;
             cache.billingPartialCarrierIds = new Set();
@@ -632,9 +660,12 @@ export async function fetchBillingIncremental(cachePath, companyMap = new Map(),
         for (const r of results) {
             if (r.status !== "fulfilled") continue;
             const { carrierId, txns } = r.value;
+            const cutoffPerCo = billingRetainCutoff();
             for (const txn of txns) {
                 const key = String(txn.id || "");
-                if (key) cache.billing[key] = txn;
+                if (key && String(txn.createDate || "") >= cutoffPerCo) {
+                    cache.billing[key] = slimBillingTxn(txn);
+                }
             }
             cache.billingCarrierFetchedAt[carrierId] = fetchedAt;
             if (isFullFetch) cache.billingPartialCarrierIds.add(carrierId);

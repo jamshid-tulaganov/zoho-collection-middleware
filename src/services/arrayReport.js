@@ -352,23 +352,20 @@ export function loadReportCarriers(query = {}) {
     }
 
     const wantsDebtors = query.type === "debtor" || query.debtors === "true";
-    const wantsLoc = query.type === "loc" || query.debtors === "false";
 
-    if (query.scope !== "all") {
-        if (wantsDebtors) {
-            carriers = carriers.filter((carrier) => hasCmpTag(carrier, 1));
-        } else {
-            carriers = carriers.filter((carrier) => hasCmpTag(carrier, 2) && hasZohoCardSwiped(carrier));
-        }
-    }
-
-    if (query.scope === "all") {
-        if (wantsDebtors) {
-            carriers = carriers.filter((carrier) => carrier.derived?.is_debtor);
-        }
-        if (wantsLoc) {
-            carriers = carriers.filter((carrier) => !carrier.derived?.is_debtor);
-        }
+    if (wantsDebtors) {
+        // Explicit debtor-only request
+        carriers = carriers.filter((carrier) =>
+            carrier.derived?.is_debtor || hasCmpTag(carrier, 1)
+        );
+    } else {
+        // LOC report (default): SMP tagIds=2 with Zoho deal, OR in common-carriers-db (masterDb)
+        carriers = carriers.filter((carrier) =>
+            (hasCmpTag(carrier, 2) && hasZohoCardSwiped(carrier))
+            || Boolean(masterDb[carrier.carrier_id])
+        );
+        // Always exclude active debtors from the LOC report
+        carriers = carriers.filter((carrier) => !carrier.derived?.is_debtor);
     }
 
     if (query.include_inactive !== "true") {
