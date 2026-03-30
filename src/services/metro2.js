@@ -4,7 +4,6 @@
  * for a single carrier given SMP company, Zoho Deal, and master_db entry.
  */
 
-import dayjs from "dayjs"; // <-- NEW: date helper
 import { normalizeDob } from "./dob.js";
 
 /* ── Helpers ──────────────────────────────────────────────────────── */
@@ -297,18 +296,27 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
         }
     }
 
-    const coveredMonths = invoiceMonths || {};
-    const coveredMonthKeys = Object.keys(coveredMonths).filter((k) => /^\d{4}-\d{2}$/.test(k));
-    const hasCoverageData = coveredMonthKeys.length > 0;
-    let firstCoveredAbs = 0;
-    for (const key of coveredMonthKeys) {
-        const year = parseInt(key.slice(0, 4));
-        const month = parseInt(key.slice(5, 7));
-        if (isNaN(year) || isNaN(month)) continue;
-        const abs = year * 12 + month;
-        if (!firstCoveredAbs || abs < firstCoveredAbs) firstCoveredAbs = abs;
-    }
     const openAbs = hasOpenDate ? openYear * 12 + openMonth : 0;
+    let hasLastPaymentDate = false;
+    let lastPaymentAbs = 0;
+    if (dateOfLastPayment && dateOfLastPayment.length >= 7) {
+        const lpYear = parseInt(dateOfLastPayment.slice(0, 4));
+        const lpMonth = parseInt(dateOfLastPayment.slice(5, 7));
+        if (!isNaN(lpYear) && !isNaN(lpMonth)) {
+            hasLastPaymentDate = true;
+            lastPaymentAbs = lpYear * 12 + lpMonth;
+        }
+    }
+
+    let lastPaymentWithin30Days = false;
+    if (dateOfLastPayment && dateOfLastPayment.length >= 10) {
+        const d = new Date(`${dateOfLastPayment.slice(0, 10)}T00:00:00Z`);
+        if (!Number.isNaN(d.getTime())) {
+            const diffDays = Math.floor((today.getTime() - d.getTime()) / 86400000);
+            lastPaymentWithin30Days = diffDays >= 0 && diffDays <= 30;
+        }
+    }
+    const useDProfile = Boolean(isClosed && lastPaymentWithin30Days && hasLastPaymentDate);
 
     let paymentHistoryProfile = "";
     for (let n = 0; n < 24; n++) {
@@ -316,84 +324,20 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
         const mYear = Math.floor(totalMonths / 12);
         const mMonth = (totalMonths % 12) + 1;
         const mAbs = mYear * 12 + mMonth;
-        const monthKey = `${mYear}-${String(mMonth).padStart(2, "0")}`;
 
-        let code = "0";
+        let code = "O";
 
         // Before account opened → B
-        if (
-            hasOpenDate &&
-            (mYear < openYear || (mYear === openYear && mMonth < openMonth))
-        ) {
+        if (hasOpenDate && mAbs < openAbs) {
             code = "B";
         }
-        // After close + grace → D
-        else if (
-            hasClosedDate &&
-            closeDStartAbs > 0 &&
-            mAbs >= closeDStartAbs
-        ) {
+        // Inactive clients with a payment in the last 30 days → D from last-payment month onward.
+        else if (useDProfile && mAbs >= lastPaymentAbs) {
             code = "D";
         }
-        // Collection / GGR placement means the account is in collections
-        // starting that month, regardless of invoice coverage.
-        else if (hasCollectionStart && mAbs >= collectionStartAbs) {
+        // Collection placement month → G.
+        else if (hasCollectionStart && mAbs === collectionStartAbs) {
             code = "G";
-        }
-        // No invoice/payment evidence for the month:
-        // - gap between open date and first observed invoice/payment month → O
-        // - otherwise → B
-        else if (!coveredMonths[monthKey]) {
-            const inOpenToFirstCoverageGap =
-                hasCoverageData &&
-                hasOpenDate &&
-                firstCoveredAbs > 0 &&
-                mAbs >= openAbs &&
-                mAbs < firstCoveredAbs;
-            code = inOpenToFirstCoverageGap ? "0" : "B";
-        }
-        // Delinquent period → graduated codes (with 2026‑special rule)
-        else if (
-            hasDelinqDate &&
-            (mYear > delinqYear ||
-                (mYear === delinqYear && mMonth >= delinqMonth))
-        ) {
-            // Closed accounts still win the "D" code (grace period applies)
-            if (hasClosedDate && closeDStartAbs > 0 && mAbs >= closeDStartAbs) {
-                code = "D";
-            } else {
-                // How many months have passed since the first‑delinquency month?
-                const monthsPast =
-                    (mYear - delinqYear) * 12 + (mMonth - delinqMonth);
-
-                // ── NEW SPECIAL CASE ────────────────────────────────────────
-                // - First delinquency is in the year 2026
-                // - The delinquency is 0‑2 months old (monthsPast ≤ 2)
-                // - There is a recorded last‑payment date that occurs AFTER the
-                //   first‑delinquency date (i.e. a payment was made)
-                // If all of the above are true we treat the month as "1"
-                // (the normal 30‑day delinquency) instead of falling into the
-                // generic "G" (greater‑than‑6‑months) bucket.
-                if (
-                    delinqYear === 2026 && // first delinquency in 2026
-                    monthsPast <= 2 && // not longer than 2 months
-                    dateOfLastPayment && // we have a last‑payment date
-                    dateOfLastPayment.length >= 10 && // quick sanity check
-                    dayjs(dateOfLastPayment).isAfter(
-                        dayjs(dateFirstDelinquency),
-                    )
-                ) {
-                    code = "1"; // 30‑day delinquency
-                }
-                // ── END OF SPECIAL CASE ────────────────────────────────────────
-                else if (monthsPast <= 0) {
-                    code = "0";
-                } else if (monthsPast <= 6) {
-                    code = String(monthsPast);
-                } else {
-                    code = "G";
-                }
-            }
         }
         paymentHistoryProfile += code;
     }

@@ -78,7 +78,64 @@ function loadAccountingDb() {
         return {};
     }
     try {
-        return JSON.parse(fs.readFileSync(ACCOUNTING_DB_PATH, "utf-8"));
+        const raw = JSON.parse(fs.readFileSync(ACCOUNTING_DB_PATH, "utf-8"));
+        const out = {};
+
+        const coerceAccountingEntry = (entry = {}, sourceSheet = "") => {
+            const cid = normCid(entry.carrier_id ?? entry.carrierId);
+            if (!cid) return null;
+            const state = String(entry.st || entry.state || "").trim();
+            const zip = String(entry.zip || "").trim();
+            const dateFilledRaw = String(entry.date_filled || entry.application_date || "").trim();
+            const dateFilledIso = parseDate(dateFilledRaw)?.iso || "";
+            return {
+                carrier_id: cid,
+                source_sheet: sourceSheet || String(entry.source_sheet || "").trim(),
+                billing_cycle_source: String(entry.billing_cycle_source || "").trim(),
+                company: String(entry.company || entry.company_name || "").trim(),
+                full_name: String(entry.full_name || "").trim(),
+                first_name: String(entry.first_name || "").trim(),
+                last_name: String(entry.last_name || "").trim(),
+                email: String(entry.email || "").trim(),
+                phone_raw: String(entry.phone_raw || entry.phone || "").trim(),
+                phone: normalizePhone10(entry.phone || entry.phone_raw || ""),
+                credit_score: String(entry.credit_score || entry.cs || "").trim(),
+                cards: String(entry.cards || "").trim(),
+                application_date: dateFilledIso,
+                agent_name: String(entry.agent_name || entry.agent || "").trim(),
+                address: {
+                    raw: String(entry.address_raw || entry.address || "").trim(),
+                    line1: String(entry.address_line1 || entry.address || "").trim(),
+                    city: String(entry.city || "").trim(),
+                    state,
+                    zip,
+                },
+            };
+        };
+
+        const isCarrierMapShape = Object.keys(raw || {}).some((k) => /^\d+$/.test(String(k)));
+        if (isCarrierMapShape) {
+            for (const [cidKey, entry] of Object.entries(raw || {})) {
+                const normalized = coerceAccountingEntry(
+                    { carrier_id: cidKey, ...(entry || {}) },
+                    String(entry?.source_sheet || "")
+                );
+                if (normalized?.carrier_id) out[normalized.carrier_id] = normalized;
+            }
+            return out;
+        }
+
+        for (const [sheetName, rows] of Object.entries(raw || {})) {
+            if (!Array.isArray(rows)) continue;
+            for (const row of rows) {
+                const normalized = coerceAccountingEntry(row || {}, sheetName);
+                if (!normalized?.carrier_id) continue;
+                if (!out[normalized.carrier_id]) {
+                    out[normalized.carrier_id] = normalized;
+                }
+            }
+        }
+        return out;
     } catch {
         console.warn("[carrier-db] Could not parse accounting-client-db.json.");
         return {};
@@ -297,6 +354,7 @@ function applyAccountingFallbacks(comp, deal, accountingEntry = null) {
             State: deal.State || accountingEntry.address?.state || "",
             Zip_Code: deal.Zip_Code || accountingEntry.address?.zip || "",
             Credit_Score: deal.Credit_Score || accountingEntry.credit_score || "",
+            Application_Date: deal.Application_Date || accountingEntry.application_date || "",
         }
         : null;
 
