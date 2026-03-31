@@ -523,8 +523,9 @@ function buildZohoBlock(deal) {
 
 function buildInvoiceData(cid, comp, dbEntry = {}, existingEntry = {}, invoiceIndex, billingIndex, collectionStartDate = "") {
     const today = new Date();
-    const fourWeeksAgo = new Date(today);
-    fourWeeksAgo.setDate(fourWeeksAgo.getDate() - 28);
+    const thirtyDaysAgo = new Date(today);
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    const thirtyDaysAgoIso = thirtyDaysAgo.toISOString().slice(0, 10);
 
     const smpDebtor = comp ? (comp.tags || []).some((t) => t.id === 1) : false;
     const masterDebtor = (dbEntry.debtor_sources || []).length > 0;
@@ -622,18 +623,29 @@ function buildInvoiceData(cid, comp, dbEntry = {}, existingEntry = {}, invoiceIn
     }
 
     // ── Closed? ──
-    if (!isDebtor) {
-        collectionStartDate = "";
-        if (lastInvDate) {
-            isClosed = new Date(lastInvDate) < fourWeeksAgo;
-        } else {
-            isClosed = true;
+    // Rule: if last invoice date_to AND last transaction create_date are both older
+    // than 30 days, the company is closed (no active billing relationship).
+    // Every week billing sends invoices; silence for 30+ days means inactive.
+    // Applies to all carriers — even those with the debtor tag but no unpaid invoices.
+    {
+        // Last activity = max(last invoice dateTo, last positive transaction)
+        const lastActivity = [lastInvDate, dateOfLastPayment]
+            .filter(Boolean).sort().pop() || "";
+        const hasUnpaidInvoices = unpaidInvoices.length > 0;
+
+        // A carrier with active unpaid invoices is not closed — they are an active debtor.
+        // All others: close if last billing activity > 30 days ago.
+        if (!hasUnpaidInvoices) {
+            isClosed = lastActivity ? lastActivity < thirtyDaysAgoIso : true;
         }
+
+        if (!isDebtor) collectionStartDate = "";
+
         if (isClosed && dateOfLastPayment) {
             dateClosed = dateOfLastPayment;
         }
         // Fallback: most recent paid CMP invoice if there was no payment transaction.
-        if (!dateClosed) {
+        if (isClosed && !dateClosed) {
             const paidInvoices = sortedInvoices
                 .filter((inv) => String(inv.status || "") === "PAID")
                 .sort((a, b) => String(b.dueDate || "").localeCompare(String(a.dueDate || "")));
@@ -722,7 +734,8 @@ function buildCollectionDataForCarrier(
     for (const company of carrierCompanies) {
         const key = normalizeCompanyKey(company);
         if (!key) continue;
-        const rows = collectionDb[key] || [];
+        const entry = collectionDb[key];
+        const rows = (Array.isArray(entry) ? entry : entry?.invoices) || [];
         for (const row of rows) {
             if (String(row.debtor_type || "").trim().toLowerCase() === "fraud") {
                 continue;
@@ -1087,6 +1100,7 @@ export async function runCarrierDbSync() {
                             date_first_delinquency: metro2.dateFirstDelinquencyIso || "",
                             date_last_payment: metro2.dateLastPaymentIso || "",
                             date_closed: metro2.dateClosedIso || "",
+                            portfolio_type: metro2.portfolioType || existingDerived.portfolio_type || "C",
                             account_type: metro2.accountType || existingDerived.account_type || "15",
                             account_status: metro2.accountStatus || "11",
                             payment_history_profile: metro2.paymentHistoryProfile || "",

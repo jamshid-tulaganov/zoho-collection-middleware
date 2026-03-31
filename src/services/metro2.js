@@ -376,11 +376,15 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
     const currentCode = paymentHistoryProfile[0] || "0";
     const statusMap = { "0": "11", "1": "71", "2": "78", "3": "80", "4": "82", "5": "83", "6": "84", "G": "93", "D": "13", "B": "11" };
     let acctStatus = statusMap[currentCode] || "11";
-    if (isClosed) acctStatus = "13";
-    if (wasFormer && hasClosedDate) acctStatus = "13";
+    const wasCollection = hasCollectionStart || paymentHistoryProfile.includes("G");
+    if (isClosed) acctStatus = wasCollection ? "62" : "13";
+    if (wasFormer && hasClosedDate) acctStatus = wasCollection ? "62" : "13";
 
-    // accountType: "13" = closed, "15" = open/active
-    const accountType = isClosed ? "13" : "15";
+    // portfolioType: O=Open (collection/debtor, entire balance due on demand), C=Line of Credit (active LOC)
+    const portfolioType = (isDebtor || wasCollection) ? "O" : "C";
+
+    // accountType: 48=Collection Agency/Attorney (debtor), 13=closed, 15=Line of Credit (active)
+    const accountType = isClosed ? "13" : (isDebtor || wasCollection) ? "48" : "15";
 
     // ── Field truncation ──
     if (fn.length > 20) fn = fn.slice(0, 20);
@@ -424,7 +428,7 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
         consumerInfoIndicator: "",
 
         // Section C
-        portfolioType: "C",
+        portfolioType,
         accountType,
         dateOpen: acctOpenFmt,
         dateFirstDelinquency: dateFirstDelinqFmt,

@@ -3,9 +3,9 @@
  *
  * Usage:
  *   node send-array-report.js                   # LOC report (default)
- *   node send-array-report.js --collections      # carriers with a collection date
+ *   node send-array-report.js --debtors          # debtors / collection accounts report
  *   node send-array-report.js --sync             # sync carrier-db first, then send
- *   node send-array-report.js --sync --collections
+ *   node send-array-report.js --sync --debtors
  *
  * Requires TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in collections/.env
  */
@@ -21,7 +21,7 @@ import { runCarrierDbSync } from "./src/services/syncCarrierDb.js";
 
 const args = process.argv.slice(2);
 const syncFirst = args.includes("--sync");
-const isCollections = args.includes("--collections");
+const isDebtors = args.includes("--debtors");
 
 function telegramUrl(method) {
     return `https://api.telegram.org/bot${env.TELEGRAM_BOT_TOKEN}/${method}`;
@@ -80,25 +80,20 @@ async function main() {
         await sendMessage("Generating the Array report from carrier-db.json...");
     }
 
-    let carriers = loadReportCarriers({ include_inactive: "true" });
-
-    if (isCollections) {
-        carriers = carriers.filter((c) =>
-            Boolean(c.collection_placement_date)
-            || (Array.isArray(c.collection_placement_dates) && c.collection_placement_dates.length > 0)
-        );
-    }
+    let carriers = isDebtors
+        ? loadReportCarriers({ debtor_report: "true", include_inactive: "true" })
+        : loadReportCarriers({ include_inactive: "true" });
 
     if (!carriers.length) {
-        const msg = isCollections
-            ? "No carriers with a collection date found."
+        const msg = isDebtors
+            ? "No debtor/collection carriers found."
             : "No carriers found. Run with --sync first.";
         console.error(`[send-array-report] ${msg}`);
         await sendMessage(`Report failed: ${msg}`);
         process.exit(1);
     }
 
-    const modeLabel = isCollections ? "collections" : "";
+    const modeLabel = isDebtors ? "debtors" : "";
     const fileName = buildArrayReportFilename(new Date(), modeLabel);
     const filePath = path.join(os.tmpdir(), `${Date.now()}-${fileName}`);
 
@@ -110,7 +105,7 @@ async function main() {
         await sendDocument(
             filePath,
             fileName,
-            `Array ${isCollections ? "collections" : "LOC"} report: ${result.rowCount} carriers, ${result.columnCount} columns`
+            `Array ${isDebtors ? "debtors" : "LOC"} report: ${result.rowCount} carriers, ${result.columnCount} columns`
         );
         console.log("[send-array-report] Sent successfully.");
     } finally {
