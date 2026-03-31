@@ -9,7 +9,17 @@
       "mcp__playwright__browser_navigate",
       "Bash(node:*)",
       "mcp__playwright__browser_run_code",
-      "Bash(python3:*)"
+      "Bash(python3:*)",
+      "Bash(npm run:*)",
+      "Bash(curl -s http://localhost:3001/sync/carrier-db -X POST)",
+      "Bash(curl:*)",
+      "Bash(pkill -f \"node.*src/server.js\")",
+      "Bash(pkill -9 -f \"node.*server.js\\\\|node.*--watch\")",
+      "Bash(ls -lh /tmp/*.xlsx)",
+      "Bash(ls -lt /tmp/*.xlsx /tmp/*-Array*.xlsx /tmp/*array*.xlsx)",
+      "Bash(find /tmp -name *.xlsx -newer /tmp/array-report-final.xlsx)",
+      "Bash(node -e \"const d=JSON.parse\\(require\\(''''fs''''\\).readFileSync\\(''''/dev/stdin'''',''''utf8''''\\)\\); console.log\\(d.carrierDbSync.progress?.phase, ''''| processed:'''', d.carrierDbSync.progress?.processed, ''''| inProgress:'''', d.carrierDbSync.inProgress\\);\")",
+      "Bash(node -e \"const raw = JSON.parse\\(require\\(''''fs''''\\).readFileSync\\(''''db/smp-data-cache-billing.json'''', ''''utf8''''\\)\\); console.log\\(''''billing txns:'''', Object.keys\\(raw.billing||{}\\).length, ''''| lastFetchedAt:'''', raw.billingLastFetchedAt\\);\")"
     ]
   },
   "enabledMcpjsonServers": [

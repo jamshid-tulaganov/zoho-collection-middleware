@@ -8,6 +8,9 @@
         "start": "node --max-old-space-size=512 src/server.js",
         "dev": "node --max-old-space-size=512 --watch src/server.js",
         "sync:carrier-db": "node sync-carrier-db.js",
+        "report:send": "node send-array-report.js",
+        "report:send-sync": "node send-array-report.js --sync",
+        "report:send-collections": "node send-array-report.js --collections",
         "import:tss-collection": "node scripts/import-tss-collection-sheet.js --dry-run",
         "import:tss-collection:apply": "node scripts/import-tss-collection-sheet.js --apply",
         "import:tss-collection:cmp": "node scripts/import-tss-collection-sheet.js --dry-run --check-cmp"

@@ -245,13 +245,13 @@ function normalizeReportAddress(carrier = {}) {
 export function carrierToRow(carrier) {
     const derived = carrier.derived || {};
     const creditScore = derived.credit_score || derived.highest_credit || "";
-    const reportCloseDate = derived.is_debtor
-        ? derived.date_last_payment
-        : ((derived.is_closed || derived.was_former_debtor) ? derived.date_closed : "");
-    const firstDelinquencyDate =
-        (derived.is_debtor && !derived.is_closed)
-            ? derived.date_first_delinquency
-            : "";
+    const isClosed = derived.is_closed || derived.was_former_debtor;
+    const hasDelinquency = Boolean(derived.date_first_delinquency && derived.is_debtor && !isClosed);
+    // If delinquent: show delinquency date, blank close_date and last_payment
+    // If closed: close_date = last_payment, blank last_payment
+    const reportCloseDate = hasDelinquency ? "" : (isClosed ? (derived.date_last_payment || derived.date_closed || "") : "");
+    const reportLastPayment = (hasDelinquency || isClosed) ? "" : derived.date_last_payment;
+    const firstDelinquencyDate = hasDelinquency ? derived.date_first_delinquency : "";
     const address = normalizeReportAddress(carrier);
 
     return {
@@ -287,16 +287,16 @@ export function carrierToRow(carrier) {
         "Account Type": derived.account_type || "15",
         "Date Open": isoToMmddyyyy(derived.date_open),
         "Date of First Delinquency": isoToMmddyyyy(firstDelinquencyDate),
-        "Date of Last Payment": isoToMmddyyyy(derived.date_last_payment),
+        "Date of Last Payment": isoToMmddyyyy(reportLastPayment),
         "Date Closed": isoToMmddyyyy(reportCloseDate),
         "Account Status": derived.account_status || "11",
         "Payment Rating": "",
         "Special Comment Code": "",
         "Compliance Condition Code": "",
-        "Credit Limit": String(derived.credit_limit || 0),
+        "Credit Limit": (isClosed || derived.is_debtor) ? "0" : String(derived.credit_limit || 0),
         "Highest Credit": String(derived.highest_credit || creditScore || 0),
-        "Current Balance": String(derived.current_balance || 0),
-        "Amount Past Due": "",
+        "Current Balance": isClosed ? "0" : String(derived.current_balance || 0),
+        "Amount Past Due": derived.is_debtor ? String(derived.amount_past_due || "") : "",
         "Monthly Payment": "0",
         "Actual Payment": "",
         "Terms Frequency": "W",
@@ -359,18 +359,30 @@ export function loadReportCarriers(query = {}) {
             carrier.derived?.is_debtor || hasCmpTag(carrier, 1)
         );
     } else {
-        // LOC report (default): SMP tagIds=2 with Zoho deal, OR in common-carriers-db (masterDb)
+        // LOC report (default): SMP tagIds=2 AND Zoho Card Swiped deal (matched carrier IDs)
         carriers = carriers.filter((carrier) =>
-            (hasCmpTag(carrier, 2) && hasZohoCardSwiped(carrier))
-            || Boolean(masterDb[carrier.carrier_id])
+            hasCmpTag(carrier, 2) && hasZohoCardSwiped(carrier)
         );
-        // Always exclude active debtors from the LOC report
-        carriers = carriers.filter((carrier) => !carrier.derived?.is_debtor);
     }
 
     if (query.include_inactive !== "true") {
         carriers = carriers.filter((carrier) => !carrier.derived?.is_closed);
     }
+
+    // Remove carriers without first or last name
+    // Remove carriers without first or last name
+    carriers = carriers.filter((carrier) => {
+        const d = carrier.derived || {};
+        return d.first_name && d.last_name;
+    });
+
+    // Skip active carriers with 0 highest credit
+    carriers = carriers.filter((carrier) => {
+        const d = carrier.derived || {};
+        if (d.is_closed || d.is_debtor) return true; // keep closed/debtors regardless
+        const hc = Number(d.highest_credit || d.credit_score || 0);
+        return hc > 0;
+    });
 
     carriers = carriers.map((carrier) => {
         const derived = carrier.derived || {};

@@ -110,6 +110,8 @@ function loadAccountingDb() {
             const zip = String(entry.zip || "").trim();
             const dateFilledRaw = String(entry.date_filled || entry.application_date || "").trim();
             const dateFilledIso = parseDate(dateFilledRaw)?.iso || "";
+            const oldestOpenRaw = String(entry.oldest_open_date || entry.open_date || "").trim();
+            const oldestOpenIso = parseDate(oldestOpenRaw)?.iso || "";
             return {
                 carrier_id: cid,
                 source_sheet: sourceSheet || String(entry.source_sheet || "").trim(),
@@ -117,12 +119,13 @@ function loadAccountingDb() {
                 company: String(entry.company || entry.company_name || "").trim(),
                 full_name: String(entry.full_name || "").trim(),
                 first_name: String(entry.first_name || "").trim(),
-                last_name: String(entry.last_name || "").trim(),
+                last_name: String(entry.last_name || entry.second_name || "").trim(),
                 email: String(entry.email || "").trim(),
                 phone_raw: String(entry.phone_raw || entry.phone || "").trim(),
                 phone: normalizePhone10(entry.phone || entry.phone_raw || ""),
                 credit_score: String(entry.credit_score || entry.cs || "").trim(),
                 cards: String(entry.cards || "").trim(),
+                oldest_open_date: oldestOpenIso,
                 application_date: dateFilledIso,
                 agent_name: String(entry.agent_name || entry.agent || "").trim(),
                 address: {
@@ -584,15 +587,16 @@ function buildInvoiceData(cid, comp, dbEntry = {}, existingEntry = {}, invoiceIn
         );
     }
 
-    // Calculate delinquency only from current CMP unpaid invoices.
+    // Calculate delinquency from oldest unpaid invoice billing period (dateTo).
+    // dateTo = end of billing period when payment becomes expected.
     if (isDebtor && unpaidInvoices.length) {
         const oldestUnpaid = [...unpaidInvoices].sort((a, b) =>
-            String(a.dueDate || a.dateTo || a.createDate || "").localeCompare(
-                String(b.dueDate || b.dateTo || b.createDate || "")
+            String(a.dateTo || a.dateFrom || a.dueDate || "").localeCompare(
+                String(b.dateTo || b.dateFrom || b.dueDate || "")
             )
         )[0];
         const firstDue = String(
-            oldestUnpaid?.dueDate || oldestUnpaid?.dateTo || oldestUnpaid?.createDate || ""
+            oldestUnpaid?.dateTo || oldestUnpaid?.dateFrom || oldestUnpaid?.dueDate || ""
         );
         if (firstDue.length >= 10) {
             dateFirstDelinquency = firstDue.slice(0, 10);
@@ -1075,10 +1079,10 @@ export async function runCarrierDbSync() {
                             dob: wexDob8 || metro2.dateOfBirth || dbEntry.dob || existingDerived.dob || "",
                             credit_score: String(creditScore || accountingEntry?.credit_score || existingDerived.credit_score || ""),
                             date_open:
-                                dbEntry.open_date                      // common-carriers-db (primary)
-                                || accountingEntry?.application_date   // accounting spreadsheet
-                                || metro2.dateOpenIso                  // zoho deal fallback
+                                accountingEntry?.application_date                                       // accounting date_filled (primary)
+                                || metro2.dateOpenIso                                                   // Zoho Application_Date fallback
                                 || existingDerived.date_open
+                                || ""
                                 || "",
                             date_first_delinquency: metro2.dateFirstDelinquencyIso || "",
                             date_last_payment: metro2.dateLastPaymentIso || "",

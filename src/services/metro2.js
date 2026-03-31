@@ -144,12 +144,9 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
     const creditLimit = comp ? Math.floor(Number(comp.creditLimit || 0)) : 0;
     const smpCreditScore = comp ? String(comp.creditScore || "").trim() : "";
 
-    // Account open date: common-carriers-db open_date (primary) → Deal Application_Date (fallback)
+    // Account open date: Deal Application_Date (= date_filled from accounting, or Zoho Application_Date)
     let acctOpenDate = "";
-    const dbOpenDate = String(dbEntry?.open_date || "").trim();
-    if (dbOpenDate && !["null", "None"].includes(dbOpenDate) && dbOpenDate.length >= 10) {
-        acctOpenDate = dbOpenDate.slice(0, 10);
-    } else if (deal) {
+    if (deal) {
         const appDate = String(deal.Application_Date || "").trim();
         if (
             appDate &&
@@ -294,7 +291,7 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
         closeDStartAbs = closedYear * 12 + closedMonth + (recentPaymentClosed ? 0 : 2);
     }
 
-    // Collection start
+    // Collection start — also sets delinquency to 6 months before collection
     let hasCollectionStart = false;
     let collectionStartAbs = 0;
     if (collectionStartDate && collectionStartDate.length >= 7) {
@@ -303,6 +300,11 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
         if (!isNaN(collectionYear) && !isNaN(collectionMonth)) {
             hasCollectionStart = true;
             collectionStartAbs = collectionYear * 12 + collectionMonth;
+            // Date of First Delinquency = 6 months before collection placement
+            const dAbs = collectionStartAbs - 6;
+            const dY = Math.floor((dAbs - 1) / 12);
+            const dM = ((dAbs - 1) % 12) + 1;
+            dateFirstDelinquency = `${dY}-${String(dM).padStart(2, "0")}-01`;
         }
     }
 
@@ -344,38 +346,37 @@ export function computeMetro2(cid, comp, deal, dbEntry, existing, invoiceData) {
         else if (useDProfile && mAbs >= closeDStartAbs) {
             code = "D";
         }
-        // Collection placement month → G (one G per collection event)
-        else if (hasCollectionStart && mAbs === collectionStartAbs) {
+        // Collection: G from placement month onward, 6→5→4→3→2→1 for 6 months before
+        // Profile reads: ...GGGG654321000... (G=in collection, delinquency escalated to placement)
+        else if (hasCollectionStart && mAbs >= collectionStartAbs) {
             code = "G";
         }
-        // Delinquency progression: 1(30d) → 2(60d) → 3(90d) → 4(120d) → 5(150d) → 6(180d+)
-        else if (hasDelinqDate && mAbs >= delinqAbs) {
+        else if (hasCollectionStart && mAbs >= collectionStartAbs - 6) {
+            // 6 months leading up to collection: 1(oldest) → 6(newest, month before G)
+            const monthsBefore = collectionStartAbs - mAbs; // 1..6
+            code = String(7 - monthsBefore); // 1→6, 2→5, 3→4, 4→3, 5→2, 6→1
+        }
+        // Delinquency: month 0=current, then 1→2→3→4→5→6→G
+        // Same month as delinquency = still within 30 days = "0" (current)
+        else if (hasDelinqDate && mAbs > delinqAbs) {
             const monthsPastDue = mAbs - delinqAbs;
-            if (monthsPastDue >= 5) code = "6";
-            else if (monthsPastDue >= 4) code = "5";
-            else if (monthsPastDue >= 3) code = "4";
-            else if (monthsPastDue >= 2) code = "3";
-            else if (monthsPastDue >= 1) code = "2";
-            else code = "1"; // first month of delinquency: 30-59d
+            if (monthsPastDue >= 7) code = "G";
+            else if (monthsPastDue >= 6) code = "6";
+            else if (monthsPastDue >= 5) code = "5";
+            else if (monthsPastDue >= 4) code = "4";
+            else if (monthsPastDue >= 3) code = "3";
+            else if (monthsPastDue >= 2) code = "2";
+            else code = "1";
         }
         paymentHistoryProfile += code;
     }
 
-    // ── Account Status (graduated) ──
-    // Closed accounts: always "13". Delinquency graduation only applies to open/active accounts.
-    let acctStatus = "11";
-    if (isClosed) {
-        acctStatus = "13";
-    } else if (hasDelinqDate) {
-        // Active delinquent account: graduate 71→78→80→82→83→84 by months past due
-        const monthsPastNow = (RY - delinqYear) * 12 + (RM - delinqMonth);
-        if (monthsPastNow >= 6) acctStatus = "84";
-        else if (monthsPastNow >= 5) acctStatus = "83";
-        else if (monthsPastNow >= 4) acctStatus = "82";
-        else if (monthsPastNow >= 3) acctStatus = "80";
-        else if (monthsPastNow >= 2) acctStatus = "78";
-        else if (monthsPastNow >= 1) acctStatus = "71";
-    }
+    // ── Account Status — derived from current month's profile code ──
+    // 0→11, 1→71, 2→78, 3→80, 4→82, 5→83, 6→84, G→93, D→13
+    const currentCode = paymentHistoryProfile[0] || "0";
+    const statusMap = { "0": "11", "1": "71", "2": "78", "3": "80", "4": "82", "5": "83", "6": "84", "G": "93", "D": "13", "B": "11" };
+    let acctStatus = statusMap[currentCode] || "11";
+    if (isClosed) acctStatus = "13";
     if (wasFormer && hasClosedDate) acctStatus = "13";
 
     // accountType: "13" = closed, "15" = open/active
