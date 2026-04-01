@@ -60,6 +60,24 @@ function getAccountingIndex() {
 }
 
 /**
+ * Load payment-verifications-db.json — provides last_invoice_date for closed carriers.
+ * Carriers whose last verification activity predates CMP (no CMP invoices) use this
+ * as their close date for D-code boundary.
+ */
+let _verificationsIndex = null;
+function getVerificationsIndex() {
+    if (_verificationsIndex) return _verificationsIndex;
+    const verifPath = env.COLLECTION_DB_PATH
+        ? env.COLLECTION_DB_PATH.replace("collection-placement-db.json", "payment-verifications-db.json")
+        : "";
+    const altPath = env.MASTER_DB_PATH
+        ? env.MASTER_DB_PATH.replace("debtor-master-db.json", "payment-verifications-db.json")
+        : "";
+    _verificationsIndex = loadJsonFile(verifPath) || loadJsonFile(altPath) || {};
+    return _verificationsIndex;
+}
+
+/**
  * Build a 24-char Payment History Profile for a debtor/collection company.
  *
  * Rules:
@@ -452,20 +470,23 @@ function isCarrierClosed(carrier = {}) {
 export function carrierToRow(carrier) {
     const derived = carrier.derived || {};
     const creditScore = derived.credit_score || derived.highest_credit || "";
-    const isClosed = isCarrierClosed(carrier) || derived.was_former_debtor;
     // Active debtor = flagged as debtor AND has unpaid CMP invoices
     const cmpInvoices = carrier.invoices || [];
     const allCmpPaid = cmpInvoices.length > 0 && cmpInvoices.every((inv) => String(inv.status || "").toUpperCase() === "PAID");
     const isActiveDebtor = derived.is_debtor && !allCmpPaid;
+    // Closed detection: CMP-based close OR verification-based close (old clients with no CMP data)
+    const verifEntry = getVerificationsIndex()[String(carrier.carrier_id)];
+    const hasCmpActivity = cmpInvoices.length > 0 || (carrier.billing_history || []).length > 0;
+    const verifCloseDate = (verifEntry && !hasCmpActivity) ? (verifEntry.last_invoice_date || "") : "";
+    const isClosed = isCarrierClosed(carrier) || derived.was_former_debtor || Boolean(verifCloseDate);
     // Date Open: Zoho Application_Date → accounting date_filled → derived fallback
     const accEntry = getAccountingIndex()[String(carrier.carrier_id)] || {};
     const dateOpen = carrier.zoho?.application_date || accEntry.date_filled || carrier.accounting?.application_date || derived.date_open || "";
     // Debtors (is_debtor=true): always show delinquency date regardless of closed status.
     // LOC clients (is_debtor=false): suppress if closed — they are not collection accounts.
-    const hasDelinquency = Boolean(derived.date_first_delinquency && derived.is_debtor);
-    // If delinquent: show delinquency date, blank close_date and last_payment
-    // If closed: close_date = last_payment, blank last_payment
-    const reportCloseDate = hasDelinquency ? "" : (isClosed ? (derived.date_last_payment || derived.date_closed || "") : "");
+    const hasDelinquency = Boolean(derived.date_first_delinquency && isActiveDebtor);
+    // Close date: CMP-derived or verification last_invoice_date for old clients
+    const reportCloseDate = hasDelinquency ? "" : (isClosed ? (verifCloseDate || derived.date_last_payment || derived.date_closed || "") : "");
     // Debtors: always show last payment from CMP billing history.
     // LOC clients: blank when delinquent or closed.
     const reportLastPayment = derived.is_debtor
