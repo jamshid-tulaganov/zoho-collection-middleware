@@ -605,15 +605,29 @@ export function loadReportCarriers(query = {}) {
         carriers = carriers.filter((carrier) => {
             const cid = String(carrier.carrier_id);
             // Must be in collection-placement-db
-            if (!collectionIndex[cid]) return false;
+            const collEntry = collectionIndex[cid];
+            if (!collEntry) return false;
             // Must be an LOC client (tagIds=2 + Card Swiped deal)
             if (!hasCmpTag(carrier, 2) || !hasZohoCardSwiped(carrier)) return false;
-            // If all CMP invoices are PAID or no CMP data (old closed client) — goes to LOC report
+            // No CMP data (old closed client) — goes to LOC report
             const cmpInvoices = carrier.invoices || [];
             if (cmpInvoices.length === 0 && (carrier.billing_history || []).length === 0) return false;
+            // All CMP invoices PAID — goes to LOC report
             if (cmpInvoices.length > 0 && cmpInvoices.every((inv) => String(inv.status || "").toUpperCase() === "PAID")) {
                 return false;
             }
+            // Collection-db invoices all paid + no agency assigned → debt resolved, goes to LOC
+            const collInvoices = collEntry.invoices || [];
+            const collCases = collEntry.collection_cases || [];
+            const collAllPaid = collInvoices.length > 0 && collInvoices.every(
+                (inv) => String(inv.invoice_status || "").toLowerCase() === "paid"
+                    || (Number(inv.remaining_amount) || 0) <= 0
+            );
+            const hasAgency = collCases.length > 0 || collInvoices.some((inv) =>
+                inv.collection_transferred_date_dustin || inv.collection_transferred_date_trustaltus
+                || inv.collection_transferred_date_ic_system || inv.transferred_date_alla
+            );
+            if (collAllPaid && !hasAgency) return false;
             return true;
         });
 
@@ -757,10 +771,29 @@ export function loadReportCarriers(query = {}) {
             const cid = String(carrier.carrier_id);
             const isInCollection = collectionIndex[cid] || hasCmpTag(carrier, 1);
             if (!isInCollection) return true;
-            // Allow back if all CMP invoices are paid OR no CMP data (old closed client)
+            // Allow back if:
+            // - all CMP invoices are paid
+            // - no CMP data (old closed client)
+            // - collection debt resolved (paid + no agency assigned)
             const cmpInvoices = carrier.invoices || [];
             if (cmpInvoices.length === 0 && (carrier.billing_history || []).length === 0) return true;
-            return cmpInvoices.length > 0 && cmpInvoices.every((inv) => String(inv.status || "").toUpperCase() === "PAID");
+            if (cmpInvoices.length > 0 && cmpInvoices.every((inv) => String(inv.status || "").toUpperCase() === "PAID")) return true;
+            // Check collection-db: debt paid + no agency → resolved, allow back
+            const collEntry = collectionIndex[cid];
+            if (collEntry) {
+                const collInvoices = collEntry.invoices || [];
+                const collCases = collEntry.collection_cases || [];
+                const collAllPaid = collInvoices.length > 0 && collInvoices.every(
+                    (inv) => String(inv.invoice_status || "").toLowerCase() === "paid"
+                        || (Number(inv.remaining_amount) || 0) <= 0
+                );
+                const hasAgency = collCases.length > 0 || collInvoices.some((inv) =>
+                    inv.collection_transferred_date_dustin || inv.collection_transferred_date_trustaltus
+                    || inv.collection_transferred_date_ic_system || inv.transferred_date_alla
+                );
+                if (collAllPaid && !hasAgency) return true;
+            }
+            return false;
         });
     }
 
