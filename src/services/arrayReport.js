@@ -485,10 +485,11 @@ function isCarrierClosed(carrier = {}) {
 export function carrierToRow(carrier) {
     const derived = carrier.derived || {};
     const creditScore = derived.credit_score || derived.highest_credit || "";
-    // Active debtor = flagged as debtor AND has unpaid CMP invoices
+    // Active debtor = in debtor report (augmented with is_debtor by loadReportCarriers)
+    // NOT based on sync's is_debtor flag — that's just CMP tag, not collection status
     const cmpInvoices = carrier.invoices || [];
     const allCmpPaid = cmpInvoices.length > 0 && cmpInvoices.every((inv) => String(inv.status || "").toUpperCase() === "PAID");
-    const isActiveDebtor = derived.is_debtor && !allCmpPaid;
+    const isActiveDebtor = derived._in_debtor_report && !allCmpPaid;
     // Closed detection: CMP-based close OR verification-based close (old clients with no CMP data)
     const verifEntry = getVerificationsIndex()[String(carrier.carrier_id)];
     const hasCmpActivity = cmpInvoices.length > 0 || (carrier.billing_history || []).length > 0;
@@ -715,6 +716,7 @@ export function loadReportCarriers(query = {}) {
                 const changes = {};
 
                 changes.is_debtor = true;
+                changes._in_debtor_report = true;
 
                 // Last payment date from CMP billing history (most recent create_date).
                 const lastPaymentDate = (carrier.billing_history || [])
