@@ -720,6 +720,11 @@ export function loadReportCarriers(query = {}) {
         carriers = carriers.filter((carrier) => !isCarrierClosed(carrier));
     }
 
+    // Remove carriers with no billing activity (no invoices and no transactions)
+    carriers = carriers.filter((carrier) => {
+        return (carrier.invoices || []).length > 0 || (carrier.billing_history || []).length > 0;
+    });
+
     // Remove carriers without first or last name
     carriers = carriers.filter((carrier) => {
         const d = carrier.derived || {};
