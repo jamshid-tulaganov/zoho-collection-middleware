@@ -695,6 +695,9 @@ export function loadReportCarriers(query = {}) {
 
         if (query.missing_dob === "true") {
             carriers = carriers.filter((carrier) => !carrier.derived?.dob);
+        } else {
+            // DOB is required for Array reporting
+            carriers = carriers.filter((carrier) => carrier.derived?.dob);
         }
         carriers.sort((a, b) => String(a.carrier_id || "").localeCompare(String(b.carrier_id || "")));
         return carriers;
