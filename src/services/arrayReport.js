@@ -720,9 +720,21 @@ export function loadReportCarriers(query = {}) {
         carriers = carriers.filter((carrier) => !isCarrierClosed(carrier));
     }
 
-    // Remove carriers with no billing activity (no invoices and no transactions)
+    // Exclude inactive clients: no invoices/transactions in the last year AND no debtor tag
     carriers = carriers.filter((carrier) => {
-        return (carrier.invoices || []).length > 0 || (carrier.billing_history || []).length > 0;
+        if (hasCmpTag(carrier, 1)) return true; // debtor — keep regardless
+        const oneYearAgo = new Date();
+        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+        const cutoff = oneYearAgo.toISOString().slice(0, 10);
+        const hasRecentInvoice = (carrier.invoices || []).some((inv) => {
+            const d = String(inv.date_to || inv.date_from || "").slice(0, 10);
+            return d >= cutoff;
+        });
+        const hasRecentTxn = (carrier.billing_history || []).some((txn) => {
+            const d = String(txn.create_date || "").slice(0, 10);
+            return d >= cutoff;
+        });
+        return hasRecentInvoice || hasRecentTxn;
     });
 
     // Remove carriers without first or last name
