@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run:*)",
+      "Bash(npm install:*)",
+      "Bash(npm show:*)",
+      "Bash(node:*)",
+      "Bash(python3:*)",
+      "Bash(curl:*)",
+      "Bash(ls:*)",
+      "Bash(wc:*)",
+      "Bash(jq:*)",
+      "Read",
+      "Edit",
+      "Write",
+      "Glob",
+      "Grep"
+    ],
+    "deny": [
+      "Bash(rm -rf /)",
+      "Bash(sudo:*)"
+    ]
+  }
+}

@@ -13,7 +13,8 @@
         "report:send-collections": "node send-array-report.js --collections",
         "import:tss-collection": "node scripts/import-tss-collection-sheet.js --dry-run",
         "import:tss-collection:apply": "node scripts/import-tss-collection-sheet.js --apply",
-        "import:tss-collection:cmp": "node scripts/import-tss-collection-sheet.js --dry-run --check-cmp"
+        "import:tss-collection:cmp": "node scripts/import-tss-collection-sheet.js --dry-run --check-cmp",
+        "report:financial-risk": "node send-financial-risk-report.js"
     },
     "keywords": [],
     "author": "",

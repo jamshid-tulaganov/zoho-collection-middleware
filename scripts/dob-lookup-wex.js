@@ -79,7 +79,7 @@ export class WEXSession {
     // Navigate to WEX and let it load Aura
     await this.page.goto(
       `${WEX_URL}/onlineapplication/OnlineApplication__c/Default`,
-      { waitUntil: "networkidle", timeout: 30000 }
+      { waitUntil: "domcontentloaded", timeout: 60000 }
     );
 
     // Extract Aura token
@@ -115,7 +115,11 @@ export class WEXSession {
     await this.page.fill('input[type="email"], input[name="username"]', WEX_EMAIL);
     await this.page.fill('input[type="password"], input[name="password"]', WEX_PASSWORD);
     await this.page.click('button[type="submit"], input[type="submit"]');
-    await this.page.waitForNavigation({ waitUntil: "networkidle", timeout: 20000 });
+    // Salesforce never fully stops background requests — wait for URL change + DOM load instead
+    await this.page.waitForURL("**/communities/s/**", { timeout: 60000 });
+    await this.page.waitForLoadState("domcontentloaded", { timeout: 30000 });
+    // Give Aura framework time to initialize
+    await this.page.waitForTimeout(3000);
   }
 
   /** Make an Aura API POST call */

@@ -5,6 +5,19 @@ import { Router } from "express";
 import { env } from "../config/env.js";
 import { buildArrayReportFilename, loadReportCarriers, writeArrayReportFile } from "../services/arrayReport.js";
 import { runCarrierDbSync } from "../services/syncCarrierDb.js";
+// WEX lookup — loaded lazily since it requires Playwright (not available on all servers)
+let _lookupAndSaveDob = null;
+async function getWexLookup() {
+    if (!_lookupAndSaveDob) {
+        try {
+            const mod = await import("../services/wexHttp.js");
+            _lookupAndSaveDob = mod.lookupAndSaveDob;
+        } catch (err) {
+            throw new Error("WEX lookup not available on this server (Playwright not installed)");
+        }
+    }
+    return _lookupAndSaveDob;
+}
 
 const router = Router();
 
@@ -204,6 +217,52 @@ async function handleReportCommand(chatId, text) {
     }
 }
 
+/**
+ * Handle /wex command — look up DOB from WEX and save to dob.json.
+ *
+ * Usage:
+ *   /wex <carrierId> <companyName>
+ *   /wex 5798345 L&A Torres Trucking LLC
+ */
+async function handleWexCommand(chatId, text) {
+    try {
+        // Parse: /wex <carrierId> <rest is company name>
+        const parts = text.replace(/^\/wex\s*/i, "").trim().split(/\s+/);
+        const carrierId = parts[0] || "";
+        const companyName = parts.slice(1).join(" ");
+
+        if (!carrierId || !companyName) {
+            await sendTelegramMessage(chatId, "Usage: /wex <carrierId> <companyName>\nExample: /wex 5798345 L&A Torres Trucking LLC");
+            return;
+        }
+
+        await sendTelegramMessage(chatId, `Looking up DOB for carrier ${carrierId}: "${companyName}"...`);
+
+        const lookupFn = await getWexLookup();
+        const result = await lookupFn({ carrierId, companyName });
+
+        if (result.status === "found") {
+            await sendTelegramMessage(
+                chatId,
+                `DOB found for carrier ${carrierId}:\n` +
+                `Name: ${result.firstName} ${result.lastName}\n` +
+                `DOB: ${result.dob}\n` +
+                `Source: WEX\n` +
+                `Saved to dob.json`
+            );
+        } else {
+            await sendTelegramMessage(
+                chatId,
+                `WEX lookup for ${carrierId} "${companyName}": ${result.status}` +
+                (result.error ? `\nError: ${result.error}` : "")
+            );
+        }
+    } catch (err) {
+        console.error("[telegram] wex command failed:", err.message);
+        await sendTelegramMessage(chatId, `WEX lookup failed: ${err.message}`).catch(() => {});
+    }
+}
+
 async function setTelegramCommands() {
     if (!hasTelegramConfig() || commandsRegistered) return;
     await callTelegram("setMyCommands", {
@@ -212,6 +271,7 @@ async function setTelegramCommands() {
             { command: "report", description: "Generate Array report (all carriers)" },
             { command: "report_update", description: "Sync data, then generate report" },
             { command: "report_collections", description: "Carriers with a collection sent date" },
+            { command: "wex", description: "WEX DOB lookup: /wex <carrierId> <companyName>" },
         ],
     });
     commandsRegistered = true;
@@ -273,6 +333,21 @@ router.post("/report", async (req, res) => {
     void handleReportCommand(chatId, req.body?.text || "");
 });
 
+// Direct HTTP endpoint for WEX lookup (can be called without Telegram)
+router.post("/wex-lookup", async (req, res) => {
+    const { carrierId, companyName, firstName, lastName } = req.body || {};
+    if (!carrierId || !companyName) {
+        return res.status(400).json({ error: "carrierId and companyName are required" });
+    }
+    try {
+        const lookupFn = await getWexLookup();
+        const result = await lookupFn({ carrierId, companyName, firstName, lastName });
+        res.json(result);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 router.post("/webhook", async (req, res) => {
     if (env.TELEGRAM_SECRET_TOKEN) {
         const token = req.headers["x-telegram-bot-api-secret-token"];
@@ -304,10 +379,16 @@ router.post("/webhook", async (req, res) => {
         return;
     }
 
-    const supportedCommands = ["/report", "/report_update", "/report_collections"];
+    const supportedCommands = ["/report", "/report_update", "/report_collections", "/wex"];
     const commandToken = text.toLowerCase().split(/\s+/)[0];
     if (!supportedCommands.includes(commandToken)) {
         return res.json({ ok: true, ignored: true });
+    }
+
+    if (commandToken === "/wex") {
+        res.json({ ok: true, status: "started" });
+        void handleWexCommand(chatId, text);
+        return;
     }
 
     res.json({ ok: true, status: "started" });

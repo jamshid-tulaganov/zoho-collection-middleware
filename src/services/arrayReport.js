@@ -18,16 +18,58 @@ function loadJsonFile(filePath) {
 }
 
 /**
- * Build a 24-char Payment History Profile for a collection company.
- * - Months >= sent_to_collection_date → G (always, paid or not)
- * - Months before account open → B
- * - Months between open and collection → use syncPhp (actual payment history
- *   from the sync engine), falling back to "0" if unavailable.
- *
- * Passing syncPhp avoids artificially injecting 1-6 escalation codes for months
- * when the carrier was actually current/paying before being placed in collection.
+ * Parse a date string in various formats to YYYY-MM-DD.
+ * Handles: YYYY-MM-DD, MM/DD/YYYY, MM/D/YYYY, M/DD/YYYY
  */
-function rebuildCollectionPhp(collectionStartDate, dateOpen, syncPhp = "") {
+function parseDateToIso(value) {
+    const raw = String(value || "").trim();
+    if (!raw) return "";
+    // YYYY-MM-DD
+    if (/^\d{4}-\d{2}-\d{2}/.test(raw)) return raw.slice(0, 10);
+    // MM/DD/YYYY or M/D/YYYY
+    const slashMatch = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+    if (slashMatch) {
+        const mm = slashMatch[1].padStart(2, "0");
+        const dd = slashMatch[2].padStart(2, "0");
+        return `${slashMatch[3]}-${mm}-${dd}`;
+    }
+    return "";
+}
+
+/**
+ * Build carrier_id → { date_filled, dob } index from accounting-client-db.
+ * Parses date_filled from MM/DD/YYYY or YYYY-MM-DD to ISO.
+ */
+let _accountingIndex = null;
+function getAccountingIndex() {
+    if (_accountingIndex) return _accountingIndex;
+    const accDb = loadJsonFile(env.ACCOUNTING_DB_PATH);
+    _accountingIndex = {};
+    for (const entries of Object.values(accDb)) {
+        if (!Array.isArray(entries)) continue;
+        for (const entry of entries) {
+            const cid = String(entry.carrier_id || "").trim();
+            if (!cid) continue;
+            _accountingIndex[cid] = {
+                date_filled: parseDateToIso(entry.date_filled),
+                dob: entry.dob || "",
+            };
+        }
+    }
+    return _accountingIndex;
+}
+
+/**
+ * Build a 24-char Payment History Profile for a debtor/collection company.
+ *
+ * Rules:
+ * - Before account open → B
+ * - After account close → D
+ * - From earliest agency transfer month onward → G (in collection)
+ * - 1–6 months past delinquency (pre-transfer) → escalating code 1–6
+ * - All other months → 0 (current)
+ */
+function rebuildCollectionPhp(delinquencyDate, dateOpen, agencyTransferDates = [], closedDate = "") {
     const today = new Date();
     const RY = today.getFullYear();
     const RM = today.getMonth() + 1;
@@ -39,8 +81,18 @@ function rebuildCollectionPhp(collectionStartDate, dateOpen, syncPhp = "") {
         return isNaN(y) || isNaN(m) ? 0 : y * 12 + m;
     };
 
-    const openAbs       = parseAbs(dateOpen);
-    const collectionAbs = parseAbs(collectionStartDate);
+    const openAbs   = parseAbs(dateOpen);
+    const delinqAbs = parseAbs(delinquencyDate);
+    const closedAbs = parseAbs(closedDate);
+
+    // Find the earliest agency transfer month — G applies from this month onward
+    let earliestTransferAbs = 0;
+    for (const d of agencyTransferDates) {
+        const abs = parseAbs(d);
+        if (abs && (!earliestTransferAbs || abs < earliestTransferAbs)) {
+            earliestTransferAbs = abs;
+        }
+    }
 
     let php = "";
     for (let n = 0; n < 24; n++) {
@@ -52,12 +104,17 @@ function rebuildCollectionPhp(collectionStartDate, dateOpen, syncPhp = "") {
         let code;
         if (openAbs && mAbs < openAbs) {
             code = "B";
-        } else if (collectionAbs && mAbs >= collectionAbs) {
-            // In collection: always G
+        } else if (closedAbs && mAbs > closedAbs) {
+            code = "D";
+        } else if (earliestTransferAbs && mAbs >= earliestTransferAbs) {
+            // Once transferred to collection, stays G from that month onward
             code = "G";
+        } else if (delinqAbs && mAbs > delinqAbs) {
+            // Pre-transfer delinquency: escalate 1–6
+            const monthsPast = mAbs - delinqAbs;
+            code = String(Math.min(6, monthsPast));
         } else {
-            // Pre-collection: use actual sync-computed history, not artificial escalation
-            code = (syncPhp && syncPhp[n]) || "0";
+            code = "0";
         }
         php += code;
     }
@@ -65,10 +122,39 @@ function rebuildCollectionPhp(collectionStartDate, dateOpen, syncPhp = "") {
 }
 
 /**
+ * Compute account status code from months overdue since delinquency date.
+ * Maps to Metro 2 delinquent status codes (71–84).
+ */
+function computeDelinquentStatus(delinquencyDate) {
+    if (!delinquencyDate || delinquencyDate.length < 7) return "11";
+    const today = new Date();
+    const currentAbs = today.getFullYear() * 12 + (today.getMonth() + 1);
+    const y = parseInt(delinquencyDate.slice(0, 4));
+    const m = parseInt(delinquencyDate.slice(5, 7));
+    if (isNaN(y) || isNaN(m)) return "11";
+    const delinqAbs = y * 12 + m;
+    const monthsPast = currentAbs - delinqAbs;
+    if (monthsPast <= 0) return "11";
+    if (monthsPast === 1) return "71";
+    if (monthsPast === 2) return "78";
+    if (monthsPast === 3) return "80";
+    if (monthsPast === 4) return "82";
+    if (monthsPast === 5) return "83";
+    return "84";
+}
+
+/**
  * Build a map of carrier_id → collection-placement-db entry
  * using MASTER_DB_PATH (common-carriers-db.json) company names matched
  * against collection-placement-db.json keys.
  */
+function isInsuranceEntry(entry) {
+    const invoices = entry.invoices || [];
+    // No invoices (nothing to report) or any invoice marked as insurance
+    if (!invoices.length) return true;
+    return invoices.some((inv) => String(inv.language || "").toLowerCase() === "insurance");
+}
+
 function buildCollectionDbIndex() {
     const commonDb  = loadJsonFile(env.MASTER_DB_PATH);     // common-carriers-db.json
     const collectionDb = loadJsonFile(env.COLLECTION_DB_PATH); // collection-placement-db.json
@@ -77,7 +163,7 @@ function buildCollectionDbIndex() {
     const index = {};
     for (const [cid, entry] of Object.entries(commonDb)) {
         const key = normalizeCompanyKey(entry.company);
-        if (key && collectionDb[key]) {
+        if (key && collectionDb[key] && !isInsuranceEntry(collectionDb[key])) {
             index[String(cid)] = collectionDb[key];
         }
     }
@@ -367,13 +453,54 @@ export function carrierToRow(carrier) {
     const derived = carrier.derived || {};
     const creditScore = derived.credit_score || derived.highest_credit || "";
     const isClosed = isCarrierClosed(carrier) || derived.was_former_debtor;
-    const hasDelinquency = Boolean(derived.date_first_delinquency && derived.is_debtor && !isClosed);
+    // Date Open: Zoho Application_Date → accounting date_filled → derived fallback
+    const accEntry = getAccountingIndex()[String(carrier.carrier_id)] || {};
+    const dateOpen = carrier.zoho?.application_date || accEntry.date_filled || carrier.accounting?.application_date || derived.date_open || "";
+    // Debtors (is_debtor=true): always show delinquency date regardless of closed status.
+    // LOC clients (is_debtor=false): suppress if closed — they are not collection accounts.
+    const hasDelinquency = Boolean(derived.date_first_delinquency && derived.is_debtor);
     // If delinquent: show delinquency date, blank close_date and last_payment
     // If closed: close_date = last_payment, blank last_payment
     const reportCloseDate = hasDelinquency ? "" : (isClosed ? (derived.date_last_payment || derived.date_closed || "") : "");
-    const reportLastPayment = (hasDelinquency || isClosed) ? "" : derived.date_last_payment;
+    // Debtors: always show last payment from CMP billing history.
+    // LOC clients: blank when delinquent or closed.
+    const reportLastPayment = derived.is_debtor
+        ? (derived.date_last_payment || "")
+        : ((hasDelinquency || isClosed) ? "" : derived.date_last_payment);
     const firstDelinquencyDate = hasDelinquency ? derived.date_first_delinquency : "";
     const address = normalizeReportAddress(carrier);
+
+    // Rebuild PHP B/D codes using the correct Date Open (Zoho app date).
+    // The sync engine may have computed PHP without proper B boundaries.
+    let php = derived.payment_history_profile || "";
+    if (dateOpen && php) {
+        const today = new Date();
+        const RY = today.getFullYear();
+        const RM = today.getMonth() + 1;
+        const oy = parseInt(dateOpen.slice(0, 4));
+        const om = parseInt(dateOpen.slice(5, 7));
+        if (!isNaN(oy) && !isNaN(om)) {
+            const openAbs = oy * 12 + om;
+            const cy = reportCloseDate ? parseInt(reportCloseDate.slice(0, 4)) : 0;
+            const cm = reportCloseDate ? parseInt(reportCloseDate.slice(5, 7)) : 0;
+            const closedAbs = (cy && cm) ? cy * 12 + cm : 0;
+            let newPhp = "";
+            for (let n = 0; n < 24; n++) {
+                const totalMonths = RY * 12 + RM - 1 - n;
+                const mYear = Math.floor(totalMonths / 12);
+                const mMonth = (totalMonths % 12) + 1;
+                const mAbs = mYear * 12 + mMonth;
+                if (mAbs < openAbs) {
+                    newPhp += "B";
+                } else if (closedAbs && mAbs > closedAbs) {
+                    newPhp += "D";
+                } else {
+                    newPhp += php[n] || "0";
+                }
+            }
+            php = newPhp;
+        }
+    }
 
     return {
         "Association Code": "1",
@@ -404,9 +531,9 @@ export function carrierToRow(carrier) {
         "JointDateOfBirth": "",
         "JointConsumerInformationIndicator": "",
         "Customer Account Number": carrier.carrier_id,
-        "Portfolio Type": derived.portfolio_type || "C",
-        "Account Type": derived.account_type || "15",
-        "Date Open": isoToMmddyyyy(derived.date_open),
+        "Portfolio Type": "C",
+        "Account Type": "15",
+        "Date Open": isoToMmddyyyy(dateOpen),
         "Date of First Delinquency": isoToMmddyyyy(firstDelinquencyDate),
         "Date of Last Payment": isoToMmddyyyy(reportLastPayment),
         "Date Closed": isoToMmddyyyy(reportCloseDate),
@@ -414,15 +541,15 @@ export function carrierToRow(carrier) {
         "Payment Rating": "",
         "Special Comment Code": "",
         "Compliance Condition Code": "",
-        "Credit Limit": (isClosed || derived.is_debtor) ? "0" : String(derived.credit_limit || 0),
+        "Credit Limit": isClosed ? "0" : String(derived.credit_limit || 0),
         "Highest Credit": String(derived.highest_credit || creditScore || 0),
-        "Current Balance": isClosed ? "0" : String(derived.current_balance || 0),
-        "Monthly Payment": "0",
+        "Current Balance": "0",
+        "Monthly Payment": "",
         "Actual Payment": "",
         "Terms Frequency": "W",
         "Terms": "001",
         "Original Charge Off Amount": "0",
-        "Payment History Profile": derived.payment_history_profile || "",
+        "Payment History Profile": php,
     };
 }
 
@@ -479,90 +606,66 @@ export function loadReportCarriers(query = {}) {
                         || (Number(inv.remaining_amount) || 0) <= 0
                 ));
 
-                // Determine if carrier was formally placed with a collection agency.
-                // G codes only apply when placement_date, TrustAltus condition/transfer,
-                // IC System transfer, or Jennifer Hoover column is set on any invoice.
-                // Carriers tracked as debtors but not yet placed with an agency get no G.
-                const agencyDates = invoices.flatMap((inv) => [
-                    inv.placement_date,
-                    inv.collection_transferred_date_trustaltus,
-                    inv.collection_condition_120_days_trustaltus,
-                    inv.collection_transferred_date_ic_system,
-                    inv.collection_condition_120_days_ic_system,
-                    inv.jennifer_hoover,
-                ]).filter(Boolean).map((d) => String(d).slice(0, 10)).filter((d) => d.length === 10).sort();
+                const toDate10 = (v) => { const s = String(v || "").slice(0, 10); return s.length === 10 ? s : ""; };
 
-                // Use earliest agency date as collection start (G codes begin here)
-                const collectionStart = agencyDates[0] || "";
-                const delinqDate      = collEntry.date_of_delinquency || "";
+                // Collect ALL agency transfer dates for G-code placement at specific months
+                const agencyTransferDates = invoices.flatMap((inv) => [
+                    inv.collection_transferred_date_dustin,
+                    inv.collection_transferred_date_trustaltus,
+                    inv.collection_transferred_date_ic_system,
+                    inv.transferred_date_alla,
+                ]).map(toDate10).filter(Boolean);
+                const sentDate = toDate10(collEntry.sent_to_collection_date);
+                if (sentDate) agencyTransferDates.push(sentDate);
+
+                // Delinquency date: earliest invoice_date across collection DB invoices.
+                // Fallback to company-level date_of_delinquency when no invoice dates exist.
+                const invoiceDelinqDate = invoices
+                    .map((inv) => toDate10(inv.invoice_date))
+                    .filter(Boolean)
+                    .sort()[0] || "";
+                const delinqDate = invoiceDelinqDate || toDate10(collEntry.date_of_delinquency) || "";
 
                 const changes = {};
+
+                changes.is_debtor = true;
+
+                // Last payment date from CMP billing history (most recent create_date).
+                const lastPaymentDate = (carrier.billing_history || [])
+                    .map((txn) => toDate10(txn.create_date))
+                    .filter(Boolean)
+                    .sort()
+                    .pop() || "";
+                if (lastPaymentDate) changes.date_last_payment = lastPaymentDate;
+
+                if (delinqDate) {
+                    changes.date_first_delinquency = delinqDate;
+                }
 
                 // Balance: use collection DB when carrier shows 0
                 if (!(derived.current_balance > 0) && totalRemaining > 0) {
                     changes.current_balance = Math.round(totalRemaining);
-                    changes.amount_past_due = Math.round(totalRemaining);
                 }
 
-                const isCurrent = derived.account_status === "11";
-
-                if (collectionStart) {
-                    // Formally placed with agency: G codes apply to ALL carriers,
-                    // including status=11 (current). G starts from agency placement date.
+                // Rebuild PHP for ALL debtors: G at agency transfer months,
+                // 1-6 escalation from delinquency date, 7+ months = G
+                if (delinqDate) {
+                    const closedDate = allPaid ? (lastPaymentDate || derived.date_closed || "") : "";
+                    const correctDateOpen = carrier.zoho?.application_date || derived.date_open || "";
                     changes.payment_history_profile = rebuildCollectionPhp(
-                        collectionStart,
-                        derived.date_open || "",
-                        derived.payment_history_profile || ""
+                        delinqDate,
+                        correctDateOpen,
+                        agencyTransferDates,
+                        closedDate,
                     );
-                    changes.account_status = allPaid ? "62" : "93";
-                    changes.is_closed      = carrierIsClosed || allPaid;
-                    changes.portfolio_type = "O";
-                    changes.account_type   = "48";
+                }
 
-                    if (isCurrent) {
-                        // Active client in collection: no delinquency date shown,
-                        // and blank last_payment / date_closed per reporting rules.
-                        changes.date_first_delinquency = "";
-                        changes.date_last_payment      = "";
-                        changes.date_closed            = "";
-                    } else {
-                        // Delinquency date from collection DB (source of truth)
-                        if (delinqDate) {
-                            changes.date_first_delinquency = delinqDate;
-                        } else if (!derived.date_first_delinquency) {
-                            changes.date_first_delinquency = "";
-                        }
-                    }
-                } else if (isCurrent) {
-                    // In collection-db, no agency placement, status=11:
-                    // no delinquency date, blank last_payment.
-                    if (derived.date_first_delinquency) changes.date_first_delinquency = "";
-                    changes.date_last_payment = "";
-                } else {
-                    // In collection-db but NOT yet placed with any agency: no G codes.
-                    // Strip any G the sync engine may have placed (from SMP debtor tag).
-                    const php = derived.payment_history_profile || "";
-                    if (php.includes("G")) {
-                        // Replace each G with the delinquency escalation code for that month
-                        const parseAbs = (iso) => {
-                            if (!iso || iso.length < 7) return 0;
-                            const y = parseInt(iso.slice(0, 4));
-                            const m = parseInt(iso.slice(5, 7));
-                            return isNaN(y) || isNaN(m) ? 0 : y * 12 + m;
-                        };
-                        const delinqAbs = parseAbs(delinqDate);
-                        const today = new Date();
-                        const RY = today.getFullYear(), RM = today.getMonth() + 1;
-                        changes.payment_history_profile = php.split("").map((ch, n) => {
-                            if (ch !== "G") return ch;
-                            if (!delinqAbs) return "6";
-                            const totalMonths = RY * 12 + RM - 1 - n;
-                            const mYear = Math.floor(totalMonths / 12);
-                            const mMonth = (totalMonths % 12) + 1;
-                            const mAbs = mYear * 12 + mMonth;
-                            return String(Math.min(6, Math.max(1, mAbs - delinqAbs + 1)));
-                        }).join("");
-                    }
+                // Account status: closed → 13, delinquent → 71-84 based on months overdue
+                if (allPaid) {
+                    changes.account_status = "13";
+                    changes.is_closed = true;
+                } else if (delinqDate) {
+                    changes.account_status = computeDelinquentStatus(delinqDate);
                 }
 
                 if (Object.keys(changes).length) {

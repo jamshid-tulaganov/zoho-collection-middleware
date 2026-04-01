@@ -1092,10 +1092,9 @@ export async function runCarrierDbSync() {
                             dob: wexDob8 || metro2.dateOfBirth || dbEntry.dob || existingDerived.dob || "",
                             credit_score: String(creditScore || accountingEntry?.credit_score || existingDerived.credit_score || ""),
                             date_open:
-                                accountingEntry?.application_date                                       // accounting date_filled (primary)
-                                || metro2.dateOpenIso                                                   // Zoho Application_Date fallback
+                                metro2.dateOpenIso                                                      // Zoho Application_Date (primary — TSS card open date)
+                                || accountingEntry?.application_date                                    // accounting date_filled fallback
                                 || existingDerived.date_open
-                                || ""
                                 || "",
                             date_first_delinquency: metro2.dateFirstDelinquencyIso || "",
                             date_last_payment: metro2.dateLastPaymentIso || "",
