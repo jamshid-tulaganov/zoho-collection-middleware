@@ -14,10 +14,9 @@ Part of the Octane ecosystem alongside the parent repo's Zoho Deluge scripts, `s
 npm run dev                          # Start with --watch (hot reload), port 3001
 npm start                            # Production start (--max-old-space-size=512)
 npm run sync:carrier-db              # One-off file-based carrier sync (no server)
-npm run report:send                  # Generate LOC Array report → Telegram
-npm run report:send -- --debtors     # Generate debtors/collection report → Telegram
+npm run report:send                  # Generate combined Array report (LOC + debtors) → Telegram
+npm run report:send -- --debtors     # Generate debtors-only report → Telegram
 npm run report:send -- --sync        # Refresh carrier-db first, then generate
-npm run report:send-collections      # Alias for --collections flag
 npm run report:financial-risk        # Financial risk report → Telegram
 npm run import:tss-collection        # Dry-run TSS bad-debtor Excel import
 npm run import:tss-collection:apply  # Apply TSS import to debtor-master-db.json
@@ -27,32 +26,65 @@ No test runner — verify by running the server and hitting endpoints or using T
 
 ## Architecture
 
+### Report Generation (`src/services/arrayReport.js`)
+
+The default Array report combines **LOC + debtor** carriers in one file. Key rules:
+
+**Carrier classification:**
+- **LOC**: SMP tag 2 + Zoho Card Swiped + NOT debtor tag 1 + NOT in collection-placement-db
+- **Debtor**: in collection-placement-db + has unpaid CMP invoices + has agency assigned
+- **Paid debtor → LOC**: collection-db paid + no agency, OR all CMP invoices PAID → returns to LOC
+- **Excluded**: no data from any source (no CMP, no verification, no collection data)
+
+**Required for all carriers:**
+- DOB (carriers without DOB are excluded)
+- Portfolio Type always `C`, Account Type always `15` (TSS is the creditor)
+- Billing data from at least one source (CMP invoices, CMP billing, or verification spreadsheet)
+
+**Payment History Profile (PHP) rules:**
+- `B` = before account open (uses Zoho Application_Date, fallback to accounting date_filled)
+- `0` = current / paid on time
+- `1-6` = months delinquent (from date_of_delinquency in collection-placement-db)
+- `G` = in collection. Starts from `collection_cases.date_placed` (primary) or invoice agency transfer dates (fallback). Once G starts, stays G — never replaced by D. After 7+ months delinquency without agency → also G.
+- `D` = after account closed. Only for truly closed carriers (no CMP activity). Active carriers with paid invoices do NOT get D codes.
+
+**Account Status:**
+- `11` = active/current
+- `13` = closed (has D codes in PHP)
+- `71-84` = delinquent (months overdue: 71=30d, 78=60d, 80=90d, 82=120d, 83=150d, 84=180d+)
+- Never use `93` (collection agency status — TSS is creditor, not agency)
+
+**Balance/Credit Limit:**
+- Active LOC: show actual values from CMP
+- Debtors: both 0
+- Closed: both 0
+
 ### Dual Sync Paths
 
-The service maintains two parallel data pipelines that compute the same Metro 2 fields:
-
-1. **MongoDB sync** (`src/services/sync.js`) — runs at midnight UTC via cron. Fetches SMP companies + Zoho deals, computes Metro 2, upserts to `Client` collection. Used by webhook-based updates (`/hooks/zoho`).
-
-2. **File-based sync** (`src/services/syncCarrierDb.js`) — runs at 7am ET (12:00 UTC) via cron. Produces `data/carrier-db.json` (~26MB), the **primary data source** for report generation. Supports incremental fetching via SMP caches (`db/smp-data-cache.json`, `db/smp-data-cache-billing.json`).
+1. **MongoDB sync** (`src/services/sync.js`) — runs at midnight UTC via cron.
+2. **File-based sync** (`src/services/syncCarrierDb.js`) — runs at 7am ET (12:00 UTC) via cron. Produces `data/carrier-db.json`, the **primary data source** for report generation.
 
 Reports always read from `carrier-db.json`, not MongoDB.
 
-### Metro 2 Computation
+### WEX DOB Lookup (`src/services/wexHttp.js`)
 
-`src/services/metro2.js` → `computeMetro2()` is the core function. It takes a carrier ID plus data from SMP, Zoho, and the master DB, and produces all 48 Array credit report fields (SSN, name, address, account status codes, 24-char payment history profile, amounts, dates).
+Playwright-based DOB lookup from WEX (Salesforce Experience Cloud). Persistent browser session — opens once, reuses for all lookups. Lazy import — server starts without Playwright on Render.
 
-`src/services/arrayReport.js` orchestrates report generation: loads carrier-db.json, filters carriers, calls `buildReportRows()` to produce 48-column rows, and creates an ExcelJS workbook.
+- **Telegram**: `/wex <carrierId> <companyName>` — looks up DOB and saves to `dob.json`
+- **HTTP**: `POST /telegram/wex-lookup` with `{carrierId, companyName}`
+- **Batch**: `node scripts/batch-dob-wex.js --apply` — bulk lookup with resume support
+- **G-code source priority**: `collection_cases.date_placed` → invoice agency transfer dates. `sent_to_collection_date` is NOT used (unreliable spreadsheet entry date).
 
 ### Data Flow
 
 ```
 SMP API (companies, invoices, billing)
   + Zoho CRM (deals at "Card Swiped" stage)
-  + db/debtor-master-db.json (debtor timelines, billing cycles)
-  + db/collection-placement-db.json (collection cases by invoice)
-  + data/dob.json (DOB lookup map)
+  + db/collection-placement-db.json (debtors, agency placements)
+  + db/payment-verifications-db.json (historical invoice data, close dates)
+  + data/dob.json (DOB lookup map from WEX)
   → syncCarrierDb merges all into data/carrier-db.json
-  → arrayReport reads carrier-db.json → Excel (.xlsx)
+  → arrayReport filters, augments, builds Excel
   → Telegram bot delivers to chat
 ```
 
@@ -60,53 +92,42 @@ SMP API (companies, invoices, billing)
 
 - `GET /` — health check with sync status
 - `POST /carrier-db/sync` — trigger file-based sync (background)
-- `GET /carrier-db/status` — sync progress
-- `GET /reports/generate?debtor_report=true&sync=true&compact=false` — download Excel
-- `GET /reports/json` — JSON version of report data
-- `POST /hooks/zoho` — Zoho webhook receiver (updates MongoDB `Client` on Debtor changes)
-- `POST /telegram/webhook` — Telegram bot commands (`/report`, `/report collections`, `/financial-risk`)
-
-### External API Integrations
-
-- **SMP/CMP** (`src/services/smp.js`) — TSS Fuel Manager API. Token-based auth with automatic refresh. Fetches companies (by tag), invoices, billing history. Token refresh serializes concurrent requests.
-- **Zoho CRM** (`src/services/zoho.js`) — OAuth token refresh (45min expiry). Fetches deals. Auto-retries on 401 (re-auth) and 429 (rate limit).
-- **Telegram** (`src/routes/telegram.js`) — Webhook-based bot for report delivery and commands.
-- **WEX / iSoftPull** — Playwright-based DOB scraping (local-only, requires `playwright` devDependency).
+- `GET /reports/generate` — download Excel
+- `POST /telegram/webhook` — Telegram bot commands (`/report`, `/wex`)
+- `POST /telegram/wex-lookup` — WEX DOB lookup via HTTP
+- `POST /hooks/zoho` — Zoho webhook receiver
 
 ## Data Files
 
 | Directory | Purpose |
 |-----------|---------|
-| `db/` | Reference/static JSON databases (master carrier list, debtor timelines, accounting contacts, collection placements). Checked into git. |
-| `data/` | Generated/runtime files (carrier-db.json, dob.json, telegram-users.json). Not in git. On Render, `data/` is a persistent disk. |
-| `spreadsheets/` | Generated Excel reports (Array_Credit_Report_*.xlsx). |
+| `db/` | Reference JSON databases. `collection-placement-db.json` (debtors + agency data), `payment-verifications-db.json` (historical invoices, close dates), `debtor-master-db.json`, `accounting-client-db.json`. |
+| `data/` | Runtime files. `carrier-db.json` (primary), `dob.json` (DOB map), `wex-dob-progress.json`. Not in git. |
+| `spreadsheets/` | Template + generated Excel reports. `Array_Credit_Reporting_Workbook_General.xlsx` is the valid reference template. |
 
 ## Business Domain
 
-### Metro 2 Account Status Codes
+### Date Open Priority
 
-- `11` = current/open account
-- `62` = paid in full / closed
-- Payment history profile: 24-char string where each char = one month. `1`–`6` = months delinquent, `G` = collection/chargeoff, `0` = current.
+1. Zoho `Application_Date` (TSS card application date)
+2. Accounting `date_filled` (from `accounting-client-db.json`, parsed from MM/DD/YYYY)
+3. `derived.date_open` from sync (fallback)
 
-### Collection Escalation (from parent CLAUDE.md)
+Never use `oldest_open_date` from accounting — that's the company founding date, not the TSS card date.
 
-Overdue days counted from oldest `Due_Date` across unpaid invoices:
-- Day 0–14: tag only
-- Day 15–29: First Type if < 25% paid
-- Day 30–44: Second Type if < 50% paid
-- Day 45+: Third Type if < 100% paid; Charged + deactivate if fully paid
+### Closed Carrier Detection
 
-### Debtor Sources
-
-`debtor-master-db.json` tracks debtor timeline entries with sources: `soft` (soft delinquency), `hard` (hard delinquency), `GGR` (gone/grossly delinquent). The `collection-placement-db.json` maps invoice numbers to collection agency placements.
+- **CMP-based**: no unpaid invoices + last activity > 30 days ago
+- **Verification-based**: carrier has no CMP data but has `payment-verifications-db.json` entry → use `last_invoice_date` as close date
+- **Paid debtors**: all CMP invoices PAID or all CMP paid + no agency → NOT closed, returns to LOC as active
+- Active carriers (billing history or paid invoices, not active debtors) → never marked as closed
 
 ## Environment
 
 - **Runtime**: Node.js 22, ES modules (`"type": "module"`)
 - **MongoDB**: Optional — service works fully with just file-based carrier-db.json
 - **Deployment**: Render.com (`render.yaml`) with 1GB persistent disk at `/opt/render/project/src/data/`
-- **`.env` loading**: `src/config/env.js` loads from `collections/.env`, falls back to `../telegram-bot/.env` and `../servercrm/.env` for shared credentials
+- **Playwright**: devDependency, required for WEX DOB lookup (local only)
 - See `.env.example` for all environment variables
 
 ## Cron Schedule

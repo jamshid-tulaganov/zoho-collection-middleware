@@ -1,37 +1,40 @@
 ---
 name: debug-metro2
-description: Debug Metro 2 field computation for a specific carrier — trace how each of the 48 Array fields is derived from SMP, Zoho, and master-db data sources.
+description: Debug Payment History Profile (PHP) for a carrier — trace how each code is computed month by month.
 argument-hint: <carrier-id>
 allowed-tools: Bash, Read, Grep, Glob
 ---
 
-Trace and debug how Metro 2 fields are computed for a specific carrier.
+Trace PHP computation for a specific carrier.
 
 ## Steps
 
-1. **Load the carrier record** from `data/carrier-db.json` for carrier ID $ARGUMENTS.
+1. **Load carrier data** from carrier-db.json, collection-placement-db.json, payment-verifications-db.json.
 
-2. **Read the computation logic** in `src/services/metro2.js` (`computeMetro2` function).
+2. **Identify report path:** LOC or debtor? Show why.
 
-3. **Trace each field's derivation:**
-   - **Name fields:** which source won (Zoho deal → SMP contact → accounting fallback)?
-   - **SSN/DOB:** where did it come from (zoho.ssn_raw, zoho.dob_raw, dob.json, master-db)?
-   - **Address:** which address source was used and why?
-   - **Account_Status:** is it 11 (open) or 62 (closed)? Based on what condition?
-   - **Payment_History_Profile:** explain each of the 24 characters — which months are G (collection), 1-6 (delinquent), 0 (current), B (before open)?
-   - **Date_of_First_Delinquency:** how was this date determined?
-   - **Amount_Past_Due / Credit_Limit / Highest_Credit:** source values
+3. **Trace PHP month by month (24 months):**
+   - Show each month's code and WHY:
+     - `B`: month < dateOpen (Zoho app date / accounting date_filled)
+     - `0`: active, before delinquency
+     - `1-6`: months past delinquency date
+     - `G`: collection (from collection_cases.date_placed or 7+ months delinquent)
+     - `D`: after close date (verification last_invoice_date for old clients)
 
-4. **Check for problems:**
-   - Fields that are empty or defaulted when they shouldn't be
-   - Payment history profile inconsistencies (e.g., G codes before collection date)
-   - Missing delinquency date when account is delinquent
-   - Address field truncation issues
+4. **Verify rules:**
+   - No D after G (G stays forever once in collection)
+   - No repeated 6 (escalates to G at month 7)
+   - No delinquency codes (1-6) after G position
+   - Status matches PHP: D→13, G/1-6→71-84, 0→11
 
-5. **Show the raw data** from each source (SMP block, Zoho block, master-db entry) alongside the computed Metro 2 output.
+5. **Show data sources for key dates:**
+   - Date Open: Zoho app date → accounting date_filled → derived
+   - Delinquency: collection-placement-db earliest invoice_date
+   - G start: collection_cases.date_placed → invoice agency dates
+   - Close: verification last_invoice_date (if no CMP data)
 
 ## Example
 
 ```
-/debug-metro2 12345
+/debug-metro2 5760497
 ```
