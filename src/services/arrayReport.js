@@ -696,9 +696,13 @@ export function loadReportCarriers(query = {}) {
             carrier.derived?.is_debtor || hasCmpTag(carrier, 1)
         );
     } else {
-        // LOC report (default): SMP tagIds=2 AND Zoho Card Swiped deal (matched carrier IDs)
+        // LOC report (default): SMP tagIds=2 AND Zoho Card Swiped deal
+        // Exclude debtors — they belong in the debtor report only
+        const collectionIndex = buildCollectionDbIndex();
         carriers = carriers.filter((carrier) =>
             hasCmpTag(carrier, 2) && hasZohoCardSwiped(carrier)
+            && !hasCmpTag(carrier, 1)
+            && !collectionIndex[String(carrier.carrier_id)]
         );
     }
 
