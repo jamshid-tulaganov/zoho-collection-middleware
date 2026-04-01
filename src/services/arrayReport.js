@@ -478,7 +478,11 @@ export function carrierToRow(carrier) {
     const verifEntry = getVerificationsIndex()[String(carrier.carrier_id)];
     const hasCmpActivity = cmpInvoices.length > 0 || (carrier.billing_history || []).length > 0;
     const verifCloseDate = (verifEntry && !hasCmpActivity) ? (verifEntry.last_invoice_date || "") : "";
-    const isClosed = isCarrierClosed(carrier) || derived.was_former_debtor || Boolean(verifCloseDate);
+    // Don't mark as closed if CMP shows paid/active and not an active debtor — they just paid up
+    const hasCmpBilling = (carrier.billing_history || []).length > 0;
+    const cmpSettled = (allCmpPaid || (cmpInvoices.length === 0 && hasCmpBilling)) && !isActiveDebtor;
+    const cmpBasedClose = cmpSettled ? false : isCarrierClosed(carrier);
+    const isClosed = cmpBasedClose || derived.was_former_debtor || Boolean(verifCloseDate);
     // Date Open: Zoho Application_Date → accounting date_filled → derived fallback
     const accEntry = getAccountingIndex()[String(carrier.carrier_id)] || {};
     const dateOpen = carrier.zoho?.application_date || accEntry.date_filled || carrier.accounting?.application_date || derived.date_open || "";
@@ -497,7 +501,11 @@ export function carrierToRow(carrier) {
 
     // Rebuild PHP B/D codes using the correct Date Open (Zoho app date).
     // The sync engine may have computed PHP without proper B boundaries.
+    // Also strip D codes from sync if carrier is not actually closed at report time.
     let php = derived.payment_history_profile || "";
+    if (!isClosed && php.includes("D")) {
+        php = php.replace(/D/g, "0");
+    }
     if (dateOpen && php) {
         const today = new Date();
         const RY = today.getFullYear();
