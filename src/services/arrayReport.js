@@ -608,15 +608,25 @@ export function loadReportCarriers(query = {}) {
 
                 const toDate10 = (v) => { const s = String(v || "").slice(0, 10); return s.length === 10 ? s : ""; };
 
-                // Collect ALL agency transfer dates for G-code placement at specific months
-                const agencyTransferDates = invoices.flatMap((inv) => [
-                    inv.collection_transferred_date_dustin,
-                    inv.collection_transferred_date_trustaltus,
-                    inv.collection_transferred_date_ic_system,
-                    inv.transferred_date_alla,
-                ]).map(toDate10).filter(Boolean);
-                const sentDate = toDate10(collEntry.sent_to_collection_date);
-                if (sentDate) agencyTransferDates.push(sentDate);
+                // G-code start date priority:
+                // 1. collection_cases.date_placed (authoritative — when sent to collection agency)
+                // 2. invoice-level agency transfer dates (fallback if no collection_cases)
+                const caseDates = (collEntry.collection_cases || [])
+                    .map((c) => toDate10(c.date_placed))
+                    .filter(Boolean);
+                let agencyTransferDates;
+                if (caseDates.length) {
+                    agencyTransferDates = caseDates;
+                } else {
+                    agencyTransferDates = invoices.flatMap((inv) => [
+                        inv.collection_transferred_date_dustin,
+                        inv.collection_transferred_date_trustaltus,
+                        inv.collection_transferred_date_ic_system,
+                        inv.transferred_date_alla,
+                    ]).map(toDate10).filter(Boolean);
+                    const sentDate = toDate10(collEntry.sent_to_collection_date);
+                    if (sentDate) agencyTransferDates.push(sentDate);
+                }
 
                 // Delinquency date: earliest invoice_date across collection DB invoices.
                 // Fallback to company-level date_of_delinquency when no invoice dates exist.
