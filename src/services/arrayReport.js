@@ -787,11 +787,11 @@ export function loadReportCarriers(query = {}) {
             carrier.derived?.is_debtor || hasCmpTag(carrier, 1)
         );
     } else {
-        // LOC report: all Card Swiped clients — everyone is LOC
-        // Exclude only carriers in collection-db with active unpaid debt (they go in debtor report)
+        // LOC report: SMP tag 2 (LOC) + Card Swiped
+        // Exclude carriers in collection-db with active unpaid debt (they go in debtor report)
         const collectionIndex = buildCollectionDbIndex();
         carriers = carriers.filter((carrier) => {
-            if (!hasZohoCardSwiped(carrier)) return false;
+            if (!hasCmpTag(carrier, 2) || !hasZohoCardSwiped(carrier)) return false;
             const cid = String(carrier.carrier_id);
             const isInCollection = Boolean(collectionIndex[cid]);
             if (!isInCollection) return true;
