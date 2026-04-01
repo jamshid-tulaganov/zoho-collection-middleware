@@ -453,6 +453,10 @@ export function carrierToRow(carrier) {
     const derived = carrier.derived || {};
     const creditScore = derived.credit_score || derived.highest_credit || "";
     const isClosed = isCarrierClosed(carrier) || derived.was_former_debtor;
+    // Active debtor = flagged as debtor AND has unpaid CMP invoices
+    const cmpInvoices = carrier.invoices || [];
+    const allCmpPaid = cmpInvoices.length > 0 && cmpInvoices.every((inv) => String(inv.status || "").toUpperCase() === "PAID");
+    const isActiveDebtor = derived.is_debtor && !allCmpPaid;
     // Date Open: Zoho Application_Date → accounting date_filled → derived fallback
     const accEntry = getAccountingIndex()[String(carrier.carrier_id)] || {};
     const dateOpen = carrier.zoho?.application_date || accEntry.date_filled || carrier.accounting?.application_date || derived.date_open || "";
@@ -543,9 +547,9 @@ export function carrierToRow(carrier) {
         "Payment Rating": "",
         "Special Comment Code": "",
         "Compliance Condition Code": "",
-        "Credit Limit": (isClosed || derived.is_debtor) ? "0" : String(derived.credit_limit || 0),
+        "Credit Limit": (isClosed || isActiveDebtor) ? "0" : String(derived.credit_limit || 0),
         "Highest Credit": String(derived.highest_credit || creditScore || 0),
-        "Current Balance": (isClosed || derived.is_debtor) ? "0" : String(derived.current_balance || 0),
+        "Current Balance": (isClosed || isActiveDebtor) ? "0" : String(derived.current_balance || 0),
         "Monthly Payment": "",
         "Actual Payment": "",
         "Terms Frequency": "W",
@@ -582,7 +586,13 @@ export function loadReportCarriers(query = {}) {
             // Must be in collection-placement-db
             if (!collectionIndex[cid]) return false;
             // Must be an LOC client (tagIds=2 + Card Swiped deal)
-            return hasCmpTag(carrier, 2) && hasZohoCardSwiped(carrier);
+            if (!hasCmpTag(carrier, 2) || !hasZohoCardSwiped(carrier)) return false;
+            // If all CMP invoices are PAID — not a debtor anymore, goes to LOC report
+            const cmpInvoices = carrier.invoices || [];
+            if (cmpInvoices.length > 0 && cmpInvoices.every((inv) => String(inv.status || "").toUpperCase() === "PAID")) {
+                return false;
+            }
+            return true;
         });
 
         if (query.include_inactive !== "true") {
@@ -711,13 +721,18 @@ export function loadReportCarriers(query = {}) {
         );
     } else {
         // LOC report (default): SMP tagIds=2 AND Zoho Card Swiped deal
-        // Exclude debtors — they belong in the debtor report only
+        // Exclude active debtors — they belong in the debtor report only
+        // But allow paid debtors back (all CMP invoices PAID = no longer a debtor)
         const collectionIndex = buildCollectionDbIndex();
-        carriers = carriers.filter((carrier) =>
-            hasCmpTag(carrier, 2) && hasZohoCardSwiped(carrier)
-            && !hasCmpTag(carrier, 1)
-            && !collectionIndex[String(carrier.carrier_id)]
-        );
+        carriers = carriers.filter((carrier) => {
+            if (!hasCmpTag(carrier, 2) || !hasZohoCardSwiped(carrier)) return false;
+            const cid = String(carrier.carrier_id);
+            const isInCollection = collectionIndex[cid] || hasCmpTag(carrier, 1);
+            if (!isInCollection) return true;
+            // Allow back if all CMP invoices are paid
+            const cmpInvoices = carrier.invoices || [];
+            return cmpInvoices.length > 0 && cmpInvoices.every((inv) => String(inv.status || "").toUpperCase() === "PAID");
+        });
     }
 
     if (query.include_inactive !== "true") {
