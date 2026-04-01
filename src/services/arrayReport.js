@@ -572,7 +572,7 @@ export function carrierToRow(carrier) {
         "Date of First Delinquency": isoToMmddyyyy(firstDelinquencyDate),
         "Date of Last Payment": isoToMmddyyyy(reportLastPayment),
         "Date Closed": isoToMmddyyyy(reportCloseDate),
-        "Account Status": derived.account_status || "11",
+        "Account Status": php.includes("D") ? "13" : (isClosed ? "13" : ((derived.account_status === "13" ? "11" : derived.account_status) || "11")),
         "Payment Rating": "",
         "Special Comment Code": "",
         "Compliance Condition Code": "",
