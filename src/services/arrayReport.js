@@ -110,9 +110,9 @@ function rebuildCollectionPhp(delinquencyDate, dateOpen, agencyTransferDates = [
         } else if (closedAbs && mAbs > closedAbs) {
             code = "D";
         } else if (delinqAbs && mAbs > delinqAbs) {
-            // Pre-transfer delinquency: escalate 1–6
+            // Pre-transfer delinquency: escalate 1–6, then G at 7+ months
             const monthsPast = mAbs - delinqAbs;
-            code = String(Math.min(6, monthsPast));
+            code = monthsPast >= 7 ? "G" : String(monthsPast);
         } else {
             code = "0";
         }
