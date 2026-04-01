@@ -104,11 +104,11 @@ function rebuildCollectionPhp(delinquencyDate, dateOpen, agencyTransferDates = [
         let code;
         if (openAbs && mAbs < openAbs) {
             code = "B";
+        } else if (earliestTransferAbs && mAbs >= earliestTransferAbs) {
+            // Once transferred to collection, stays G — even if account is closed
+            code = "G";
         } else if (closedAbs && mAbs > closedAbs) {
             code = "D";
-        } else if (earliestTransferAbs && mAbs >= earliestTransferAbs) {
-            // Once transferred to collection, stays G from that month onward
-            code = "G";
         } else if (delinqAbs && mAbs > delinqAbs) {
             // Pre-transfer delinquency: escalate 1–6
             const monthsPast = mAbs - delinqAbs;
@@ -490,12 +490,14 @@ export function carrierToRow(carrier) {
                 const mYear = Math.floor(totalMonths / 12);
                 const mMonth = (totalMonths % 12) + 1;
                 const mAbs = mYear * 12 + mMonth;
+                const existingCode = php[n] || "0";
                 if (mAbs < openAbs) {
                     newPhp += "B";
-                } else if (closedAbs && mAbs > closedAbs) {
+                } else if (closedAbs && mAbs > closedAbs && existingCode !== "G") {
+                    // D for closed months — but never overwrite G (collection stays on record)
                     newPhp += "D";
                 } else {
-                    newPhp += php[n] || "0";
+                    newPhp += existingCode;
                 }
             }
             php = newPhp;
