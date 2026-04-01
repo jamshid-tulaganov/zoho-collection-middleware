@@ -80,9 +80,20 @@ async function main() {
         await sendMessage("Generating the Array report from carrier-db.json...");
     }
 
-    let carriers = isDebtors
-        ? loadReportCarriers({ debtor_report: "true", include_inactive: "true" })
-        : loadReportCarriers({ include_inactive: "true" });
+    let carriers;
+    if (isDebtors) {
+        carriers = loadReportCarriers({ debtor_report: "true", include_inactive: "true" });
+    } else {
+        // Combined report: LOC + debtors/collection (deduplicated)
+        const loc = loadReportCarriers({ include_inactive: "true" });
+        const debtors = loadReportCarriers({ debtor_report: "true", include_inactive: "true" });
+        const seen = new Set();
+        carriers = [];
+        // Debtors first (have augmented PHP/status with G codes)
+        for (const c of debtors) { seen.add(String(c.carrier_id)); carriers.push(c); }
+        // Then LOC (skip duplicates)
+        for (const c of loc) { if (!seen.has(String(c.carrier_id))) carriers.push(c); }
+    }
 
     if (!carriers.length) {
         const msg = isDebtors
