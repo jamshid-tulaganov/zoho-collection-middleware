@@ -784,7 +784,10 @@ export function loadReportCarriers(query = {}) {
             // - no CMP data (old closed client)
             // - collection debt resolved (paid + no agency assigned)
             const cmpInvoices = carrier.invoices || [];
-            if (cmpInvoices.length === 0 && (carrier.billing_history || []).length === 0) return true;
+            if (cmpInvoices.length === 0 && (carrier.billing_history || []).length === 0) {
+                // No CMP data — only allow if has verification data (real old client)
+                return Boolean(getVerificationsIndex()[String(carrier.carrier_id)]);
+            }
             if (cmpInvoices.length > 0 && cmpInvoices.every((inv) => String(inv.status || "").toUpperCase() === "PAID")) return true;
             // Check collection-db: debt paid + no agency → resolved, allow back
             const collEntry = collectionIndex[cid];
