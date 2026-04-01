@@ -1,0 +1,18 @@
+{
+  "roles": {
+    "admin": {
+      "description": "Full access — reports, imports, WEX lookups, user management",
+      "permissions": ["report", "import", "wex", "manage_users"]
+    },
+    "manager": {
+      "description": "Reports and imports, no WEX or user management",
+      "permissions": ["report", "import"]
+    },
+    "viewer": {
+      "description": "View reports only",
+      "permissions": ["report"]
+    }
+  },
+  "users": {},
+  "pending": {}
+}

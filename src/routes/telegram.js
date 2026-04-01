@@ -27,6 +27,51 @@ function hasTelegramConfig() {
     return Boolean(env.TELEGRAM_BOT_TOKEN);
 }
 
+// ── Auth system ──────────────────────────────────────────────────────────────
+
+const AUTH_DB_PATH = path.resolve(process.cwd(), "db/telegram-auth.json");
+
+async function loadAuthDb() {
+    try {
+        return JSON.parse(await fs.readFile(AUTH_DB_PATH, "utf-8"));
+    } catch {
+        return { roles: {}, users: {}, pending: {} };
+    }
+}
+
+async function saveAuthDb(db) {
+    await fs.writeFile(AUTH_DB_PATH, JSON.stringify(db, null, 2), "utf-8");
+}
+
+function isAdmin(authDb, chatId) {
+    const id = String(chatId);
+    // First registered user or TELEGRAM_CHAT_ID is always admin
+    if (id === String(env.TELEGRAM_CHAT_ID)) return true;
+    const user = authDb.users[id];
+    return user?.role === "admin";
+}
+
+function getUserPermissions(authDb, chatId) {
+    const id = String(chatId);
+    if (id === String(env.TELEGRAM_CHAT_ID)) return ["report", "import", "wex", "manage_users"];
+    const user = authDb.users[id];
+    if (!user) return [];
+    const role = authDb.roles[user.role];
+    return role?.permissions || [];
+}
+
+function hasPermission(authDb, chatId, permission) {
+    return getUserPermissions(authDb, chatId).includes(permission);
+}
+
+// Map commands to required permissions
+const COMMAND_PERMISSIONS = {
+    "/report": "report",
+    "/report_update": "report",
+    "/report_collections": "report",
+    "/wex": "wex",
+};
+
 async function loadTelegramUsers() {
     try {
         const raw = await fs.readFile(env.TELEGRAM_USERS_PATH, "utf-8");
@@ -41,34 +86,193 @@ async function saveTelegramUsers(users) {
     await fs.writeFile(env.TELEGRAM_USERS_PATH, JSON.stringify(users, null, 2), "utf-8");
 }
 
-async function registerTelegramUser(message) {
-    const chatId = message?.chat?.id;
-    if (!chatId) return null;
+/**
+ * Handle /start — register user as pending, notify admin for approval.
+ */
+async function handleStart(chatId, message) {
+    const authDb = await loadAuthDb();
+    const id = String(chatId);
 
+    // Already approved
+    if (authDb.users[id]) {
+        const user = authDb.users[id];
+        await sendTelegramMessage(chatId, `You are approved as "${user.role}". Commands:\n/report — generate Array report\n/wex <id> <company> — DOB lookup`);
+        return;
+    }
+
+    // Auto-approve if TELEGRAM_CHAT_ID (owner)
+    if (id === String(env.TELEGRAM_CHAT_ID)) {
+        authDb.users[id] = {
+            chat_id: id,
+            role: "admin",
+            first_name: message?.from?.first_name || "",
+            last_name: message?.from?.last_name || "",
+            username: message?.from?.username || "",
+            approved_at: new Date().toISOString(),
+            approved_by: "system",
+        };
+        await saveAuthDb(authDb);
+        await sendTelegramMessage(chatId, "You are the admin. Full access granted.");
+        return;
+    }
+
+    // Add to pending
+    authDb.pending[id] = {
+        chat_id: id,
+        first_name: message?.from?.first_name || "",
+        last_name: message?.from?.last_name || "",
+        username: message?.from?.username || "",
+        requested_at: new Date().toISOString(),
+    };
+    await saveAuthDb(authDb);
+
+    await sendTelegramMessage(chatId, "Access requested. An admin will approve you.");
+
+    // Notify admin
+    if (env.TELEGRAM_CHAT_ID) {
+        const name = [message?.from?.first_name, message?.from?.last_name].filter(Boolean).join(" ");
+        const username = message?.from?.username ? `@${message.from.username}` : "";
+        await sendTelegramMessage(
+            env.TELEGRAM_CHAT_ID,
+            `New access request:\n` +
+            `Name: ${name} ${username}\n` +
+            `Chat ID: ${id}\n\n` +
+            `To approve:\n/approve ${id} admin\n/approve ${id} manager\n/approve ${id} viewer`
+        ).catch(() => {});
+    }
+
+    // Also save to telegram-users.json for backward compat
     const users = await loadTelegramUsers();
-    const key = String(chatId);
-    users[key] = {
-        chat_id: key,
+    users[id] = {
+        chat_id: id,
         type: message?.chat?.type || "",
         first_name: message?.from?.first_name || "",
         last_name: message?.from?.last_name || "",
         username: message?.from?.username || "",
-        started_at: users[key]?.started_at || new Date().toISOString(),
+        started_at: users[id]?.started_at || new Date().toISOString(),
         last_seen_at: new Date().toISOString(),
     };
     await saveTelegramUsers(users);
-    return users[key];
+}
+
+/**
+ * Handle /approve <chatId> <role> — admin approves a pending user.
+ */
+async function handleApprove(chatId, text) {
+    const authDb = await loadAuthDb();
+    if (!isAdmin(authDb, chatId)) {
+        await sendTelegramMessage(chatId, "Only admins can approve users.");
+        return;
+    }
+
+    const parts = text.replace(/^\/approve\s*/i, "").trim().split(/\s+/);
+    const targetId = parts[0];
+    const role = parts[1] || "viewer";
+
+    if (!targetId) {
+        // List pending users
+        const pending = Object.values(authDb.pending);
+        if (!pending.length) {
+            await sendTelegramMessage(chatId, "No pending requests.");
+            return;
+        }
+        let msg = "Pending requests:\n\n";
+        for (const p of pending) {
+            const name = [p.first_name, p.last_name].filter(Boolean).join(" ");
+            msg += `${p.chat_id} — ${name} ${p.username ? "@" + p.username : ""}\n`;
+        }
+        msg += "\nUsage: /approve <chatId> <role>\nRoles: admin, manager, viewer";
+        await sendTelegramMessage(chatId, msg);
+        return;
+    }
+
+    if (!authDb.roles[role]) {
+        await sendTelegramMessage(chatId, `Unknown role "${role}". Available: ${Object.keys(authDb.roles).join(", ")}`);
+        return;
+    }
+
+    const pending = authDb.pending[targetId];
+    authDb.users[targetId] = {
+        chat_id: targetId,
+        role,
+        first_name: pending?.first_name || "",
+        last_name: pending?.last_name || "",
+        username: pending?.username || "",
+        approved_at: new Date().toISOString(),
+        approved_by: String(chatId),
+    };
+    delete authDb.pending[targetId];
+    await saveAuthDb(authDb);
+
+    const name = [pending?.first_name, pending?.last_name].filter(Boolean).join(" ") || targetId;
+    await sendTelegramMessage(chatId, `Approved ${name} as "${role}".`);
+    await sendTelegramMessage(targetId, `You have been approved as "${role}". You can now use the bot.`).catch(() => {});
+}
+
+/**
+ * Handle /revoke <chatId> — admin removes a user.
+ */
+async function handleRevoke(chatId, text) {
+    const authDb = await loadAuthDb();
+    if (!isAdmin(authDb, chatId)) {
+        await sendTelegramMessage(chatId, "Only admins can revoke users.");
+        return;
+    }
+
+    const targetId = text.replace(/^\/revoke\s*/i, "").trim();
+    if (!targetId) {
+        await sendTelegramMessage(chatId, "Usage: /revoke <chatId>");
+        return;
+    }
+
+    if (authDb.users[targetId]) {
+        const name = [authDb.users[targetId].first_name, authDb.users[targetId].last_name].filter(Boolean).join(" ");
+        delete authDb.users[targetId];
+        await saveAuthDb(authDb);
+        await sendTelegramMessage(chatId, `Revoked access for ${name || targetId}.`);
+        await sendTelegramMessage(targetId, "Your access has been revoked.").catch(() => {});
+    } else {
+        await sendTelegramMessage(chatId, `User ${targetId} not found.`);
+    }
+}
+
+/**
+ * Handle /users — admin lists all users.
+ */
+async function handleUsers(chatId) {
+    const authDb = await loadAuthDb();
+    if (!isAdmin(authDb, chatId)) {
+        await sendTelegramMessage(chatId, "Only admins can list users.");
+        return;
+    }
+
+    const approved = Object.values(authDb.users);
+    const pending = Object.values(authDb.pending);
+
+    let msg = `Approved users (${approved.length}):\n`;
+    for (const u of approved) {
+        const name = [u.first_name, u.last_name].filter(Boolean).join(" ");
+        msg += `  ${u.chat_id} — ${name} [${u.role}]\n`;
+    }
+
+    if (pending.length) {
+        msg += `\nPending (${pending.length}):\n`;
+        for (const p of pending) {
+            const name = [p.first_name, p.last_name].filter(Boolean).join(" ");
+            msg += `  ${p.chat_id} — ${name}\n`;
+        }
+    }
+
+    await sendTelegramMessage(chatId, msg);
 }
 
 router.get("/users", async (_req, res) => {
     try {
-        const users = await loadTelegramUsers();
-        const data = Object.values(users).sort((a, b) =>
-            String(b.last_seen_at || "").localeCompare(String(a.last_seen_at || ""))
-        );
+        const authDb = await loadAuthDb();
         res.json({
-            count: data.length,
-            data,
+            approved: Object.values(authDb.users),
+            pending: Object.values(authDb.pending),
+            roles: authDb.roles,
         });
     } catch (err) {
         res.status(500).json({ error: err.message });
@@ -448,6 +652,9 @@ async function setTelegramCommands() {
             { command: "report_update", description: "Sync data, then generate report" },
             { command: "report_collections", description: "Carriers with a collection sent date" },
             { command: "wex", description: "WEX DOB lookup: /wex <carrierId> <companyName>" },
+            { command: "approve", description: "Admin: approve user /approve <chatId> <role>" },
+            { command: "revoke", description: "Admin: revoke user /revoke <chatId>" },
+            { command: "users", description: "Admin: list all users" },
         ],
     });
     commandsRegistered = true;
@@ -540,41 +747,59 @@ router.post("/webhook", async (req, res) => {
         return res.json({ ok: true, ignored: true });
     }
 
-    // /start — register user (no auth required)
-    if (text.toLowerCase().startsWith("/start")) {
-        res.json({ ok: true, status: "registered" });
-        try {
-            const user = await registerTelegramUser(message);
-            await sendTelegramMessage(
-                chatId,
-                `You are registered. Your chat ID is ${user.chat_id}. Send /report anytime and I will send the file here.`
-            );
-        } catch (err) {
-            console.error("[telegram] start failed:", err.message);
-            await sendTelegramMessage(chatId, `Registration failed: ${err.message}`).catch(() => {});
-        }
+    const authDb = await loadAuthDb();
+    const commandToken = text.toLowerCase().split(/\s+/)[0];
+
+    // /start — request access (no auth required)
+    if (commandToken === "/start") {
+        res.json({ ok: true, status: "started" });
+        void handleStart(chatId, message);
         return;
     }
 
-    // Auth check — only registered users or the default chat can use bot commands
-    const authorizedChatId = env.TELEGRAM_CHAT_ID;
-    const users = await loadTelegramUsers();
-    const isAuthorized = String(chatId) === String(authorizedChatId) || users[String(chatId)];
-    if (!isAuthorized) {
-        await sendTelegramMessage(chatId, "Not authorized. Send /start first.").catch(() => {});
+    // Admin commands — no permission check beyond isAdmin
+    if (commandToken === "/approve") {
+        res.json({ ok: true, status: "started" });
+        void handleApprove(chatId, text);
+        return;
+    }
+    if (commandToken === "/revoke") {
+        res.json({ ok: true, status: "started" });
+        void handleRevoke(chatId, text);
+        return;
+    }
+    if (commandToken === "/users") {
+        res.json({ ok: true, status: "started" });
+        void handleUsers(chatId);
+        return;
+    }
+
+    // Auth check — must be approved user
+    if (!authDb.users[String(chatId)] && String(chatId) !== String(env.TELEGRAM_CHAT_ID)) {
+        await sendTelegramMessage(chatId, "Not authorized. Send /start to request access.").catch(() => {});
         return res.json({ ok: true, status: "unauthorized" });
     }
 
-    // Document upload — import Excel file
+    // Document upload — needs "import" permission
     const document = message?.document;
     if (document) {
+        if (!hasPermission(authDb, chatId, "import")) {
+            await sendTelegramMessage(chatId, "You don't have import permission. Ask an admin to upgrade your role.").catch(() => {});
+            return res.json({ ok: true, status: "forbidden" });
+        }
         res.json({ ok: true, status: "importing" });
         void handleDocumentUpload(chatId, document);
         return;
     }
 
+    // Command permission check
+    const requiredPerm = COMMAND_PERMISSIONS[commandToken];
+    if (requiredPerm && !hasPermission(authDb, chatId, requiredPerm)) {
+        await sendTelegramMessage(chatId, `You don't have "${requiredPerm}" permission.`).catch(() => {});
+        return res.json({ ok: true, status: "forbidden" });
+    }
+
     const supportedCommands = ["/report", "/report_update", "/report_collections", "/wex"];
-    const commandToken = text.toLowerCase().split(/\s+/)[0];
     if (!supportedCommands.includes(commandToken)) {
         return res.json({ ok: true, ignored: true });
     }
