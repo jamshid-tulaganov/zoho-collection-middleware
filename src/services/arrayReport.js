@@ -611,8 +611,9 @@ export function loadReportCarriers(query = {}) {
                 const toDate10 = (v) => { const s = String(v || "").slice(0, 10); return s.length === 10 ? s : ""; };
 
                 // G-code start date priority:
-                // 1. collection_cases.date_placed (authoritative — when sent to collection agency)
+                // 1. collection_cases.date_placed (authoritative — actual agency placement)
                 // 2. invoice-level agency transfer dates (fallback if no collection_cases)
+                // NOTE: sent_to_collection_date is NOT used — it's the spreadsheet entry date, not agency date
                 const caseDates = (collEntry.collection_cases || [])
                     .map((c) => toDate10(c.date_placed))
                     .filter(Boolean);
@@ -626,8 +627,6 @@ export function loadReportCarriers(query = {}) {
                         inv.collection_transferred_date_ic_system,
                         inv.transferred_date_alla,
                     ]).map(toDate10).filter(Boolean);
-                    const sentDate = toDate10(collEntry.sent_to_collection_date);
-                    if (sentDate) agencyTransferDates.push(sentDate);
                 }
 
                 // Delinquency date: earliest invoice_date across collection DB invoices.
