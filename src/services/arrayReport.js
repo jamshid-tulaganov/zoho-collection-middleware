@@ -635,10 +635,16 @@ export function loadReportCarriers(query = {}) {
                 const totalRemaining = invoices.reduce(
                     (sum, inv) => sum + (Number(inv.remaining_amount) || 0), 0
                 );
-                const allPaid = carrierIsClosed || (invoices.length > 0 && invoices.every(
+                const collInvoicesPaid = invoices.length > 0 && invoices.every(
                     (inv) => String(inv.invoice_status || "").toLowerCase() === "paid"
                         || (Number(inv.remaining_amount) || 0) <= 0
-                ));
+                );
+                // Also check CMP — if any CMP invoice is unpaid, carrier is NOT closed
+                const cmpInvoices = carrier.invoices || [];
+                const hasCmpUnpaid = cmpInvoices.some(
+                    (inv) => String(inv.status || "").toUpperCase() !== "PAID"
+                );
+                const allPaid = carrierIsClosed || (collInvoicesPaid && !hasCmpUnpaid);
 
                 const toDate10 = (v) => { const s = String(v || "").slice(0, 10); return s.length === 10 ? s : ""; };
 
