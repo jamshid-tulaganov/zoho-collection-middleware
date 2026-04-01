@@ -608,8 +608,9 @@ export function loadReportCarriers(query = {}) {
             if (!collectionIndex[cid]) return false;
             // Must be an LOC client (tagIds=2 + Card Swiped deal)
             if (!hasCmpTag(carrier, 2) || !hasZohoCardSwiped(carrier)) return false;
-            // If all CMP invoices are PAID — not a debtor anymore, goes to LOC report
+            // If all CMP invoices are PAID or no CMP data (old closed client) — goes to LOC report
             const cmpInvoices = carrier.invoices || [];
+            if (cmpInvoices.length === 0 && (carrier.billing_history || []).length === 0) return false;
             if (cmpInvoices.length > 0 && cmpInvoices.every((inv) => String(inv.status || "").toUpperCase() === "PAID")) {
                 return false;
             }
@@ -750,8 +751,9 @@ export function loadReportCarriers(query = {}) {
             const cid = String(carrier.carrier_id);
             const isInCollection = collectionIndex[cid] || hasCmpTag(carrier, 1);
             if (!isInCollection) return true;
-            // Allow back if all CMP invoices are paid
+            // Allow back if all CMP invoices are paid OR no CMP data (old closed client)
             const cmpInvoices = carrier.invoices || [];
+            if (cmpInvoices.length === 0 && (carrier.billing_history || []).length === 0) return true;
             return cmpInvoices.length > 0 && cmpInvoices.every((inv) => String(inv.status || "").toUpperCase() === "PAID");
         });
     }
@@ -760,21 +762,15 @@ export function loadReportCarriers(query = {}) {
         carriers = carriers.filter((carrier) => !isCarrierClosed(carrier));
     }
 
-    // Exclude inactive clients: no invoices/transactions in the last year AND no debtor tag
+    // Exclude carriers with no billing data anywhere (never used the card)
+    // Keep if: has CMP invoices OR CMP billing OR verification spreadsheet data
+    const verifIndex = getVerificationsIndex();
     carriers = carriers.filter((carrier) => {
-        if (hasCmpTag(carrier, 1)) return true; // debtor — keep regardless
-        const oneYearAgo = new Date();
-        oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
-        const cutoff = oneYearAgo.toISOString().slice(0, 10);
-        const hasRecentInvoice = (carrier.invoices || []).some((inv) => {
-            const d = String(inv.date_to || inv.date_from || "").slice(0, 10);
-            return d >= cutoff;
-        });
-        const hasRecentTxn = (carrier.billing_history || []).some((txn) => {
-            const d = String(txn.create_date || "").slice(0, 10);
-            return d >= cutoff;
-        });
-        return hasRecentInvoice || hasRecentTxn;
+        if (hasCmpTag(carrier, 1)) return true;
+        const hasInv = (carrier.invoices || []).length > 0;
+        const hasBilling = (carrier.billing_history || []).length > 0;
+        const hasVerif = Boolean(verifIndex[String(carrier.carrier_id)]);
+        return hasInv || hasBilling || hasVerif;
     });
 
     // Remove carriers without first or last name
