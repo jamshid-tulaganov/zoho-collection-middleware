@@ -630,8 +630,8 @@ export function loadReportCarriers(query = {}) {
             // Must be in collection-placement-db
             const collEntry = collectionIndex[cid];
             if (!collEntry) return false;
-            // Must be an LOC client (tagIds=2 + Card Swiped deal)
-            if (!hasCmpTag(carrier, 2) || !hasZohoCardSwiped(carrier)) return false;
+            // Must be our client (Card Swiped deal)
+            if (!hasZohoCardSwiped(carrier)) return false;
             // No CMP data (old closed client) — goes to LOC report
             const cmpInvoices = carrier.invoices || [];
             if (cmpInvoices.length === 0 && (carrier.billing_history || []).length === 0) return false;
@@ -785,14 +785,13 @@ export function loadReportCarriers(query = {}) {
             carrier.derived?.is_debtor || hasCmpTag(carrier, 1)
         );
     } else {
-        // LOC report (default): SMP tagIds=2 AND Zoho Card Swiped deal
-        // Exclude active debtors — they belong in the debtor report only
-        // But allow paid debtors back (all CMP invoices PAID = no longer a debtor)
+        // LOC report: all Card Swiped clients — everyone is LOC
+        // Exclude only carriers in collection-db with active unpaid debt (they go in debtor report)
         const collectionIndex = buildCollectionDbIndex();
         carriers = carriers.filter((carrier) => {
-            if (!hasCmpTag(carrier, 2) || !hasZohoCardSwiped(carrier)) return false;
+            if (!hasZohoCardSwiped(carrier)) return false;
             const cid = String(carrier.carrier_id);
-            const isInCollection = collectionIndex[cid] || hasCmpTag(carrier, 1);
+            const isInCollection = Boolean(collectionIndex[cid]);
             if (!isInCollection) return true;
             // Allow back if:
             // - all CMP invoices are paid
