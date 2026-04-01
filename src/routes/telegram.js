@@ -263,6 +263,182 @@ async function handleWexCommand(chatId, text) {
     }
 }
 
+/**
+ * Handle document upload — if user sends an .xlsx file, import it as collection data.
+ */
+async function handleDocumentUpload(chatId, document) {
+    try {
+        const fileName = document.file_name || "";
+        if (!fileName.toLowerCase().endsWith(".xlsx")) {
+            await sendTelegramMessage(chatId, "Please send an .xlsx Excel file.");
+            return;
+        }
+
+        await sendTelegramMessage(chatId, `Received "${fileName}". Importing...`);
+
+        // Download file from Telegram
+        const fileInfo = await callTelegram("getFile", { file_id: document.file_id });
+        const filePath = fileInfo.result?.file_path;
+        if (!filePath) throw new Error("Could not get file path from Telegram");
+
+        const fileUrl = `https://api.telegram.org/file/bot${env.TELEGRAM_BOT_TOKEN}/${filePath}`;
+        const fileRes = await fetch(fileUrl);
+        if (!fileRes.ok) throw new Error(`Download failed: ${fileRes.status}`);
+        const buffer = Buffer.from(await fileRes.arrayBuffer());
+
+        // Save to temp file
+        const tmpPath = path.join(os.tmpdir(), `import-${Date.now()}-${fileName}`);
+        await fs.writeFile(tmpPath, buffer);
+
+        // Import using ExcelJS
+        const ExcelJS = (await import("exceljs")).default;
+        const collDbPath = path.resolve(process.cwd(), "db/collection-placement-db.json");
+
+        const wb = new ExcelJS.Workbook();
+        await wb.xlsx.readFile(tmpPath);
+
+        const sheet = wb.worksheets[0];
+        if (!sheet) throw new Error("No sheet found in file");
+
+        // Find columns
+        const hRow = sheet.getRow(1);
+        const colMap = {};
+        for (let c = 1; c <= sheet.columnCount; c++) {
+            const h = String(hRow.getCell(c).value || "").trim().toLowerCase();
+            if (h.includes("carrier")) colMap.carrier_id = c;
+            else if (h.includes("company")) colMap.company = c;
+            else if (h.includes("delinq")) colMap.delinq = c;
+            else if (h.includes("collection") || h.includes("sent")) colMap.sent = c;
+        }
+
+        if (!colMap.carrier_id || !colMap.company) {
+            throw new Error("Missing columns: need 'Carrier ID' and 'Company Name'");
+        }
+
+        // Load existing DB
+        let collDb = {};
+        try { collDb = JSON.parse(await fs.readFile(collDbPath, "utf-8")); } catch {}
+
+        const toIso = (v) => {
+            if (!v) return "";
+            if (v instanceof Date) return v.toISOString().slice(0, 10);
+            const s = String(v).trim();
+            if (/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0, 10);
+            const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+            if (m) return `${m[3]}-${m[1].padStart(2, "0")}-${m[2].padStart(2, "0")}`;
+            return "";
+        };
+        const normalizeKey = (v) => String(v || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
+
+        let added = 0, updated = 0, skipped = 0;
+
+        for (let r = 2; r <= sheet.rowCount; r++) {
+            const row = sheet.getRow(r);
+            const carrierId = String(row.getCell(colMap.carrier_id).value || "").trim();
+            const company = String(row.getCell(colMap.company).value || "").trim();
+            if (!carrierId || !company || carrierId.toLowerCase() === "required") continue;
+
+            const key = normalizeKey(company);
+            if (!key) { skipped++; continue; }
+
+            const delinqDate = colMap.delinq ? toIso(row.getCell(colMap.delinq).value) : "";
+            const sentDate = colMap.sent ? toIso(row.getCell(colMap.sent).value) : "";
+
+            if (!collDb[key]) {
+                collDb[key] = {
+                    company,
+                    debtor_type: "BadDebtor",
+                    date_of_delinquency: delinqDate,
+                    sent_to_collection_date: sentDate || delinqDate,
+                    collection_source: "telegram-import",
+                    invoices: [{
+                        invoice_status: "Pending", debtor_type: "BadDebtor",
+                        collections_agent: null, billing_cycle: null,
+                        invoice_number: null, invoice_date: delinqDate,
+                        total_amount: 0, total_paid: null, remaining_amount: 0,
+                        fee_25pct: null, total_remaining: null,
+                        placement_date: sentDate || delinqDate,
+                        owner_name: null, dob: null,
+                        id_number: Number(carrierId) || carrierId,
+                        commercial_consumer: "Commercial",
+                        phone: null, email: null, address: null, state: null,
+                        county: null, city: null, zip: null, sales_agent: null,
+                        language: null, usdot: null, mn: null,
+                        collection_dustin: null, collection_status_dustin: null,
+                        amt_collected_agency_dustin: null, collection_transferred_date_dustin: null,
+                        collection_condition_45_days_dustin: null, collection_deadline_dustin: null,
+                        collection_trustaltus: null, collection_status_trustaltus: null,
+                        amt_collected_agency_trustaltus: null, collection_transferred_date_trustaltus: null,
+                        collection_condition_120_days_trustaltus: null, collection_deadline_trustaltus: null,
+                        collection_ic_system: null, collection_status_ic_system: null,
+                        amt_collected_agency_ic_system: null, collection_transferred_date_ic_system: null,
+                        collection_condition_120_days_ic_system: null, collection_deadline_ic_system: null,
+                        jennifer_hoover: null, jennifer_chrestman: null,
+                        via_alla: null, transferred_date_alla: null,
+                        sueing_status_alla: null, credit_beraue_reporting: null,
+                        wage_garnishment: null, bank_levy: null, property_lien: null,
+                        overall_status: null,
+                    }],
+                    collection_cases: sentDate ? [{
+                        company: "TSS", account_executive: "N/A", operating_unit: null,
+                        debtor_name: company, cust_ref: null, service_date: delinqDate,
+                        debtor_id: Number(carrierId) || carrierId, date_placed: sentDate,
+                        principal: 0, interest: 0, other: 0, client_fee: 0,
+                        total_dues: 0, amt_collected: 0, balance: 0, age: null,
+                        last_pay_date: null, last_pay_amnt: null,
+                        date_closed: null, status: "Open", description: null,
+                    }] : [],
+                };
+                added++;
+            } else {
+                const entry = collDb[key];
+                let changed = false;
+                if (delinqDate && delinqDate !== entry.date_of_delinquency) {
+                    entry.date_of_delinquency = delinqDate;
+                    changed = true;
+                }
+                if (sentDate) {
+                    const cases = entry.collection_cases || [];
+                    if (!cases.some(c => c.date_placed === sentDate)) {
+                        cases.push({
+                            company: "TSS", account_executive: "N/A", operating_unit: null,
+                            debtor_name: company, cust_ref: null,
+                            service_date: delinqDate || entry.date_of_delinquency,
+                            debtor_id: Number(carrierId) || carrierId, date_placed: sentDate,
+                            principal: 0, interest: 0, other: 0, client_fee: 0,
+                            total_dues: 0, amt_collected: 0, balance: 0, age: null,
+                            last_pay_date: null, last_pay_amnt: null,
+                            date_closed: null, status: "Open", description: null,
+                        });
+                        entry.collection_cases = cases;
+                        changed = true;
+                    }
+                }
+                if (changed) updated++;
+                else skipped++;
+            }
+        }
+
+        // Save
+        await fs.writeFile(collDbPath, JSON.stringify(collDb, null, 2), "utf-8");
+
+        // Cleanup temp file
+        await fs.rm(tmpPath, { force: true }).catch(() => {});
+
+        await sendTelegramMessage(
+            chatId,
+            `Import complete:\n` +
+            `  Added: ${added}\n` +
+            `  Updated: ${updated}\n` +
+            `  Skipped: ${skipped}\n` +
+            `  Total in DB: ${Object.keys(collDb).length}`
+        );
+    } catch (err) {
+        console.error("[telegram] import failed:", err.message);
+        await sendTelegramMessage(chatId, `Import failed: ${err.message}`).catch(() => {});
+    }
+}
+
 async function setTelegramCommands() {
     if (!hasTelegramConfig() || commandsRegistered) return;
     await callTelegram("setMyCommands", {
@@ -364,6 +540,7 @@ router.post("/webhook", async (req, res) => {
         return res.json({ ok: true, ignored: true });
     }
 
+    // /start — register user (no auth required)
     if (text.toLowerCase().startsWith("/start")) {
         res.json({ ok: true, status: "registered" });
         try {
@@ -376,6 +553,23 @@ router.post("/webhook", async (req, res) => {
             console.error("[telegram] start failed:", err.message);
             await sendTelegramMessage(chatId, `Registration failed: ${err.message}`).catch(() => {});
         }
+        return;
+    }
+
+    // Auth check — only registered users or the default chat can use bot commands
+    const authorizedChatId = env.TELEGRAM_CHAT_ID;
+    const users = await loadTelegramUsers();
+    const isAuthorized = String(chatId) === String(authorizedChatId) || users[String(chatId)];
+    if (!isAuthorized) {
+        await sendTelegramMessage(chatId, "Not authorized. Send /start first.").catch(() => {});
+        return res.json({ ok: true, status: "unauthorized" });
+    }
+
+    // Document upload — import Excel file
+    const document = message?.document;
+    if (document) {
+        res.json({ ok: true, status: "importing" });
+        void handleDocumentUpload(chatId, document);
         return;
     }
 
