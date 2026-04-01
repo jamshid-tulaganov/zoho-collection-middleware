@@ -87,72 +87,80 @@ async function saveTelegramUsers(users) {
 }
 
 /**
- * Handle /start — register user as pending, notify admin for approval.
+ * Handle /start — login with password or show status.
+ *
+ * Usage:
+ *   /start              — show status or prompt for password
+ *   /start <password>   — login with password
  */
 async function handleStart(chatId, message) {
     const authDb = await loadAuthDb();
     const id = String(chatId);
+    const text = String(message?.text || "").trim();
+    const password = text.replace(/^\/start\s*/i, "").trim();
 
-    // Already approved
+    // Already logged in
     if (authDb.users[id]) {
         const user = authDb.users[id];
-        await sendTelegramMessage(chatId, `You are approved as "${user.role}". Commands:\n/report — generate Array report\n/wex <id> <company> — DOB lookup`);
+        const perms = getUserPermissions(authDb, id).join(", ");
+        await sendTelegramMessage(chatId,
+            `Logged in as ${user.name} (${user.role})\n` +
+            `Permissions: ${perms}\n\n` +
+            `Commands:\n` +
+            `/report — Array report\n` +
+            `/wex <id> <company> — DOB lookup\n` +
+            `Upload .xlsx — import debtors`
+        );
         return;
     }
 
-    // Auto-approve if TELEGRAM_CHAT_ID (owner)
-    if (id === String(env.TELEGRAM_CHAT_ID)) {
-        authDb.users[id] = {
-            chat_id: id,
-            role: "admin",
-            first_name: message?.from?.first_name || "",
-            last_name: message?.from?.last_name || "",
-            username: message?.from?.username || "",
-            approved_at: new Date().toISOString(),
-            approved_by: "system",
-        };
-        await saveAuthDb(authDb);
-        await sendTelegramMessage(chatId, "You are the admin. Full access granted.");
+    // No password provided — prompt
+    if (!password) {
+        await sendTelegramMessage(chatId, "Welcome. Send /start <password> to login.");
         return;
     }
 
-    // Add to pending
-    authDb.pending[id] = {
+    // Check password
+    const entry = authDb.passwords?.[password];
+    if (!entry) {
+        await sendTelegramMessage(chatId, "Wrong password. Try again: /start <password>");
+        return;
+    }
+
+    // Login success — register user
+    authDb.users[id] = {
         chat_id: id,
+        name: entry.name,
+        role: entry.role,
         first_name: message?.from?.first_name || "",
         last_name: message?.from?.last_name || "",
         username: message?.from?.username || "",
-        requested_at: new Date().toISOString(),
+        approved_at: new Date().toISOString(),
+        approved_by: "password",
     };
+
+    // Remove used password (one-time use)
+    delete authDb.passwords[password];
     await saveAuthDb(authDb);
 
-    await sendTelegramMessage(chatId, "Access requested. An admin will approve you.");
+    const perms = getUserPermissions(authDb, id).join(", ");
+    await sendTelegramMessage(chatId,
+        `Welcome, ${entry.name}! Logged in as "${entry.role}".\n` +
+        `Permissions: ${perms}\n\n` +
+        `Commands:\n` +
+        `/report — Array report\n` +
+        (entry.role === "admin" ? `/approve, /revoke, /users — manage users\n` : "") +
+        `/wex <id> <company> — DOB lookup\n` +
+        `Upload .xlsx — import debtors`
+    );
 
     // Notify admin
-    if (env.TELEGRAM_CHAT_ID) {
-        const name = [message?.from?.first_name, message?.from?.last_name].filter(Boolean).join(" ");
-        const username = message?.from?.username ? `@${message.from.username}` : "";
+    if (env.TELEGRAM_CHAT_ID && id !== String(env.TELEGRAM_CHAT_ID)) {
         await sendTelegramMessage(
             env.TELEGRAM_CHAT_ID,
-            `New access request:\n` +
-            `Name: ${name} ${username}\n` +
-            `Chat ID: ${id}\n\n` +
-            `To approve:\n/approve ${id} admin\n/approve ${id} manager\n/approve ${id} viewer`
+            `${entry.name} logged in as "${entry.role}" (chat: ${id})`
         ).catch(() => {});
     }
-
-    // Also save to telegram-users.json for backward compat
-    const users = await loadTelegramUsers();
-    users[id] = {
-        chat_id: id,
-        type: message?.chat?.type || "",
-        first_name: message?.from?.first_name || "",
-        last_name: message?.from?.last_name || "",
-        username: message?.from?.username || "",
-        started_at: users[id]?.started_at || new Date().toISOString(),
-        last_seen_at: new Date().toISOString(),
-    };
-    await saveTelegramUsers(users);
 }
 
 /**

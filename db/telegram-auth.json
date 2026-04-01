@@ -13,6 +13,11 @@
       "permissions": ["report"]
     }
   },
+  "passwords": {
+    "cargo512": { "name": "Jamshid", "role": "admin" },
+    "haul225": { "name": "Farrukh", "role": "manager" },
+    "fleet571": { "name": "Amir", "role": "manager" }
+  },
   "users": {},
   "pending": {}
 }
