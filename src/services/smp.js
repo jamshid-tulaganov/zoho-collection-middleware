@@ -488,10 +488,18 @@ function loadBillingCache(basePath) {
 
 function saveBillingCache(basePath, cache) {
     const bPath = billingCachePath(basePath);
-    // No pruning — keep full transaction history for accurate last-payment-date
+    // Prune transactions older than 26 months to prevent unbounded cache growth
+    const cutoff = billingRetainCutoff();
+    const billing = cache.billing;
+    let pruned = 0;
+    for (const key of Object.keys(billing)) {
+        const d = String(billing[key].createDate || "").slice(0, 7);
+        if (d && d < cutoff) { delete billing[key]; pruned++; }
+    }
+    if (pruned > 0) console.log(`[smp] Pruned ${pruned} billing transactions older than ${cutoff}`);
     saveJsonFile(bPath, {
         billingLastFetchedAt: cache.billingLastFetchedAt,
-        billing: cache.billing,
+        billing,
         billingPartialCarrierIds: [...cache.billingPartialCarrierIds],
         billingCarrierFetchedAt: cache.billingCarrierFetchedAt,
     });

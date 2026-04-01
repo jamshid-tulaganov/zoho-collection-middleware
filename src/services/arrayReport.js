@@ -41,7 +41,13 @@ function parseDateToIso(value) {
  * Parses date_filled from MM/DD/YYYY or YYYY-MM-DD to ISO.
  */
 let _accountingIndex = null;
+let _accountingIndexMtime = 0;
 function getAccountingIndex() {
+    // Refresh if file changed on disk
+    try {
+        const mtime = env.ACCOUNTING_DB_PATH ? fs.statSync(env.ACCOUNTING_DB_PATH).mtimeMs : 0;
+        if (mtime !== _accountingIndexMtime) { _accountingIndex = null; _accountingIndexMtime = mtime; }
+    } catch {}
     if (_accountingIndex) return _accountingIndex;
     const accDb = loadJsonFile(env.ACCOUNTING_DB_PATH);
     _accountingIndex = {};
@@ -65,7 +71,16 @@ function getAccountingIndex() {
  * as their close date for D-code boundary.
  */
 let _verificationsIndex = null;
+let _verificationsIndexMtime = 0;
 function getVerificationsIndex() {
+    // Refresh if file changed on disk
+    const verifPath0 = env.COLLECTION_DB_PATH
+        ? env.COLLECTION_DB_PATH.replace("collection-placement-db.json", "payment-verifications-db.json")
+        : "";
+    try {
+        const mtime = verifPath0 ? fs.statSync(verifPath0).mtimeMs : 0;
+        if (mtime !== _verificationsIndexMtime) { _verificationsIndex = null; _verificationsIndexMtime = mtime; }
+    } catch {}
     if (_verificationsIndex) return _verificationsIndex;
     const verifPath = env.COLLECTION_DB_PATH
         ? env.COLLECTION_DB_PATH.replace("collection-placement-db.json", "payment-verifications-db.json")

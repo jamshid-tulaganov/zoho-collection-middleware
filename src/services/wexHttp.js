@@ -32,8 +32,20 @@ let _token = null;
 let _reqNum = 1;
 let _sessionExpiry = 0;
 let _initPromise = null;
+let _idleTimer = null;
 
 const SESSION_TTL_MS = 25 * 60 * 1000; // 25 min
+const IDLE_CLOSE_MS = 5 * 60 * 1000;   // auto-close browser after 5 min idle
+
+function resetIdleTimer() {
+    if (_idleTimer) clearTimeout(_idleTimer);
+    _idleTimer = setTimeout(async () => {
+        if (_browser) {
+            console.log("[wex] Closing idle browser session");
+            await closeWexSession();
+        }
+    }, IDLE_CLOSE_MS);
+}
 
 function isReady() {
     return _token && _page && Date.now() < _sessionExpiry;
@@ -107,6 +119,7 @@ async function _initSession() {
 
     _reqNum = 1;
     _sessionExpiry = Date.now() + SESSION_TTL_MS;
+    resetIdleTimer();
     console.log("[wex] Session ready");
 }
 
@@ -114,6 +127,7 @@ async function _initSession() {
 
 async function auraPost(actionKey, descriptor, params) {
     await ensureSession();
+    resetIdleTimer();
 
     const reqNum = _reqNum++;
     const message = JSON.stringify({
@@ -243,6 +257,7 @@ export async function lookupAndSaveDob({ carrierId, companyName, firstName = "",
  * Close the browser session (call on server shutdown).
  */
 export async function closeWexSession() {
+    if (_idleTimer) { clearTimeout(_idleTimer); _idleTimer = null; }
     if (_browser) {
         await _browser.close().catch(() => {});
         _browser = null;
