@@ -19,7 +19,9 @@
       "Bash(ls -lt /tmp/*.xlsx /tmp/*-Array*.xlsx /tmp/*array*.xlsx)",
       "Bash(find /tmp -name *.xlsx -newer /tmp/array-report-final.xlsx)",
       "Bash(node -e \"const d=JSON.parse\\(require\\(''''fs''''\\).readFileSync\\(''''/dev/stdin'''',''''utf8''''\\)\\); console.log\\(d.carrierDbSync.progress?.phase, ''''| processed:'''', d.carrierDbSync.progress?.processed, ''''| inProgress:'''', d.carrierDbSync.inProgress\\);\")",
-      "Bash(node -e \"const raw = JSON.parse\\(require\\(''''fs''''\\).readFileSync\\(''''db/smp-data-cache-billing.json'''', ''''utf8''''\\)\\); console.log\\(''''billing txns:'''', Object.keys\\(raw.billing||{}\\).length, ''''| lastFetchedAt:'''', raw.billingLastFetchedAt\\);\")"
+      "Bash(node -e \"const raw = JSON.parse\\(require\\(''''fs''''\\).readFileSync\\(''''db/smp-data-cache-billing.json'''', ''''utf8''''\\)\\); console.log\\(''''billing txns:'''', Object.keys\\(raw.billing||{}\\).length, ''''| lastFetchedAt:'''', raw.billingLastFetchedAt\\);\")",
+      "Bash(grep -E \"\\\\.js$|\\\\.py$\")",
+      "Bash(WEX_HEADLESS=false node scripts/fix-dob-48.js --apply 2>&1)"
     ]
   },
   "enabledMcpjsonServers": [
