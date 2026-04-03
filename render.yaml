@@ -3,8 +3,8 @@ services:
     name: zoho-collection-middleware
     runtime: node
     plan: starter
-    buildCommand: npm install && PLAYWRIGHT_BROWSERS_PATH=0 npx playwright install chromium
-    startCommand: PLAYWRIGHT_BROWSERS_PATH=0 npm start
+    buildCommand: npm install
+    startCommand: npm start
     healthCheckPath: /
     autoDeploy: true
     disk:
@@ -48,5 +48,3 @@ services:
         sync: false
       - key: MONGODB_URI
         sync: false
-      - key: PLAYWRIGHT_BROWSERS_PATH
-        value: "0"

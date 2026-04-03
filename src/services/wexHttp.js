@@ -1,8 +1,3 @@
-// Force Playwright to find browsers in node_modules (Render deploy)
-if (!process.env.PLAYWRIGHT_BROWSERS_PATH) {
-    process.env.PLAYWRIGHT_BROWSERS_PATH = "0";
-}
-
 /**
  * WEX DOB Lookup service with persistent session.
  *

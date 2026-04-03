@@ -26,10 +26,10 @@
         "exceljs": "^4.4.0",
         "express": "^5.2.1",
         "mongoose": "^9.3.1",
-        "node-cron": "^4.2.1",
-        "playwright": "^1.58.2"
+        "node-cron": "^4.2.1"
     },
     "devDependencies": {
+        "playwright": "^1.58.2",
         "xlsx": "^0.18.5"
     }
 }
