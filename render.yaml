@@ -48,3 +48,5 @@ services:
         sync: false
       - key: MONGODB_URI
         sync: false
+      - key: PLAYWRIGHT_BROWSERS_PATH
+        value: "0"
