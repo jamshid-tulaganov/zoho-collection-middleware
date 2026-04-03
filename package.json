@@ -7,14 +7,15 @@
     "scripts": {
         "start": "node --max-old-space-size=512 src/server.js",
         "dev": "node --max-old-space-size=512 --watch src/server.js",
-        "sync:carrier-db": "node sync-carrier-db.js",
-        "report:send": "node send-array-report.js",
-        "report:send-sync": "node send-array-report.js --sync",
-        "report:send-collections": "node send-array-report.js --collections",
+        "sync:carrier-db": "node scripts/sync-carrier-db.js",
+        "report:send": "node scripts/send-array-report.js",
+        "report:send-sync": "node scripts/send-array-report.js --sync",
+        "report:send-debtors": "node scripts/send-array-report.js --debtors",
+        "report:send-combined": "node scripts/send-array-report.js --combined",
+        "report:financial-risk": "node scripts/send-financial-risk-report.js",
         "import:tss-collection": "node scripts/import-tss-collection-sheet.js --dry-run",
         "import:tss-collection:apply": "node scripts/import-tss-collection-sheet.js --apply",
-        "import:tss-collection:cmp": "node scripts/import-tss-collection-sheet.js --dry-run --check-cmp",
-        "report:financial-risk": "node send-financial-risk-report.js"
+        "db:migrate": "node scripts/migrate-to-mongodb.js --drop"
     },
     "keywords": [],
     "author": "",
@@ -28,6 +29,7 @@
         "node-cron": "^4.2.1"
     },
     "devDependencies": {
-        "playwright": "^1.58.2"
+        "playwright": "^1.58.2",
+        "xlsx": "^0.18.5"
     }
 }

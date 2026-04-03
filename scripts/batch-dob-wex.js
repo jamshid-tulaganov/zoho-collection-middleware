@@ -1,13 +1,12 @@
 #!/usr/bin/env node
 /**
- * Batch WEX DOB lookup for ALL carriers missing DOB.
- * Uses carrier ID for searching WEX (more reliable than company name).
+ * Batch WEX DOB lookup for ALL registered clients (Card Swiped) missing DOB.
  *
  * Usage:
  *   node scripts/batch-dob-wex.js                    # dry-run, all missing
  *   node scripts/batch-dob-wex.js --apply             # save to dob.json
  *   node scripts/batch-dob-wex.js --apply --limit 50  # first 50 only
- *   node scripts/batch-dob-wex.js --apply --resume     # skip already in dob.json
+ *   node scripts/batch-dob-wex.js --apply --resume     # skip already processed
  *
  * Progress is saved to data/wex-dob-progress.json after each lookup
  * so you can safely Ctrl+C and resume later with --resume.
@@ -17,10 +16,7 @@ import fs from "fs";
 import path from "path";
 import { fileURLToPath } from "url";
 import { WEXSession } from "./dob-lookup-wex.js";
-import { env } from "../src/config/env.js";
 import { readCarrierDb } from "../src/services/syncCarrierDb.js";
-import { loadDobMap } from "../src/services/dob.js";
-import { loadReportCarriers, carrierToRow } from "../src/services/arrayReport.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DOB_PATH = path.resolve(__dirname, "../data/dob.json");
@@ -44,40 +40,40 @@ function saveProgress(progress) {
 async function main() {
     const db = readCarrierDb();
 
-    // Collect ALL carriers missing DOB from both reports
-    const loc = loadReportCarriers({ include_inactive: "true" });
-    const debtors = loadReportCarriers({ debtor_report: "true", include_inactive: "true" });
-
-    const seen = new Set();
-    const candidates = [];
-
-    for (const c of [...loc, ...debtors]) {
-        const cid = String(c.carrier_id);
-        if (seen.has(cid)) continue;
-        seen.add(cid);
-
-        const row = carrierToRow(c);
-        if (row["Date of Birth"]) continue; // already has DOB
-
-        const d = c.derived || {};
-        candidates.push({
-            carrierId: cid,
-            companyName: c.accounting?.company || c.zoho?.company || d.company_name || "",
-            firstName: d.first_name || "",
-            lastName: d.last_name || "",
-        });
-    }
-
     // Load existing dob.json and progress
     let dobMap = {};
     try { dobMap = JSON.parse(fs.readFileSync(DOB_PATH, "utf-8")); } catch {}
     const progress = resume ? loadProgress() : { found: {}, notFound: [], errors: [] };
 
+    // Target: ALL Card Swiped carriers (registered clients) missing DOB
+    const candidates = [];
+    for (const c of Object.values(db)) {
+        const cid = String(c.carrier_id);
+        const stage = String(c.zoho?.stage || "").trim();
+        if (stage !== "Card Swiped") continue;
+
+        // Skip if DOB already known (derived, dob.json, or previous progress)
+        const d = c.derived || {};
+        if (d.dob || dobMap[cid] || progress.found?.[cid]) continue;
+
+        const companyName = c.company
+            || c.accounting?.company || c.zoho?.company
+            || c.smp?.name || "";
+        if (!companyName) continue; // WEX needs company name to search
+
+        candidates.push({
+            carrierId: cid,
+            companyName,
+            firstName: d.first_name || "",
+            lastName: d.last_name || "",
+        });
+    }
+
     // Filter out already-processed carriers if resuming
+    // (found is already filtered above; skip notFound and errors too)
     let toProcess = candidates;
     if (resume) {
         const done = new Set([
-            ...Object.keys(progress.found),
             ...progress.notFound,
             ...progress.errors,
         ]);

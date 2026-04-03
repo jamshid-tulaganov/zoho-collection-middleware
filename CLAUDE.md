@@ -14,12 +14,14 @@ Part of the Octane ecosystem alongside the parent repo's Zoho Deluge scripts, `s
 npm run dev                          # Start with --watch (hot reload), port 3001
 npm start                            # Production start (--max-old-space-size=512)
 npm run sync:carrier-db              # One-off file-based carrier sync (no server)
-npm run report:send                  # Generate combined Array report (LOC + debtors) → Telegram
-npm run report:send -- --debtors     # Generate debtors-only report → Telegram
-npm run report:send -- --sync        # Refresh carrier-db first, then generate
+npm run report:send                  # Generate LOC Array report → Telegram
+npm run report:send-debtors          # Generate debtors-only report → Telegram
+npm run report:send-combined         # Generate LOC + debtors combined → Telegram
+npm run report:send-sync             # Refresh carrier-db first, then LOC report
 npm run report:financial-risk        # Financial risk report → Telegram
 npm run import:tss-collection        # Dry-run TSS bad-debtor Excel import
 npm run import:tss-collection:apply  # Apply TSS import to debtor-master-db.json
+npm run db:migrate                   # Migrate all JSON databases → MongoDB
 ```
 
 No test runner — verify by running the server and hitting endpoints or using Telegram commands.
@@ -97,13 +99,27 @@ SMP API (companies, invoices, billing)
 - `POST /telegram/wex-lookup` — WEX DOB lookup via HTTP
 - `POST /hooks/zoho` — Zoho webhook receiver
 
-## Data Files
+## Data Storage
+
+### MongoDB Collections (primary)
+
+| Collection | Model | Source | Purpose |
+|------------|-------|--------|---------|
+| `carrierdatas` | `CarrierData` | syncCarrierDb.js | Merged carrier records (SMP + Zoho + accounting + collection) |
+| `collectionplacements` | `CollectionPlacement` | collection-placement-db.json import | Debtor agency placements + collection cases |
+| `paymentverifications` | `PaymentVerification` | payment-verifications-db.json import | Historical invoice data for closed carriers |
+| `accountingclients` | `AccountingClient` | accounting-client-db.json import | Application dates, contact info |
+| `mastercarriers` | `MasterCarrier` | debtor-master-db.json import | Basic carrier identity + DOB |
+| `dobentries` | `DobEntry` | WEX/iSoftPull lookups | DOB cache |
+
+### File Directories
 
 | Directory | Purpose |
 |-----------|---------|
-| `db/` | Reference JSON databases. `collection-placement-db.json` (debtors + agency data), `payment-verifications-db.json` (historical invoices, close dates), `debtor-master-db.json`, `accounting-client-db.json`. |
-| `data/` | Runtime files. `carrier-db.json` (primary), `dob.json` (DOB map), `wex-dob-progress.json`. Not in git. |
-| `spreadsheets/` | Template + generated Excel reports. `Array_Credit_Reporting_Workbook_General.xlsx` is the valid reference template. |
+| `db/` | JSON database files (legacy, migrated to MongoDB via `npm run db:migrate`) |
+| `data/` | Runtime files. `dob.json`, `wex-dob-progress.json`. Not in git. |
+| `scripts/` | CLI scripts for sync, reports, imports, migration |
+| `spreadsheets/` | Template + source Excel files. `Array_Credit_Reporting_Workbook_General.xlsx` is the Metro 2 reference. |
 
 ## Business Domain
 
@@ -125,7 +141,7 @@ Never use `oldest_open_date` from accounting — that's the company founding dat
 ## Environment
 
 - **Runtime**: Node.js 22, ES modules (`"type": "module"`)
-- **MongoDB**: Optional — service works fully with just file-based carrier-db.json
+- **MongoDB**: Required — primary data store for all collections (Atlas `collectiondb`)
 - **Deployment**: Render.com (`render.yaml`) with 1GB persistent disk at `/opt/render/project/src/data/`
 - **Playwright**: devDependency, required for WEX DOB lookup (local only)
 - See `.env.example` for all environment variables

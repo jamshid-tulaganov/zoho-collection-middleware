@@ -1,8 +1,13 @@
 import fs from "fs";
 import ExcelJS from "exceljs";
 import { env } from "../config/env.js";
+import { isDatabaseReady } from "../config/db.js";
 import { loadDobMap, loadMergedMasterDb } from "./dob.js";
 import { readCarrierDb } from "./syncCarrierDb.js";
+import {
+    CarrierData, CollectionPlacement, PaymentVerification,
+    AccountingClient, MasterCarrier, DobEntry,
+} from "../models/index.js";
 
 function normalizeCompanyKey(v) {
     return String(v || "").toLowerCase().replace(/[^a-z0-9]+/g, "");
@@ -90,6 +95,77 @@ function getVerificationsIndex() {
         : "";
     _verificationsIndex = loadJsonFile(verifPath) || loadJsonFile(altPath) || {};
     return _verificationsIndex;
+}
+
+// ── MongoDB data loaders ──────────────────────────────────────────────────────
+
+async function loadCarriersFromDb() {
+    // Active-only query: only Card Swiped carriers are in MongoDB (filtered at migration)
+    const docs = await CarrierData.find({}).lean();
+    console.log(`[report]   carriers: ${docs.length} loaded from MongoDB`);
+    return docs;
+}
+
+async function loadAccountingIndexFromDb() {
+    const docs = await AccountingClient.find({}).lean();
+    const index = {};
+    for (const entry of docs) {
+        const cid = String(entry.carrier_id || "").trim();
+        if (!cid) continue;
+        index[cid] = {
+            date_filled: parseDateToIso(entry.date_filled),
+            dob: entry.dob || "",
+        };
+    }
+    return index;
+}
+
+async function loadVerificationsIndexFromDb() {
+    const docs = await PaymentVerification.find({}).lean();
+    const index = {};
+    for (const doc of docs) {
+        const cid = String(doc.carrier_id || "").trim();
+        if (cid) index[cid] = doc;
+    }
+    return index;
+}
+
+async function loadCollectionDbIndexFromDb() {
+    const masterDocs = await MasterCarrier.find({}).lean();
+    const collDocs = await CollectionPlacement.find({}).lean();
+    if (!collDocs.length) return {};
+
+    const collByKey = {};
+    for (const doc of collDocs) collByKey[doc.key] = doc;
+
+    const index = {};
+    for (const entry of masterDocs) {
+        const cid = String(entry.carrier_id || "").trim();
+        const key = normalizeCompanyKey(entry.company);
+        if (key && collByKey[key] && !isInsuranceEntry(collByKey[key])) {
+            index[cid] = collByKey[key];
+        }
+    }
+    return index;
+}
+
+async function loadDobMapFromDb() {
+    const docs = await DobEntry.find({}).lean();
+    const map = {};
+    for (const doc of docs) {
+        const cid = String(doc.carrier_id || "").trim();
+        if (cid && doc.dob) map[cid] = doc.dob;
+    }
+    return map;
+}
+
+async function useMongoDb() {
+    // Local: use JSON files (instant). MongoDB only when JSON files don't exist (Render deployment).
+    const carrierDbExists = fs.existsSync(env.CARRIER_DB_PATH);
+    if (carrierDbExists) return false;
+    if (!isDatabaseReady()) return false;
+    const count = await CarrierData.countDocuments();
+    return count > 0;
 }
 
 /**
@@ -188,6 +264,12 @@ function isInsuranceEntry(entry) {
     return invoices.some((inv) => String(inv.language || "").toLowerCase() === "insurance");
 }
 
+let _collectionIndexCache = null;
+function getCollectionDbIndex() {
+    if (!_collectionIndexCache) _collectionIndexCache = buildCollectionDbIndex();
+    return _collectionIndexCache;
+}
+
 function buildCollectionDbIndex() {
     const commonDb  = loadJsonFile(env.MASTER_DB_PATH);     // common-carriers-db.json
     const collectionDb = loadJsonFile(env.COLLECTION_DB_PATH); // collection-placement-db.json
@@ -201,6 +283,10 @@ function buildCollectionDbIndex() {
         }
     }
     return index;
+}
+
+function _carrierCollectionEntry(carrier = {}) {
+    return getCollectionDbIndex()[String(carrier.carrier_id)] || null;
 }
 
 const HEADERS = [
@@ -443,30 +529,45 @@ function normalizeReportAddress(carrier = {}) {
 }
 
 /**
- * Determine if a carrier is "closed" at report time using the 30-day rule:
- * if no unpaid invoices AND max(last invoice date_to, last transaction create_date)
- * is older than 30 days, the company is considered closed.
- * This overrides the stored derived.is_closed for carriers synced before this rule.
+ * Check if a carrier has any unpaid/partially-paid CMP invoices.
+ */
+function hasUnpaidCmpInvoices(carrier = {}) {
+    return (carrier.invoices || []).some((inv) => {
+        const status = String(inv.status || "").toUpperCase();
+        return status !== "PAID" && Number(inv.remaining ?? inv.total_amount ?? 0) > 0;
+    });
+}
+
+/**
+ * Check if a carrier has unpaid invoices in collection-placement-db.
+ */
+function hasUnpaidCollectionInvoices(carrier = {}) {
+    const collEntry = _carrierCollectionEntry(carrier);
+    if (!collEntry) return false;
+    return (collEntry.invoices || []).some((inv) => {
+        const status = String(inv.invoice_status || "").toLowerCase();
+        return status !== "paid" && (Number(inv.remaining_amount) || 0) > 0;
+    });
+}
+
+/**
+ * Determine if a carrier is "closed" at report time.
+ * Rule: if a company has ANY unpaid/partially-paid invoices (CMP or collection-db)
+ * it is NOT closed — it's a bad debtor.
+ * Otherwise: 30-day inactivity rule applies.
  */
 function isCarrierClosed(carrier = {}) {
-    const derived = carrier.derived || {};
-    // Already explicitly closed → keep it
-    if (derived.is_closed) return true;
+    // Unpaid invoices anywhere → never closed
+    if (hasUnpaidCmpInvoices(carrier)) return false;
+    if (hasUnpaidCollectionInvoices(carrier)) return false;
 
     const today = new Date();
-    const thirtyDaysAgo = new Date(today);
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const cutoff = thirtyDaysAgo.toISOString().slice(0, 10);
+    const fifteenDaysAgo = new Date(today);
+    fifteenDaysAgo.setDate(fifteenDaysAgo.getDate() - 15);
+    const cutoff = fifteenDaysAgo.toISOString().slice(0, 10);
 
-    // Has unpaid invoices → not closed
+    // Compute last CMP activity date from invoices and billing history
     const invoices = carrier.invoices || [];
-    const hasUnpaid = invoices.some((inv) => {
-        const status = String(inv.status || inv.invoice_status || "").toUpperCase();
-        return status !== "PAID" && Number(inv.remaining_amount ?? inv.total_amount ?? 0) > 0;
-    });
-    if (hasUnpaid) return false;
-
-    // Compute last activity date from invoices and billing history
     const invDates = invoices
         .map((inv) => String(inv.date_to || "").slice(0, 10))
         .filter((d) => d.length === 10);
@@ -476,62 +577,104 @@ function isCarrierClosed(carrier = {}) {
 
     const lastActivity = [...invDates, ...txnDates].sort().pop() || "";
 
-    // No billing data at all → closed
+    // Has recent CMP activity → not closed (even if sync flagged is_closed or verification says old)
+    if (lastActivity && lastActivity >= cutoff) return false;
+
+    const derived = carrier.derived || {};
+    // Sync flagged as closed → keep it
+    if (derived.is_closed) return true;
+
+    // No CMP billing data at all → closed
     if (!lastActivity) return true;
-    // Inactive for 30+ days → closed
-    return lastActivity < cutoff;
+    // Inactive for 15+ days → closed
+    return true;
 }
 
 export function carrierToRow(carrier) {
     const derived = carrier.derived || {};
     const creditScore = derived.credit_score || derived.highest_credit || "";
-    // Active debtor = in debtor report (augmented with is_debtor by loadReportCarriers)
-    // NOT based on sync's is_debtor flag — that's just CMP tag, not collection status
     const cmpInvoices = carrier.invoices || [];
     const allCmpPaid = cmpInvoices.length > 0 && cmpInvoices.every((inv) => String(inv.status || "").toUpperCase() === "PAID");
+    const today = new Date();
+
+    // ── Company classification ──────────────────────────────────────────────
+    // Active debtor = in debtor report (augmented with _in_debtor_report by loadReportCarriers)
     const isActiveDebtor = derived._in_debtor_report && !allCmpPaid;
-    // Closed detection: CMP-based close OR verification-based close (old clients with no CMP data)
+    // In collection = debtor sent to agency (has G codes from rebuildCollectionPhp)
+    const isInCollection = isActiveDebtor && /G/.test(derived.payment_history_profile || "");
+
+    // Closed detection: single source of truth
+    // 1. CMP has recent activity (15 days) → NOT closed, regardless of verification-db
+    // 2. Unpaid invoices anywhere → NOT closed
+    // 3. was_former_debtor does NOT force closed if CMP shows recent activity
     const verifEntry = getVerificationsIndex()[String(carrier.carrier_id)];
-    const hasCmpActivity = cmpInvoices.length > 0 || (carrier.billing_history || []).length > 0;
-    const verifCloseDate = (verifEntry && !hasCmpActivity) ? (verifEntry.last_invoice_date || "") : "";
-    // Don't mark as closed if CMP shows paid/active and not an active debtor — they just paid up
-    const hasCmpBilling = (carrier.billing_history || []).length > 0;
-    const cmpSettled = (allCmpPaid || (cmpInvoices.length === 0 && hasCmpBilling)) && !isActiveDebtor;
-    const cmpBasedClose = cmpSettled ? false : isCarrierClosed(carrier);
-    const isClosed = cmpBasedClose || derived.was_former_debtor || Boolean(verifCloseDate);
-    // Date Open: Zoho Application_Date → accounting date_filled → derived fallback
+    const verifLastDate = verifEntry?.last_invoice_date || "";
+
+    // isCarrierClosed already checks: unpaid → false, CMP activity within 15 days → false
+    const isClosed = isCarrierClosed(carrier);
+
+    // Close date: verification last_invoice_date for old clients, or CMP-derived
+    const reportCloseDate = isClosed
+        ? (verifLastDate || derived.date_last_payment || derived.date_closed || "")
+        : "";
+
+    // ── Dates ───────────────────────────────────────────────────────────────
     const accEntry = getAccountingIndex()[String(carrier.carrier_id)] || {};
     const dateOpen = carrier.zoho?.application_date || accEntry.date_filled || carrier.accounting?.application_date || derived.date_open || "";
-    // Debtors (is_debtor=true): always show delinquency date regardless of closed status.
-    // LOC clients (is_debtor=false): suppress if closed — they are not collection accounts.
-    const hasDelinquency = Boolean(derived.date_first_delinquency && isActiveDebtor);
-    // Close date: CMP-derived or verification last_invoice_date for old clients
-    const reportCloseDate = hasDelinquency ? "" : (isClosed ? (verifCloseDate || derived.date_last_payment || derived.date_closed || "") : "");
-    // Debtors: always show last payment from CMP billing history.
-    // LOC clients: blank when delinquent or closed.
-    const reportLastPayment = derived.is_debtor
+
+    // Delinquency: only for actual delinquent carriers (stage DEBTORS/PAYMENT_ISSUES, in collection-db)
+    const hasDelinqStage = cmpInvoices.some((inv) => {
+        const stage = String(inv.stage || "");
+        const status = String(inv.status || "").toUpperCase();
+        return (stage === "PAYMENT_ISSUES" || stage === "DEBTORS") && status !== "PAID";
+    });
+    const isDelinquent = isActiveDebtor || hasDelinqStage || hasUnpaidCollectionInvoices(carrier);
+    const oldestUnpaidDueDate = isDelinquent
+        ? cmpInvoices
+            .filter((inv) => String(inv.status || "").toUpperCase() !== "PAID")
+            .map((inv) => {
+                const dt = String(inv.date_to || "").slice(0, 10);
+                if (dt.length !== 10) return "";
+                const d = new Date(dt + "T00:00:00");
+                d.setDate(d.getDate() + 1);
+                return d.toISOString().slice(0, 10);
+            })
+            .filter(Boolean)
+            .sort()[0] || ""
+        : "";
+    const firstDelinqDate = derived.date_first_delinquency || oldestUnpaidDueDate;
+    const hasDelinquency = Boolean(firstDelinqDate && isDelinquent);
+    const firstDelinquencyDate = hasDelinquency ? firstDelinqDate : "";
+
+    // ── Agency validation rules ─────────────────────────────────────────────
+    const todayIso = today.toISOString().slice(0, 10);
+    // Close date must not be in the future
+    const validCloseDate = (reportCloseDate && reportCloseDate <= todayIso) ? reportCloseDate : "";
+    // Delinquency date must be in the past and only when delinquent
+    const validDelinqDate = (firstDelinquencyDate && firstDelinquencyDate <= todayIso) ? firstDelinquencyDate : "";
+
+    // Last payment date
+    const reportLastPayment = (isActiveDebtor || derived.is_debtor)
         ? (derived.date_last_payment || "")
-        : ((hasDelinquency || isClosed) ? "" : derived.date_last_payment);
-    const firstDelinquencyDate = hasDelinquency ? derived.date_first_delinquency : "";
+        : ((isClosed) ? "" : derived.date_last_payment);
+
     const address = normalizeReportAddress(carrier);
 
-    // Rebuild PHP B/D codes using the correct Date Open (Zoho app date).
-    // The sync engine may have computed PHP without proper B boundaries.
-    // Also strip D codes from sync if carrier is not actually closed at report time.
+    // ── PHP: rebuild B/D codes using correct Date Open ──────────────────────
     let php = derived.payment_history_profile || "";
+    // Strip D codes if carrier is not actually closed at report time
     if (!isClosed && php.includes("D")) {
         php = php.replace(/D/g, "0");
     }
     if (dateOpen && php) {
-        const today = new Date();
         const RY = today.getFullYear();
         const RM = today.getMonth() + 1;
         const oy = parseInt(dateOpen.slice(0, 4));
         const om = parseInt(dateOpen.slice(5, 7));
         if (!isNaN(oy) && !isNaN(om)) {
             const openAbs = oy * 12 + om;
-            const cy = reportCloseDate ? parseInt(reportCloseDate.slice(0, 4)) : 0;
-            const cm = reportCloseDate ? parseInt(reportCloseDate.slice(5, 7)) : 0;
+            const cy = validCloseDate ? parseInt(validCloseDate.slice(0, 4)) : 0;
+            const cm = validCloseDate ? parseInt(validCloseDate.slice(5, 7)) : 0;
             const closedAbs = (cy && cm) ? cy * 12 + cm : 0;
             let newPhp = "";
             for (let n = 0; n < 24; n++) {
@@ -543,7 +686,6 @@ export function carrierToRow(carrier) {
                 if (mAbs < openAbs) {
                     newPhp += "B";
                 } else if (closedAbs && mAbs > closedAbs && existingCode !== "G") {
-                    // D for closed months — but never overwrite G (collection stays on record)
                     newPhp += "D";
                 } else {
                     newPhp += existingCode;
@@ -551,6 +693,37 @@ export function carrierToRow(carrier) {
             }
             php = newPhp;
         }
+    }
+
+    // ── Account Status ──────────────────────────────────────────────────────
+    // Closed → 13, Delinquent → 71-84, Active → 11
+    // Never use 93 (TSS is creditor, not collection agency)
+    let accountStatus;
+    if (isClosed || php.includes("D")) {
+        accountStatus = "13";
+    } else if (hasDelinquency) {
+        accountStatus = computeDelinquentStatus(firstDelinqDate);
+    } else {
+        accountStatus = "11";
+    }
+
+    // ── Credit Limit: Zoho for debtors (CMP zeros it), CMP for active LOC ──
+    let reportCreditLimit;
+    if (isClosed || isActiveDebtor) {
+        reportCreditLimit = "0";
+    } else {
+        reportCreditLimit = String(derived.credit_limit || carrier.zoho?.credit_limit || 0);
+    }
+
+    // ── Current Balance: 0 for debtors and closed ───────────────────────────
+    const reportBalance = (isClosed || isActiveDebtor) ? "0" : String(derived.current_balance || 0);
+
+    // ── Highest Credit: Zoho credit_limit for debtors (original pre-debtor value) ──
+    let reportHighestCredit;
+    if (isActiveDebtor && carrier.zoho?.credit_limit) {
+        reportHighestCredit = String(carrier.zoho.credit_limit);
+    } else {
+        reportHighestCredit = String(derived.highest_credit || creditScore || 0);
     }
 
     return {
@@ -585,16 +758,16 @@ export function carrierToRow(carrier) {
         "Portfolio Type": "C",
         "Account Type": "15",
         "Date Open": isoToMmddyyyy(dateOpen),
-        "Date of First Delinquency": isoToMmddyyyy(firstDelinquencyDate),
+        "Date of First Delinquency": isoToMmddyyyy(validDelinqDate),
         "Date of Last Payment": isoToMmddyyyy(reportLastPayment),
-        "Date Closed": isoToMmddyyyy(reportCloseDate),
-        "Account Status": php.includes("D") ? "13" : (isClosed ? "13" : ((derived.account_status === "13" ? "11" : derived.account_status) || "11")),
+        "Date Closed": isoToMmddyyyy(isClosed ? validCloseDate : ""),
+        "Account Status": accountStatus,
         "Payment Rating": "",
         "Special Comment Code": "",
         "Compliance Condition Code": "",
-        "Credit Limit": (isClosed || isActiveDebtor) ? "0" : String(derived.credit_limit || 0),
-        "Highest Credit": String(derived.highest_credit || creditScore || 0),
-        "Current Balance": (isClosed || isActiveDebtor) ? "0" : String(derived.current_balance || 0),
+        "Credit Limit": reportCreditLimit,
+        "Highest Credit": reportHighestCredit,
+        "Current Balance": reportBalance,
         "Monthly Payment": "",
         "Actual Payment": "",
         "Terms Frequency": "W",
@@ -615,6 +788,7 @@ function hasZohoCardSwiped(carrier = {}) {
 }
 
 export function loadReportCarriers(query = {}) {
+    _collectionIndexCache = null; // reset for fresh data each call
     const db = readCarrierDb();
     const dobMap = loadDobMap({ logPrefix: "[report]" });
     const masterDb = loadMergedMasterDb(env.MASTER_DB_PATH, { logPrefix: "[report]", dobMap });
@@ -624,7 +798,7 @@ export function loadReportCarriers(query = {}) {
         // Rule: a carrier is a debtor for the Array report ONLY IF they appear in
         // collection-placement-db.json (matched by company name via common-carriers-db).
         // Carriers with only the SMP tagId=1 (fuel-card block) are excluded.
-        const collectionIndex = buildCollectionDbIndex(); // carrier_id → collection entry
+        const collectionIndex = getCollectionDbIndex(); // carrier_id → collection entry
 
         carriers = carriers.filter((carrier) => {
             const cid = String(carrier.carrier_id);
@@ -705,13 +879,27 @@ export function loadReportCarriers(query = {}) {
                     ]).map(toDate10).filter(Boolean);
                 }
 
-                // Delinquency date: earliest invoice_date across collection DB invoices.
-                // Fallback to company-level date_of_delinquency when no invoice dates exist.
-                const invoiceDelinqDate = invoices
+                // Delinquency date sources (earliest wins):
+                // 1. CMP invoices with stage PAYMENT_ISSUES or DEBTORS — oldest dateTo
+                // 2. Collection-placement-db invoice_date
+                // 3. Company-level date_of_delinquency from collection-db
+                const cmpStageDelinqDate = (carrier.invoices || [])
+                    .filter((inv) => {
+                        const stage = String(inv.stage || "");
+                        const status = String(inv.status || "").toUpperCase();
+                        return (stage === "PAYMENT_ISSUES" || stage === "DEBTORS")
+                            && status !== "PAID";
+                    })
+                    .map((inv) => toDate10(inv.date_to))
+                    .filter(Boolean)
+                    .sort()[0] || "";
+                const collInvoiceDelinqDate = invoices
                     .map((inv) => toDate10(inv.invoice_date))
                     .filter(Boolean)
                     .sort()[0] || "";
-                const delinqDate = invoiceDelinqDate || toDate10(collEntry.date_of_delinquency) || "";
+                const delinqDate = [cmpStageDelinqDate, collInvoiceDelinqDate, toDate10(collEntry.date_of_delinquency)]
+                    .filter(Boolean)
+                    .sort()[0] || "";
 
                 const changes = {};
 
@@ -780,47 +968,35 @@ export function loadReportCarriers(query = {}) {
     }
 
     const wantsDebtors = query.type === "debtor" || query.debtors === "true";
+    const wantsUnpaid = query.unpaid === "true";
 
     if (wantsDebtors) {
         // Explicit debtor-only request
         carriers = carriers.filter((carrier) =>
             carrier.derived?.is_debtor || hasCmpTag(carrier, 1)
         );
-    } else {
-        // LOC report: SMP tag 2 (LOC) + Card Swiped
-        // Exclude carriers in collection-db with active unpaid debt (they go in debtor report)
-        const collectionIndex = buildCollectionDbIndex();
+    } else if (wantsUnpaid) {
+        // Tag 2 carriers with unpaid CMP invoices (not in collection-db)
         carriers = carriers.filter((carrier) => {
             if (!hasCmpTag(carrier, 2) || !hasZohoCardSwiped(carrier)) return false;
-            const cid = String(carrier.carrier_id);
-            const isInCollection = Boolean(collectionIndex[cid]);
-            if (!isInCollection) return true;
-            // Allow back if:
-            // - all CMP invoices are paid
-            // - no CMP data (old closed client)
-            // - collection debt resolved (paid + no agency assigned)
+            if (hasUnpaidCollectionInvoices(carrier)) return false; // collection-db → debtor report
+            return hasUnpaidCmpInvoices(carrier);
+        });
+    } else {
+        // LOC report: SMP tag 2 (LOC) + Card Swiped + all CMP invoices paid
+        // Exclude any carrier with unpaid/partially-paid invoices (they are debtors)
+        carriers = carriers.filter((carrier) => {
+            if (!hasCmpTag(carrier, 2) || !hasZohoCardSwiped(carrier)) return false;
+            // Any unpaid CMP invoices → not LOC
+            if (hasUnpaidCmpInvoices(carrier)) return false;
+            // Any unpaid collection-db invoices → not LOC
+            if (hasUnpaidCollectionInvoices(carrier)) return false;
+            // No CMP data — only allow if has verification data (real old client)
             const cmpInvoices = carrier.invoices || [];
             if (cmpInvoices.length === 0 && (carrier.billing_history || []).length === 0) {
-                // No CMP data — only allow if has verification data (real old client)
                 return Boolean(getVerificationsIndex()[String(carrier.carrier_id)]);
             }
-            if (cmpInvoices.length > 0 && cmpInvoices.every((inv) => String(inv.status || "").toUpperCase() === "PAID")) return true;
-            // Check collection-db: debt paid + no agency → resolved, allow back
-            const collEntry = collectionIndex[cid];
-            if (collEntry) {
-                const collInvoices = collEntry.invoices || [];
-                const collCases = collEntry.collection_cases || [];
-                const collAllPaid = collInvoices.length > 0 && collInvoices.every(
-                    (inv) => String(inv.invoice_status || "").toLowerCase() === "paid"
-                        || (Number(inv.remaining_amount) || 0) <= 0
-                );
-                const hasAgency = collCases.length > 0 || collInvoices.some((inv) =>
-                    inv.collection_transferred_date_dustin || inv.collection_transferred_date_trustaltus
-                    || inv.collection_transferred_date_ic_system || inv.transferred_date_alla
-                );
-                if (collAllPaid && !hasAgency) return true;
-            }
-            return false;
+            return true;
         });
     }
 
@@ -873,6 +1049,222 @@ export function loadReportCarriers(query = {}) {
         carriers = carriers.filter((carrier) => !carrier.derived?.dob);
     } else {
         // DOB is required for Array reporting — exclude carriers without it
+        carriers = carriers.filter((carrier) => carrier.derived?.dob);
+    }
+
+    carriers.sort((a, b) => String(a.carrier_id || "").localeCompare(String(b.carrier_id || "")));
+    return carriers;
+}
+
+/**
+ * Async version of loadReportCarriers — reads from MongoDB when available,
+ * falls back to JSON files. Populates module-level caches so carrierToRow() works.
+ */
+export async function loadReportCarriersAsync(query = {}) {
+    const fromDb = await useMongoDb();
+    if (!fromDb) {
+        console.log("[report] MongoDB not available — falling back to JSON files");
+        return loadReportCarriers(query);
+    }
+
+    console.log("[report] Loading data from MongoDB...");
+
+    // Load all data from MongoDB in parallel
+    const [
+        carrierDocs,
+        accountingIndex,
+        verificationsIndex,
+        collectionIndex,
+        dobMapDb,
+    ] = await Promise.all([
+        loadCarriersFromDb(),
+        loadAccountingIndexFromDb(),
+        loadVerificationsIndexFromDb(),
+        loadCollectionDbIndexFromDb(),
+        loadDobMapFromDb(),
+    ]);
+
+    console.log(`[report] MongoDB: ${carrierDocs.length} carriers, ${Object.keys(accountingIndex).length} accounting, ${Object.keys(verificationsIndex).length} verifications, ${Object.keys(collectionIndex).length} collection, ${Object.keys(dobMapDb).length} DOBs`);
+
+    // Populate module-level caches so carrierToRow() / getAccountingIndex() / etc. work
+    _accountingIndex = accountingIndex;
+    _verificationsIndex = verificationsIndex;
+    _collectionIndexCache = collectionIndex;
+
+    // Build carriers array — same shape as readCarrierDb() output
+    let carriers = carrierDocs;
+
+    // Apply same filtering logic as loadReportCarriers (reuse existing code)
+    if (query.debtor_report === "true") {
+        carriers = carriers.filter((carrier) => {
+            const cid = String(carrier.carrier_id);
+            const collEntry = collectionIndex[cid];
+            if (!collEntry) return false;
+            if (!hasZohoCardSwiped(carrier)) return false;
+            const cmpInvoices = carrier.invoices || [];
+            if (cmpInvoices.length === 0 && (carrier.billing_history || []).length === 0) return false;
+            if (cmpInvoices.length > 0 && cmpInvoices.every((inv) => String(inv.status || "").toUpperCase() === "PAID")) return false;
+            const collInvoices = collEntry.invoices || [];
+            const collCases = collEntry.collection_cases || [];
+            const collAllPaid = collInvoices.length > 0 && collInvoices.every(
+                (inv) => String(inv.invoice_status || "").toLowerCase() === "paid"
+                    || (Number(inv.remaining_amount) || 0) <= 0
+            );
+            const hasAgency = collCases.length > 0 || collInvoices.some((inv) =>
+                inv.collection_transferred_date_dustin || inv.collection_transferred_date_trustaltus
+                || inv.collection_transferred_date_ic_system || inv.transferred_date_alla
+            );
+            if (collAllPaid && !hasAgency) return false;
+            return true;
+        });
+
+        if (query.include_inactive !== "true") {
+            carriers = carriers.filter((carrier) => !isCarrierClosed(carrier));
+        }
+
+        // Augment debtors with collection data — same logic as sync version
+        carriers = carriers.map((carrier) => {
+            const cid = String(carrier.carrier_id);
+            const derived = carrier.derived || {};
+            const collEntry = collectionIndex[cid];
+            const carrierIsClosed = isCarrierClosed(carrier);
+            let augmented = derived;
+
+            if (collEntry) {
+                const invoices = collEntry.invoices || [];
+                const totalRemaining = invoices.reduce((sum, inv) => sum + (Number(inv.remaining_amount) || 0), 0);
+                const collInvoicesPaid = invoices.length > 0 && invoices.every(
+                    (inv) => String(inv.invoice_status || "").toLowerCase() === "paid" || (Number(inv.remaining_amount) || 0) <= 0
+                );
+                const cmpInvoices = carrier.invoices || [];
+                const hasCmpUnpaid = cmpInvoices.some((inv) => String(inv.status || "").toUpperCase() !== "PAID");
+                const allPaid = carrierIsClosed || (collInvoicesPaid && !hasCmpUnpaid);
+                const toDate10 = (v) => { const s = String(v || "").slice(0, 10); return s.length === 10 ? s : ""; };
+
+                const caseDates = (collEntry.collection_cases || []).map((c) => toDate10(c.date_placed)).filter(Boolean);
+                let agencyTransferDates;
+                if (caseDates.length) {
+                    agencyTransferDates = caseDates;
+                } else {
+                    agencyTransferDates = invoices.flatMap((inv) => [
+                        inv.collection_transferred_date_dustin, inv.collection_transferred_date_trustaltus,
+                        inv.collection_transferred_date_ic_system, inv.transferred_date_alla,
+                    ]).map(toDate10).filter(Boolean);
+                }
+
+                const cmpStageDelinqDate = (carrier.invoices || [])
+                    .filter((inv) => {
+                        const stage = String(inv.stage || "");
+                        const status = String(inv.status || "").toUpperCase();
+                        return (stage === "PAYMENT_ISSUES" || stage === "DEBTORS") && status !== "PAID";
+                    })
+                    .map((inv) => toDate10(inv.date_to)).filter(Boolean).sort()[0] || "";
+                const collInvoiceDelinqDate = invoices.map((inv) => toDate10(inv.invoice_date)).filter(Boolean).sort()[0] || "";
+                const delinqDate = [cmpStageDelinqDate, collInvoiceDelinqDate, toDate10(collEntry.date_of_delinquency)]
+                    .filter(Boolean).sort()[0] || "";
+
+                const changes = {};
+                changes.is_debtor = true;
+                changes._in_debtor_report = true;
+
+                const lastPaymentDate = (carrier.billing_history || [])
+                    .map((txn) => toDate10(txn.create_date)).filter(Boolean).sort().pop() || "";
+                if (lastPaymentDate) changes.date_last_payment = lastPaymentDate;
+                if (delinqDate) changes.date_first_delinquency = delinqDate;
+                if (!(derived.current_balance > 0) && totalRemaining > 0) changes.current_balance = Math.round(totalRemaining);
+
+                if (delinqDate) {
+                    const closedDate = allPaid ? (lastPaymentDate || derived.date_closed || "") : "";
+                    const correctDateOpen = carrier.zoho?.application_date || derived.date_open || "";
+                    changes.payment_history_profile = rebuildCollectionPhp(delinqDate, correctDateOpen, agencyTransferDates, closedDate);
+                }
+
+                if (allPaid) {
+                    changes.account_status = "13";
+                    changes.is_closed = true;
+                } else if (delinqDate) {
+                    changes.account_status = computeDelinquentStatus(delinqDate);
+                }
+
+                if (Object.keys(changes).length) augmented = { ...derived, ...changes };
+            }
+
+            const dob = augmented.dob || dobMapDb[carrier.carrier_id] || "";
+            if (dob !== augmented.dob) augmented = { ...augmented, dob };
+            if (augmented === derived) return carrier;
+            return { ...carrier, derived: augmented };
+        });
+
+        if (query.missing_dob === "true") {
+            carriers = carriers.filter((carrier) => !carrier.derived?.dob);
+        } else {
+            carriers = carriers.filter((carrier) => carrier.derived?.dob);
+        }
+        carriers.sort((a, b) => String(a.carrier_id || "").localeCompare(String(b.carrier_id || "")));
+        return carriers;
+    }
+
+    // LOC / default path
+    const wantsDebtors = query.type === "debtor" || query.debtors === "true";
+    const wantsUnpaid = query.unpaid === "true";
+
+    if (wantsDebtors) {
+        carriers = carriers.filter((carrier) => carrier.derived?.is_debtor || hasCmpTag(carrier, 1));
+    } else if (wantsUnpaid) {
+        carriers = carriers.filter((carrier) => {
+            if (!hasCmpTag(carrier, 2) || !hasZohoCardSwiped(carrier)) return false;
+            if (hasUnpaidCollectionInvoices(carrier)) return false;
+            return hasUnpaidCmpInvoices(carrier);
+        });
+    } else {
+        carriers = carriers.filter((carrier) => {
+            if (!hasCmpTag(carrier, 2) || !hasZohoCardSwiped(carrier)) return false;
+            if (hasUnpaidCmpInvoices(carrier)) return false;
+            if (hasUnpaidCollectionInvoices(carrier)) return false;
+            const cmpInvoices = carrier.invoices || [];
+            if (cmpInvoices.length === 0 && (carrier.billing_history || []).length === 0) {
+                return Boolean(verificationsIndex[String(carrier.carrier_id)]);
+            }
+            return true;
+        });
+    }
+
+    if (query.include_inactive !== "true") {
+        carriers = carriers.filter((carrier) => !isCarrierClosed(carrier));
+    }
+
+    carriers = carriers.filter((carrier) => {
+        if (hasCmpTag(carrier, 1)) return true;
+        const hasInv = (carrier.invoices || []).length > 0;
+        const hasBilling = (carrier.billing_history || []).length > 0;
+        const hasVerif = Boolean(verificationsIndex[String(carrier.carrier_id)]);
+        return hasInv || hasBilling || hasVerif;
+    });
+
+    carriers = carriers.filter((carrier) => {
+        const d = carrier.derived || {};
+        return d.first_name && d.last_name;
+    });
+
+    carriers = carriers.filter((carrier) => {
+        const d = carrier.derived || {};
+        if (isCarrierClosed(carrier) || d.is_debtor) return true;
+        const hc = Number(d.highest_credit || d.credit_score || 0);
+        return hc > 0;
+    });
+
+    // DOB fallback from MongoDB DobEntry
+    carriers = carriers.map((carrier) => {
+        const derived = carrier.derived || {};
+        if (derived.dob) return carrier;
+        const fallbackDob = dobMapDb[carrier.carrier_id] || "";
+        if (!fallbackDob) return carrier;
+        return { ...carrier, derived: { ...derived, dob: fallbackDob } };
+    });
+
+    if (query.missing_dob === "true") {
+        carriers = carriers.filter((carrier) => !carrier.derived?.dob);
+    } else {
         carriers = carriers.filter((carrier) => carrier.derived?.dob);
     }
 

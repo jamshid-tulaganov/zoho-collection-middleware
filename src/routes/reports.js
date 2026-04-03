@@ -4,7 +4,7 @@ import {
     buildArrayReportFilename,
     buildArrayReportWorkbook,
     buildReportRows,
-    loadReportCarriers,
+    loadReportCarriersAsync,
 } from "../services/arrayReport.js";
 
 const router = Router();
@@ -21,10 +21,10 @@ async function maybeSyncCarrierDb(query) {
 router.get("/generate", async (req, res) => {
     try {
         await maybeSyncCarrierDb(req.query);
-        const carriers = loadReportCarriers(req.query);
+        const carriers = await loadReportCarriersAsync(req.query);
 
         if (!carriers.length) {
-            return res.status(404).json({ error: "No records found in carrier-db.json" });
+            return res.status(404).json({ error: "No carriers found" });
         }
 
         const generatedAt = new Date();
@@ -55,7 +55,7 @@ router.get("/generate", async (req, res) => {
 router.get("/json", async (req, res) => {
     try {
         const syncResult = await maybeSyncCarrierDb(req.query);
-        const carriers = loadReportCarriers(req.query);
+        const carriers = await loadReportCarriersAsync(req.query);
         const rows = buildReportRows(carriers);
 
         const data = {};
@@ -66,7 +66,7 @@ router.get("/json", async (req, res) => {
         res.json({
             count: carriers.length,
             generatedAt: new Date().toISOString(),
-            source: "carrier-db.json",
+            source: "mongodb",
             sync: syncResult,
             data,
         });

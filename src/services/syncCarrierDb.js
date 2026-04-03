@@ -28,6 +28,8 @@ import {
 } from "./smp.js";
 import { fetchDeals, ensureZohoToken } from "./zoho.js";
 import { loadMergedMasterDb } from "./dob.js";
+import { isDatabaseReady } from "../config/db.js";
+import { CarrierData } from "../models/index.js";
 import { computeMetro2, parseDate } from "./metro2.js";
 
 // ── Paths ────────────────────────────────────────────────────────────────────
@@ -514,6 +516,8 @@ function buildZohoBlock(deal) {
         application_date: String(deal.Application_Date || "").trim(),
         dob_raw:          dobFormatted,
         credit_score_raw: String(deal.Credit_Score || "").trim(),
+        credit_limit:     deal.Credit_Limit != null ? Number(deal.Credit_Limit) : null,
+        debt_amount:      deal.Debt_Amount != null ? Number(deal.Debt_Amount) : null,
         last_synced:      new Date().toISOString(),
     };
 }
@@ -523,12 +527,12 @@ function buildZohoBlock(deal) {
 
 function buildInvoiceData(cid, comp, dbEntry = {}, existingEntry = {}, invoiceIndex, billingIndex, collectionStartDate = "") {
     const today = new Date();
-    const thirtyDaysAgo = new Date(today);
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    const thirtyDaysAgoIso = thirtyDaysAgo.toISOString().slice(0, 10);
+    const fifteenDaysAgo = new Date(today);
+    fifteenDaysAgo.setDate(fifteenDaysAgo.getDate() - 15);
+    const fifteenDaysAgoIso = fifteenDaysAgo.toISOString().slice(0, 10);
 
     const smpDebtor = comp ? (comp.tags || []).some((t) => t.id === 1) : false;
-    const masterDebtor = (dbEntry.debtor_sources || []).length > 0;
+    const masterDebtor = (dbEntry.debtor_sources || existingEntry.debtor_sources || []).length > 0;
     const isDebtor = comp ? (smpDebtor || masterDebtor) : masterDebtor;
 
     let dateFirstDelinquency = "";
@@ -590,7 +594,12 @@ function buildInvoiceData(cid, comp, dbEntry = {}, existingEntry = {}, invoiceIn
 
     // Calculate delinquency from oldest unpaid invoice billing period (dateTo).
     // dateTo = end of billing period when payment becomes expected.
-    if (isDebtor && unpaidInvoices.length) {
+    // Trigger: isDebtor (tag 1 / master DB) OR any unpaid invoice in PAYMENT_ISSUES/DEBTORS stage.
+    const hasDelinquentStageInvoice = unpaidInvoices.some((inv) => {
+        const stage = String(inv.stage || "");
+        return stage === "PAYMENT_ISSUES" || stage === "DEBTORS";
+    });
+    if ((isDebtor || hasDelinquentStageInvoice) && unpaidInvoices.length) {
         const oldestUnpaid = [...unpaidInvoices].sort((a, b) =>
             String(a.dateTo || a.dateFrom || a.dueDate || "").localeCompare(
                 String(b.dateTo || b.dateFrom || b.dueDate || "")
@@ -600,7 +609,10 @@ function buildInvoiceData(cid, comp, dbEntry = {}, existingEntry = {}, invoiceIn
             oldestUnpaid?.dateTo || oldestUnpaid?.dateFrom || oldestUnpaid?.dueDate || ""
         );
         if (firstDue.length >= 10) {
-            dateFirstDelinquency = firstDue.slice(0, 10);
+            // date_to + 1 day = due date (day after billing period ends)
+            const dueD = new Date(firstDue.slice(0, 10) + "T00:00:00");
+            dueD.setDate(dueD.getDate() + 1);
+            dateFirstDelinquency = dueD.toISOString().slice(0, 10);
         }
     }
 
@@ -623,9 +635,8 @@ function buildInvoiceData(cid, comp, dbEntry = {}, existingEntry = {}, invoiceIn
     }
 
     // ── Closed? ──
-    // Rule: if last invoice date_to AND last transaction create_date are both older
-    // than 30 days, the company is closed (no active billing relationship).
-    // Every week billing sends invoices; silence for 30+ days means inactive.
+    // Rule: if last CMP activity is older than 15 days, the company is closed.
+    // Every week billing sends invoices; silence for 15+ days means inactive.
     // Applies to all carriers — even those with the debtor tag but no unpaid invoices.
     {
         // Last activity = max(last invoice dateTo, last positive transaction)
@@ -634,9 +645,9 @@ function buildInvoiceData(cid, comp, dbEntry = {}, existingEntry = {}, invoiceIn
         const hasUnpaidInvoices = unpaidInvoices.length > 0;
 
         // A carrier with active unpaid invoices is not closed — they are an active debtor.
-        // All others: close if last billing activity > 30 days ago.
+        // All others: close if last billing activity > 15 days ago.
         if (!hasUnpaidInvoices) {
-            isClosed = lastActivity ? lastActivity < thirtyDaysAgoIso : true;
+            isClosed = lastActivity ? lastActivity < fifteenDaysAgoIso : true;
         }
 
         if (!isDebtor) collectionStartDate = "";
@@ -988,6 +999,13 @@ export async function runCarrierDbSync() {
                         billingIndex,
                         ""
                     );
+                    // Preserve dateOfLastPayment from previous sync when billing has no data
+                    if (!invoiceData.dateOfLastPayment) {
+                        const prev = existingDerived.date_last_payment || "";
+                        if (prev.length >= 10) {
+                            invoiceData.dateOfLastPayment = prev;
+                        }
+                    }
                     let {
                         ggrData,
                         ggrSubmissionDate,
@@ -1056,16 +1074,19 @@ export async function runCarrierDbSync() {
                                 total_paid: safeNum(inv.totalPaid),
                                 remaining: safeNum(inv.totalAmount) - safeNum(inv.totalPaid),
                                 status: inv.status || "",
+                                stage: inv.stage || "",
                                 due_date: String(inv.dueDate || "").slice(0, 10),
                                 date_from: String(inv.dateFrom || "").slice(0, 10),
                                 date_to: String(inv.dateTo || "").slice(0, 10),
                             })),
                         invoices_last_synced: nowIso,
-                        billing_history: smpBillingHistory.slice(0, 20).map((txn) => ({
-                                amount: safeNum(txn.amount),
-                                create_date: String(txn.createDate || "").slice(0, 10),
-                                reference: String(txn.refNum || ""),
-                            })),
+                        billing_history: smpBillingHistory.length > 0
+                            ? smpBillingHistory.slice(0, 20).map((txn) => ({
+                                    amount: safeNum(txn.amount),
+                                    create_date: String(txn.createDate || "").slice(0, 10),
+                                    reference: String(txn.refNum || ""),
+                                }))
+                            : (existingEntry.billing_history || []),
                         billing_last_synced: nowIso,
                         billing_cycle: billingCycle,
                         credit_score_tss: creditScoreTss,
@@ -1141,6 +1162,33 @@ export async function runCarrierDbSync() {
             syncProgress.errors = errors;
             syncProgress.lastHeartbeatAt = new Date().toISOString();
             saveCarrierDb(carrierDb);
+
+            // ── Upsert active carriers to MongoDB ──────────────────────────
+            if (isDatabaseReady()) {
+                syncProgress.phase = "syncing_mongodb";
+                const cutoff = new Date(Date.now() - 15 * 86400000).toISOString().slice(0, 10);
+                const activeDocs = [];
+                for (const [cid, carrier] of Object.entries(carrierDb)) {
+                    if (String(carrier.zoho?.stage || "").trim() !== "Card Swiped") continue;
+                    const invDates = (carrier.invoices || []).map((i) => String(i.date_to || "").slice(0, 10)).filter((d) => d.length === 10);
+                    const txnDates = (carrier.billing_history || []).map((t) => String(t.create_date || "").slice(0, 10)).filter((d) => d.length === 10);
+                    const last = [...invDates, ...txnDates].sort().pop() || "";
+                    const isActive = last >= cutoff || carrier.derived?.is_debtor
+                        || (carrier.invoices || []).some((inv) => String(inv.status || "").toUpperCase() !== "PAID");
+                    if (isActive) activeDocs.push({ carrier_id: cid, ...carrier });
+                }
+                try {
+                    const ops = activeDocs.map((doc) => ({
+                        updateOne: { filter: { carrier_id: doc.carrier_id }, update: { $set: doc }, upsert: true },
+                    }));
+                    if (ops.length) {
+                        await CarrierData.bulkWrite(ops, { ordered: false });
+                    }
+                    console.log(`[carrier-db] MongoDB: ${activeDocs.length} active carriers synced`);
+                } catch (err) {
+                    console.warn(`[carrier-db] MongoDB sync failed (non-fatal): ${err.message}`);
+                }
+            }
 
             const total = Object.keys(carrierDb).length;
             const withDob = Object.values(carrierDb).filter((c) => c.derived?.dob).length;

@@ -3,8 +3,9 @@ import os from "os";
 import path from "path";
 import { Router } from "express";
 import { env } from "../config/env.js";
-import { buildArrayReportFilename, loadReportCarriers, writeArrayReportFile } from "../services/arrayReport.js";
+import { buildArrayReportFilename, buildReportRows, loadReportCarriersAsync, writeArrayReportFile } from "../services/arrayReport.js";
 import { runCarrierDbSync } from "../services/syncCarrierDb.js";
+import { validateReport, formatValidationMessage } from "../services/reportValidation.js";
 // WEX lookup — loaded lazily since it requires Playwright (not available on all servers)
 let _lookupAndSaveDob = null;
 async function getWexLookup() {
@@ -69,6 +70,9 @@ const COMMAND_PERMISSIONS = {
     "/report": "report",
     "/report_update": "report",
     "/report_collections": "report",
+    "/report_combined": "report",
+    "/report_combined_update": "report",
+    "/dob_enrich": "report",
     "/wex": "wex",
 };
 
@@ -356,6 +360,12 @@ function parseReportCommand(text = "") {
     if (command === "/report_collections") {
         return { mode: "collections", syncFirst: false };
     }
+    if (command === "/report_combined") {
+        return { mode: "combined", syncFirst: false };
+    }
+    if (command === "/report_combined_update") {
+        return { mode: "combined", syncFirst: true };
+    }
 
     return {
         mode: "report",
@@ -375,16 +385,24 @@ async function generateAndSendArrayReport(chatId, { syncFirst = false, mode = "a
     }
 
     let carriers;
-    if (mode === "collections") {
+    if (mode === "combined") {
+        // Combined: LOC + debtors (deduplicated, debtors first for augmented PHP)
+        const loc = await loadReportCarriersAsync({ include_inactive: "true" });
+        const debtors = await loadReportCarriersAsync({ debtor_report: "true", include_inactive: "true" });
+        const seen = new Set();
+        carriers = [];
+        for (const c of debtors) { seen.add(String(c.carrier_id)); carriers.push(c); }
+        for (const c of loc) { if (!seen.has(String(c.carrier_id))) carriers.push(c); }
+    } else if (mode === "collections") {
         // Carriers that have been sent to collections (collection_placement_date is set)
-        carriers = loadReportCarriers({ include_inactive: "true" });
+        carriers = await loadReportCarriersAsync({ include_inactive: "true" });
         carriers = carriers.filter((carrier) =>
             Boolean(carrier.collection_placement_date)
             || (Array.isArray(carrier.collection_placement_dates) && carrier.collection_placement_dates.length > 0)
         );
     } else {
         // LOC report: active + inactive, debtors excluded by loadReportCarriers default
-        carriers = loadReportCarriers({ include_inactive: "true" });
+        carriers = await loadReportCarriersAsync({ include_inactive: "true" });
     }
     if (!carriers.length) {
         throw new Error(
@@ -393,6 +411,12 @@ async function generateAndSendArrayReport(chatId, { syncFirst = false, mode = "a
                 : "No carriers found in carrier-db.json. Run a sync first."
         );
     }
+
+    // Validate before generating
+    const rows = buildReportRows(carriers);
+    const validation = validateReport(rows);
+    const validationMsg = formatValidationMessage(validation, carriers.length);
+    await sendTelegramMessage(chatId, validationMsg);
 
     const modeLabel = mode === "collections" ? "collections" : "";
     const fileName = buildArrayReportFilename(new Date(), modeLabel);
@@ -426,6 +450,28 @@ async function handleReportCommand(chatId, text) {
     } catch (err) {
         console.error("[telegram] report failed:", err.message);
         await sendTelegramMessage(chatId, `Report failed: ${err.message}`).catch(() => {});
+    }
+}
+
+/**
+ * Handle /dob_enrich command — batch WEX DOB lookup for new carriers.
+ */
+async function handleDobEnrichCommand(chatId) {
+    try {
+        const { findCarriersMissingDob, runDobEnrichment } = await import("../services/dobEnrichment.js");
+        const missing = findCarriersMissingDob();
+        await sendTelegramMessage(chatId, `Found ${missing.length} carriers missing DOB. Starting WEX lookup...`);
+
+        if (!missing.length) return;
+
+        const result = await runDobEnrichment();
+        await sendTelegramMessage(
+            chatId,
+            `DOB enrichment complete:\n  Found: ${result.found}\n  Not found: ${result.notFound}\n  Errors: ${result.errors}\n  Total: ${result.total}`
+        );
+    } catch (err) {
+        console.error("[telegram] dob_enrich failed:", err.message);
+        await sendTelegramMessage(chatId, `DOB enrichment failed: ${err.message}`).catch(() => {});
     }
 }
 
@@ -656,9 +702,12 @@ async function setTelegramCommands() {
     await callTelegram("setMyCommands", {
         commands: [
             { command: "start", description: "Register for report delivery" },
-            { command: "report", description: "Generate Array report (all carriers)" },
-            { command: "report_update", description: "Sync data, then generate report" },
-            { command: "report_collections", description: "Carriers with a collection sent date" },
+            { command: "report", description: "Generate Array LOC report" },
+            { command: "report_combined", description: "Generate combined LOC + debtors report" },
+            { command: "report_combined_update", description: "Sync data, then combined report" },
+            { command: "report_update", description: "Sync data, then LOC report" },
+            { command: "report_collections", description: "Carriers sent to collection agency" },
+            { command: "dob_enrich", description: "Batch WEX DOB lookup for new carriers" },
             { command: "wex", description: "WEX DOB lookup: /wex <carrierId> <companyName>" },
             { command: "approve", description: "Admin: approve user /approve <chatId> <role>" },
             { command: "revoke", description: "Admin: revoke user /revoke <chatId>" },
@@ -807,7 +856,7 @@ router.post("/webhook", async (req, res) => {
         return res.json({ ok: true, status: "forbidden" });
     }
 
-    const supportedCommands = ["/report", "/report_update", "/report_collections", "/wex"];
+    const supportedCommands = ["/report", "/report_update", "/report_collections", "/report_combined", "/report_combined_update", "/dob_enrich", "/wex"];
     if (!supportedCommands.includes(commandToken)) {
         return res.json({ ok: true, ignored: true });
     }
@@ -815,6 +864,12 @@ router.post("/webhook", async (req, res) => {
     if (commandToken === "/wex") {
         res.json({ ok: true, status: "started" });
         void handleWexCommand(chatId, text);
+        return;
+    }
+
+    if (commandToken === "/dob_enrich") {
+        res.json({ ok: true, status: "started" });
+        void handleDobEnrichCommand(chatId);
         return;
     }
 
