@@ -4,7 +4,7 @@ services:
     runtime: node
     plan: starter
     buildCommand: npm install && PLAYWRIGHT_BROWSERS_PATH=0 npx playwright install chromium
-    startCommand: npm start
+    startCommand: PLAYWRIGHT_BROWSERS_PATH=0 npm start
     healthCheckPath: /
     autoDeploy: true
     disk:
