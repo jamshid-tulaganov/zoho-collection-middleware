@@ -1,8 +1,7 @@
 /**
  * syncWexDob.js — Batch DOB sync from WEX for carriers missing DOB.
  *
- * Mirrors the pattern of syncIsoftpullDob.js but uses WEX as the data source.
- * WEX is the PRIMARY DOB source — runs before iSoftPull in the pipeline.
+ * WEX is the sole DOB source for the carrier-db sync.
  *
  * Flow:
  *   1. Load carrier-db.json + dob.json
@@ -266,7 +265,6 @@ export function getWexDobStats() {
 
     const withDob = entries.filter((e) => e.derived?.dob);
     const fromWex = entries.filter((e) => e.derived?.dob_source === "wex");
-    const fromIsoftpull = entries.filter((e) => e.derived?.dob_source === "isoftpull");
     const withWexData = entries.filter((e) => e.wex);
     const missingDob = entries.filter((e) => !e.derived?.dob);
 
@@ -276,7 +274,6 @@ export function getWexDobStats() {
             withDob: withDob.length,
             missingDob: missingDob.length,
             fromWex: fromWex.length,
-            fromIsoftpull: fromIsoftpull.length,
             withWexApplicationData: withWexData.length,
         },
         dobJson: {

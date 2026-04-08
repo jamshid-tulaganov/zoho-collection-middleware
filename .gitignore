@@ -6,9 +6,6 @@ node_modules/
 data/carrier-db.json
 data/cmpClients.json
 data/wex-dob-progress.json
-data/isoftpull-candidates.json
-data/isoftpull-no-reason-candidates.json
-data/isoftpull-debug.png
 data/*.xlsx
 data/*.csv
 data/*.tmp

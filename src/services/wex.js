@@ -9,12 +9,12 @@
  *   2. Get application details (Carrier ID, Beneficial Owner Entity ID)
  *   3. Get Beneficial Owner Prong DOBs
  *
- * Designed to mirror the iSoftPull service pattern:
+ * Architecture:
  *   - Singleton browser + context (reused across requests)
  *   - Serialised request queue to avoid navigation conflicts
  *   - Auto-login with session persistence
  *
- * Primary DOB source — checked before iSoftPull in the carrier-db sync.
+ * Primary (and only) DOB source for the carrier-db sync.
  */
 
 import { chromium } from "playwright";

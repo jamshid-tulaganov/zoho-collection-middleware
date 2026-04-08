@@ -110,7 +110,7 @@ SMP API (companies, invoices, billing)
 | `paymentverifications` | `PaymentVerification` | payment-verifications-db.json import | Historical invoice data for closed carriers |
 | `accountingclients` | `AccountingClient` | accounting-client-db.json import | Application dates, contact info |
 | `mastercarriers` | `MasterCarrier` | debtor-master-db.json import | Basic carrier identity + DOB |
-| `dobentries` | `DobEntry` | WEX/iSoftPull lookups | DOB cache |
+| `dobentries` | `DobEntry` | WEX lookups | DOB cache |
 
 ### File Directories
 

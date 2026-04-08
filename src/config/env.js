@@ -106,10 +106,6 @@ export const env = {
     ZOHO_SHEET_WORKBOOK_ID: process.env.ZOHO_SHEET_WORKBOOK_ID || "",
     ZOHO_SHEET_NAME: process.env.ZOHO_SHEET_NAME || "Octane Array Report - New",
 
-    // iSoftPull (Playwright login)
-    ISOFTPULL_EMAIL: process.env.ISOFTPULL_EMAIL || "",
-    ISOFTPULL_PASSWORD: process.env.ISOFTPULL_PASSWORD || "",
-
     // WEX (Salesforce Experience Cloud)
     WEX_EMAIL: process.env.WEX_EMAIL || "",
     WEX_PASSWORD: process.env.WEX_PASSWORD || "",

@@ -5,11 +5,6 @@ import hooksRouter from "./routes/hooks.js";
 import reportsRouter from "./routes/reports.js";
 import carrierDbRouter from "./routes/carrierDb.js";
 import telegramRouter from "./routes/telegram.js";
-// isoftpull routes loaded conditionally (requires playwright — local only)
-let isoftpullRouter = null;
-try {
-    isoftpullRouter = (await import("./routes/isoftpull.js")).default;
-} catch (_) {}
 // wex routes loaded conditionally (requires playwright — local only)
 let wexRouter = null;
 try {
@@ -64,9 +59,6 @@ export function createApp() {
 
     // ── Telegram webhook / bot-driven report delivery ──
     app.use("/telegram", telegramRouter);
-
-    // ── iSoftPull credit soft-pull (local only — requires playwright) ──
-    if (isoftpullRouter) app.use("/isoftpull", isoftpullRouter);
 
     // ── WEX DOB lookup (local only — requires playwright) ──
     if (wexRouter) app.use("/wex", wexRouter);

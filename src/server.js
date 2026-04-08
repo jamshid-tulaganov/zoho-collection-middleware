@@ -3,11 +3,7 @@ import { connectDB } from "./config/db.js";
 import { createApp } from "./app.js";
 import { startScheduler } from "./cron/scheduler.js";
 import { bootTelegramBot } from "./routes/telegram.js";
-let closeBrowser = async () => {};
 let closeWex = async () => {};
-try {
-    closeBrowser = (await import("./services/isoftpull.js")).closeBrowser;
-} catch (_) {}
 try {
     closeWex = (await import("./services/wexHttp.js")).closeWexSession;
 } catch (_) {}
@@ -32,6 +28,6 @@ async function bootstrap() {
 
 bootstrap();
 
-async function shutdown() { await closeBrowser(); await closeWex(); process.exit(0); }
+async function shutdown() { await closeWex(); process.exit(0); }
 process.on("SIGTERM", shutdown);
 process.on("SIGINT", shutdown);
