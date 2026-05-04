@@ -291,6 +291,181 @@ export async function lookupAndSaveDob({ carrierId, companyName, firstName = "",
 }
 
 /**
+ * Discovery: dump every field WEX returns for an OnlineApplication__c record.
+ *
+ * Uses `RecordUiController.getRecordWithLayouts` with layoutTypes=["Full"] which
+ * returns the full record + objectInfo containing every field on the object —
+ * no need to know field API names ahead of time.
+ *
+ * Returns:
+ *   {
+ *     status: "found" | "notFound" | "noMatch" | "error",
+ *     carrierId, companyName,
+ *     recordId,            // matched OnlineApplication__c id
+ *     recordFields: {...}, // all fields present on the record (api_name → value)
+ *     objectFields: [...], // every field defined on OnlineApplication__c (api_name + label + dataType)
+ *     boeRecordFields,     // fields on the linked Beneficial_Owner_Information__c record (if any)
+ *     boeOwners: [...]     // raw Beneficial_Owner_Prong__c records (all fields)
+ *   }
+ */
+export async function discoverWexCompany({ carrierId, companyName }) {
+    if (!companyName?.trim()) {
+        return { status: "error", carrierId, companyName, error: "companyName required" };
+    }
+
+    try {
+        // Step 1: search
+        const rv = await auraPost(
+            "SearchUiController.searchResultsKeyword",
+            "aura://SearchUiController/ACTION$searchResultsKeyword",
+            { q: companyName, objectApiName: "OnlineApplication__c", language: "en_US", options: {} },
+        );
+        const apps = (rv?.keywordSearchResult?.records || []).map(r => ({
+            id: r.record.id,
+            legalName: r.record.fields?.Legal_Business_Name__c?.value || "",
+        }));
+        if (!apps.length) return { status: "notFound", carrierId, companyName };
+
+        // Step 2: get full record + layout for each candidate, match by carrierId
+        let matched = null;
+        let matchedRecord = null;
+        let matchedObjectInfo = null;
+        for (const app of apps.slice(0, 5)) {
+            const rec = await auraPost(
+                "RecordUiController.getRecordWithLayouts",
+                "aura://RecordUiController/ACTION$getRecordWithLayouts",
+                {
+                    recordId: app.id,
+                    layoutTypes: ["Full"],
+                    modes: ["View"],
+                    optionalFields: [],
+                },
+            ).catch(() => null);
+            if (!rec) continue;
+
+            const recordObj = rec.record || rec.records?.[app.id] || null;
+            const objectInfo = rec.objectInfos?.OnlineApplication__c || null;
+            if (!recordObj?.fields) continue;
+
+            const recCarrierId = recordObj.fields.Carrier_ID_Number__c?.value || "";
+            if (String(recCarrierId) === String(carrierId)) {
+                matched = { id: app.id, legalName: app.legalName };
+                matchedRecord = recordObj;
+                matchedObjectInfo = objectInfo;
+                break;
+            }
+            if (!matched && apps.length === 1) {
+                matched = { id: app.id, legalName: app.legalName };
+                matchedRecord = recordObj;
+                matchedObjectInfo = objectInfo;
+            }
+        }
+        if (!matched) return { status: "noMatch", carrierId, companyName, candidates: apps };
+
+        // Flatten record fields into a plain { api_name: value } map
+        const recordFields = {};
+        for (const [k, v] of Object.entries(matchedRecord.fields || {})) {
+            recordFields[k] = v?.value ?? null;
+        }
+
+        // Object schema — every field defined on OnlineApplication__c
+        const objectFields = [];
+        if (matchedObjectInfo?.fields) {
+            for (const [apiName, def] of Object.entries(matchedObjectInfo.fields)) {
+                objectFields.push({
+                    apiName,
+                    label: def.label || "",
+                    dataType: def.dataType || "",
+                    referenceToInfos: def.referenceToInfos || [],
+                });
+            }
+            objectFields.sort((a, b) => a.apiName.localeCompare(b.apiName));
+        }
+
+        // If there's a Beneficial Owner Entity link, dump that too
+        const boeId = recordFields.Beneficial_Owner_Information__c || null;
+        let boeRecordFields = null;
+        let boeOwners = [];
+
+        if (boeId) {
+            // Fetch the BOE record itself with full layout
+            const boeRec = await auraPost(
+                "RecordUiController.getRecordWithLayouts",
+                "aura://RecordUiController/ACTION$getRecordWithLayouts",
+                { recordId: boeId, layoutTypes: ["Full"], modes: ["View"], optionalFields: [] },
+            ).catch(() => null);
+            const boeObj = boeRec?.record || null;
+            if (boeObj?.fields) {
+                boeRecordFields = {};
+                for (const [k, v] of Object.entries(boeObj.fields)) {
+                    boeRecordFields[k] = v?.value ?? null;
+                }
+            }
+
+            // Fetch related Beneficial_Owner_Prong__c list — ask for ALL fields
+            // by passing the wildcard pattern Salesforce accepts: a broad field list.
+            // We use getRelatedListRecords with a curated list of likely-existing fields,
+            // plus a parallel call to getRelatedListInfo to discover the full schema.
+            const listInfo = await auraPost(
+                "RelatedListUiController.getRelatedListInfo",
+                "aura://RelatedListUiController/ACTION$getRelatedListInfo",
+                {
+                    parentObjectApiName: "Beneficial_Owner_Information__c",
+                    relatedListId: "Beneficial_Owners__r",
+                    recordTypeId: "012000000000000AAA",
+                    formFactor: "Large",
+                },
+            ).catch(() => null);
+
+            const ownerFieldNames = [];
+            if (listInfo?.displayColumns) {
+                for (const col of listInfo.displayColumns) {
+                    if (col.fieldApiName) ownerFieldNames.push(`Beneficial_Owner_Prong__c.${col.fieldApiName}`);
+                }
+            }
+            // Always include the basics so the call works even if listInfo failed
+            for (const f of ["Id", "Name", "First_Name__c", "Last_Name__c", "Date_Of_Birth__c"]) {
+                const full = `Beneficial_Owner_Prong__c.${f}`;
+                if (!ownerFieldNames.includes(full)) ownerFieldNames.push(full);
+            }
+
+            const ownersRv = await auraPost(
+                "RelatedListUiController.getRelatedListRecords",
+                "aura://RelatedListUiController/ACTION$getRelatedListRecords",
+                {
+                    parentRecordId: boeId,
+                    relatedListId: "Beneficial_Owners__r",
+                    fields: ownerFieldNames,
+                },
+            ).catch(() => null);
+
+            if (ownersRv?.records) {
+                boeOwners = ownersRv.records.map(r => {
+                    const flat = {};
+                    for (const [k, v] of Object.entries(r.fields || {})) flat[k] = v?.value ?? null;
+                    return flat;
+                });
+            }
+        }
+
+        return {
+            status: "found",
+            carrierId,
+            companyName,
+            recordId: matched.id,
+            legalName: matched.legalName,
+            recordFields,
+            objectFields,
+            boeId,
+            boeRecordFields,
+            boeOwners,
+        };
+    } catch (err) {
+        return { status: "error", carrierId, companyName, error: err.message };
+    }
+}
+
+/**
  * Close session (clear cached token).
  */
 export async function closeWexSession() {
