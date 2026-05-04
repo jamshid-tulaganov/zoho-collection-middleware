@@ -13,6 +13,9 @@
         "report:send-debtors": "node scripts/send-array-report.js --debtors",
         "report:send-combined": "node scripts/send-array-report.js --combined",
         "report:financial-risk": "node scripts/send-financial-risk-report.js",
+        "wex:discover": "node scripts/wex-discover-fields.js",
+        "sync:array-report": "node scripts/sync-array-report.js",
+        "sync:array-report:apply": "node scripts/sync-array-report.js --apply",
         "import:tss-collection": "node scripts/import-tss-collection-sheet.js --dry-run",
         "import:tss-collection:apply": "node scripts/import-tss-collection-sheet.js --apply",
         "db:migrate": "node scripts/migrate-to-mongodb.js --drop"

@@ -592,7 +592,6 @@ function isCarrierClosed(carrier = {}) {
 
 export function carrierToRow(carrier) {
     const derived = carrier.derived || {};
-    const creditScore = derived.credit_score || derived.highest_credit || "";
     const cmpInvoices = carrier.invoices || [];
     const allCmpPaid = cmpInvoices.length > 0 && cmpInvoices.every((inv) => String(inv.status || "").toUpperCase() === "PAID");
     const today = new Date();
@@ -707,24 +706,9 @@ export function carrierToRow(carrier) {
         accountStatus = "11";
     }
 
-    // ── Credit Limit: Zoho for debtors (CMP zeros it), CMP for active LOC ──
-    let reportCreditLimit;
-    if (isClosed || isActiveDebtor) {
-        reportCreditLimit = "0";
-    } else {
-        reportCreditLimit = String(derived.credit_limit || carrier.zoho?.credit_limit || 0);
-    }
-
-    // ── Current Balance: 0 for debtors and closed ───────────────────────────
-    const reportBalance = (isClosed || isActiveDebtor) ? "0" : String(derived.current_balance || 0);
-
-    // ── Highest Credit: Zoho credit_limit for debtors (original pre-debtor value) ──
-    let reportHighestCredit;
-    if (isActiveDebtor && carrier.zoho?.credit_limit) {
-        reportHighestCredit = String(carrier.zoho.credit_limit);
-    } else {
-        reportHighestCredit = String(derived.highest_credit || creditScore || 0);
-    }
+    const reportCreditLimit = "";
+    const reportBalance = "";
+    const reportHighestCredit = "";
 
     return {
         "Association Code": "1",
@@ -771,7 +755,7 @@ export function carrierToRow(carrier) {
         "Monthly Payment": "",
         "Actual Payment": "",
         "Terms Frequency": "W",
-        "Terms": "001",
+        "Terms": "LOC",
         "Original Charge Off Amount": "0",
         "Payment History Profile": php,
     };
@@ -983,21 +967,8 @@ export function loadReportCarriers(query = {}) {
             return hasUnpaidCmpInvoices(carrier);
         });
     } else {
-        // LOC report: SMP tag 2 (LOC) + Card Swiped + all CMP invoices paid
-        // Exclude any carrier with unpaid/partially-paid invoices (they are debtors)
-        carriers = carriers.filter((carrier) => {
-            if (!hasCmpTag(carrier, 2) || !hasZohoCardSwiped(carrier)) return false;
-            // Any unpaid CMP invoices → not LOC
-            if (hasUnpaidCmpInvoices(carrier)) return false;
-            // Any unpaid collection-db invoices → not LOC
-            if (hasUnpaidCollectionInvoices(carrier)) return false;
-            // No CMP data — only allow if has verification data (real old client)
-            const cmpInvoices = carrier.invoices || [];
-            if (cmpInvoices.length === 0 && (carrier.billing_history || []).length === 0) {
-                return Boolean(getVerificationsIndex()[String(carrier.carrier_id)]);
-            }
-            return true;
-        });
+        // LOC report: CMP tag 2 (LOC) + Zoho Card Swiped
+        carriers = carriers.filter((carrier) => hasCmpTag(carrier, 2) && hasZohoCardSwiped(carrier));
     }
 
     if (query.include_inactive !== "true") {
@@ -1019,14 +990,6 @@ export function loadReportCarriers(query = {}) {
     carriers = carriers.filter((carrier) => {
         const d = carrier.derived || {};
         return d.first_name && d.last_name;
-    });
-
-    // Skip active carriers with 0 highest credit
-    carriers = carriers.filter((carrier) => {
-        const d = carrier.derived || {};
-        if (isCarrierClosed(carrier) || d.is_debtor) return true; // keep closed/debtors regardless
-        const hc = Number(d.highest_credit || d.credit_score || 0);
-        return hc > 0;
     });
 
     carriers = carriers.map((carrier) => {
@@ -1217,16 +1180,8 @@ export async function loadReportCarriersAsync(query = {}) {
             return hasUnpaidCmpInvoices(carrier);
         });
     } else {
-        carriers = carriers.filter((carrier) => {
-            if (!hasCmpTag(carrier, 2) || !hasZohoCardSwiped(carrier)) return false;
-            if (hasUnpaidCmpInvoices(carrier)) return false;
-            if (hasUnpaidCollectionInvoices(carrier)) return false;
-            const cmpInvoices = carrier.invoices || [];
-            if (cmpInvoices.length === 0 && (carrier.billing_history || []).length === 0) {
-                return Boolean(verificationsIndex[String(carrier.carrier_id)]);
-            }
-            return true;
-        });
+        // LOC report: CMP tag 2 (LOC) + Zoho Card Swiped
+        carriers = carriers.filter((carrier) => hasCmpTag(carrier, 2) && hasZohoCardSwiped(carrier));
     }
 
     if (query.include_inactive !== "true") {
@@ -1244,13 +1199,6 @@ export async function loadReportCarriersAsync(query = {}) {
     carriers = carriers.filter((carrier) => {
         const d = carrier.derived || {};
         return d.first_name && d.last_name;
-    });
-
-    carriers = carriers.filter((carrier) => {
-        const d = carrier.derived || {};
-        if (isCarrierClosed(carrier) || d.is_debtor) return true;
-        const hc = Number(d.highest_credit || d.credit_score || 0);
-        return hc > 0;
     });
 
     // DOB fallback from MongoDB DobEntry
