@@ -1,0 +1,926 @@
+void schedule.syncArrayReports()
+{
+	// ─────────────────────────────────────────────────────────────────────────
+	// SETUP
+	// ─────────────────────────────────────────────────────────────────────────
+	startTs       = zoho.currenttime;
+	todayDate     = today;
+	reportPeriod  = todayDate.toString("MMM yyyy");   // e.g., "May 2026"
+	twentyFourMo  = todayDate.subMonth(24);            // PHP window start
+	thirtyDaysAgo = todayDate.subDay(30);              // closed-detection threshold
+
+	// Statement-budget guard: at ~2,300 LOC carriers Zoho's 200K-statement limit
+	// is reached mid-run. We process at most CHUNK_SIZE per scheduled execution
+	// and resume from ARS_RESUME_OFFSET on the next run.
+	//
+	// All three knobs live as Zoho org variables — editable from the UI
+	// (Setup → Customization → Variables) without re-pasting the Deluge:
+	//
+	//   ARS_CHUNK_SIZE    → records to process per run        (default 400)
+	//   ARS_RESUME_OFFSET → carrier index to start from       (default 0)
+	//   ARS_FORCE_RESET   → "true" to override offset to 0    (default "false")
+	//
+	chunkStr = ifnull(zoho.crm.getOrgVariable("ARS_CHUNK_SIZE"),"400").toString();
+	chunkSize = chunkStr.toLong();
+	if(chunkSize < 1 || chunkSize > 2000)
+	{
+		chunkSize = 400;
+	}
+
+	forceReset = ifnull(zoho.crm.getOrgVariable("ARS_FORCE_RESET"),"false").toString();
+	resumeStr  = ifnull(zoho.crm.getOrgVariable("ARS_RESUME_OFFSET"),"0").toString();
+	resumeAt   = resumeStr.toLong();
+	if(forceReset == "true")
+	{
+		resumeAt = 0;
+		// Auto-clear the flag so we don't keep resetting on every run
+		flagMap = Map();
+		flagMap.put("apiname","ARS_FORCE_RESET");
+		flagMap.put("value","false");
+		zoho.crm.invokeConnector("crm.set",flagMap);
+		info "[ARS] ARS_FORCE_RESET=true — resetting offset to 0 and clearing flag";
+	}
+	if(resumeAt < 0)
+	{
+		resumeAt = 0;
+	}
+
+	// Pre-built 24-char templates for O(1) PHP construction (avoids per-month loops).
+	zerosTemplate = "000000000000000000000000";
+	bsTemplate    = "BBBBBBBBBBBBBBBBBBBBBBBB";
+	dsTemplate    = "DDDDDDDDDDDDDDDDDDDDDDDD";
+
+	info "[ARS] === syncArrayReports START === period=" + reportPeriod + " | today=" + todayDate + " | resumeAt=" + resumeAt + " | chunkSize=" + chunkSize;
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// STEP 1: REFRESH CMP TOKEN (mirrors findDebtorsFromCMP STEP1)
+	// ─────────────────────────────────────────────────────────────────────────
+	smpToken = ifnull(zoho.crm.getOrgVariable("SMP_Token"),"").toString();
+	if(smpToken == "" || smpToken == "null")
+	{
+		authPayload = Map();
+		authPayload.put("username","asadbek.x@tsst.ai");
+		authPayload.put("password","Mynameisasadbek777!");
+		authResp = invokeurl
+		[
+			url :"https://tssfuelmanager.com:8443/api/authenticate"
+			type :POST
+			parameters:authPayload.toString()
+			headers:{"Content-Type":"application/json"}
+		];
+		smpToken = ifnull(authResp.get("token"),"").toString();
+		refreshT = ifnull(authResp.get("refreshToken"),"").toString();
+		tMap = Map(); tMap.put("apiname","SMP_Token"); tMap.put("value",smpToken);
+		zoho.crm.invokeConnector("crm.set",tMap);
+		rMap = Map(); rMap.put("apiname","SMP_Refresh_Token"); rMap.put("value",refreshT);
+		zoho.crm.invokeConnector("crm.set",rMap);
+		info "[ARS] STEP1 token refreshed (len=" + smpToken.length() + ")";
+	}
+
+	// Helper: re-auth + retry once on 401/empty response (used inside paging loops below)
+	// Deluge has no real functions inline → we duplicate this guard around invokeurl
+	// where needed. See findDebtorsFromCMP for the inline pattern we follow.
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// STEP 2: PAGE CMP COMPANIES — LOC (tag=2) and DEBTOR (tag=1)
+	// ─────────────────────────────────────────────────────────────────────────
+	locCarriers    = Map();   // carrierId(string) → company object
+	debtorCarriers = Map();   // carrierId(string) → true
+	for each tagId in {2,1}
+	{
+		pageNum = 0;
+		hasMore = true;
+		// Up to 5 pages of 1000 = 5000 carriers (LOC pool is ~500-1000 today; large headroom)
+		for each i in {1,2,3,4,5}
+		{
+			if(hasMore)
+			{
+				h = Map();
+				h.put("Authorization","Bearer " + smpToken);
+				h.put("Content-Type","application/json");
+				url = "https://tssfuelmanager.com:8443/api/companies?page=" + pageNum + "&size=1000&sort=createDate,desc&tagIds=" + tagId;
+				resp = invokeurl[ url:url type:GET headers:h ];
+
+				// Token expired → re-auth and retry once
+				if(resp == null || resp.get("content") == null)
+				{
+					info "[ARS] STEP2 tag=" + tagId + " page=" + pageNum + " null — re-auth";
+					a = Map(); a.put("username","asadbek.x@tsst.ai"); a.put("password","Mynameisasadbek777!");
+					ar = invokeurl[ url:"https://tssfuelmanager.com:8443/api/authenticate" type:POST parameters:a.toString() headers:{"Content-Type":"application/json"} ];
+					smpToken = ifnull(ar.get("token"),"").toString();
+					tMap = Map(); tMap.put("apiname","SMP_Token"); tMap.put("value",smpToken);
+					zoho.crm.invokeConnector("crm.set",tMap);
+					h.put("Authorization","Bearer " + smpToken);
+					resp = invokeurl[ url:url type:GET headers:h ];
+				}
+
+				content = resp.get("content");
+				if(content == null || content.size() == 0)
+				{
+					hasMore = false;
+				}
+				else
+				{
+					for each comp in content
+					{
+						// Use comp.carrierId (the carrier identifier that matches Zoho Deal
+						// Carrier_ID + CMP invoice carrierId), NOT comp.id (the company's
+						// internal Long ID). They are different fields.
+						cid = ifnull(comp.get("carrierId"),"").toString().trim();
+						if(cid != "" && cid != "0" && cid != "null")
+						{
+							if(tagId == 2)
+							{
+								locCarriers.put(cid,comp);
+							}
+							else
+							{
+								debtorCarriers.put(cid,true);
+							}
+						}
+					}
+					if(content.size() < 1000)
+					{
+						hasMore = false;
+					}
+					else
+					{
+						pageNum = pageNum + 1;
+					}
+				}
+			}
+		}
+	}
+	info "[ARS] STEP2 LOC carriers=" + locCarriers.size() + " | Debtor-tagged=" + debtorCarriers.size();
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// STEP 3: PAGE CMP INVOICES (no stage filter, sorted desc)
+	// Stop when we cross the 24-month PHP window.
+	// Group by carrierId → list of invoices.
+	// ─────────────────────────────────────────────────────────────────────────
+	invByCarrier = Map();   // carrierId → list of invoice maps
+	pageNum      = 0;
+	hasMore      = true;
+	totalInv     = 0;
+	// Up to 50 pages of 200 = 10,000 invoices. Tune up if needed.
+	for each pg in {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50}
+	{
+		if(hasMore)
+		{
+			h = Map();
+			h.put("Authorization","Bearer " + smpToken);
+			h.put("Content-Type","application/json");
+			url = "https://tssfuelmanager.com:8443/api/invoices?page=" + pageNum + "&size=200&sort=createDate,desc";
+			resp = invokeurl[ url:url type:GET headers:h ];
+
+			if(resp == null || resp.get("content") == null)
+			{
+				info "[ARS] STEP3 page=" + pageNum + " null — re-auth";
+				a = Map(); a.put("username","asadbek.x@tsst.ai"); a.put("password","Mynameisasadbek777!");
+				ar = invokeurl[ url:"https://tssfuelmanager.com:8443/api/authenticate" type:POST parameters:a.toString() headers:{"Content-Type":"application/json"} ];
+				smpToken = ifnull(ar.get("token"),"").toString();
+				tMap = Map(); tMap.put("apiname","SMP_Token"); tMap.put("value",smpToken);
+				zoho.crm.invokeConnector("crm.set",tMap);
+				h.put("Authorization","Bearer " + smpToken);
+				resp = invokeurl[ url:url type:GET headers:h ];
+			}
+
+			content = resp.get("content");
+			if(content == null || content.size() == 0)
+			{
+				hasMore = false;
+			}
+			else
+			{
+				oldestOnPage = "";
+				oldestOnPageL = 99999999999;   // long form for safe comparison
+				for each inv in content
+				{
+					cid = ifnull(inv.get("carrierId"),"").toString().trim();
+					if(cid != "" && cid != "0" && cid != "null")
+					{
+						if(!invByCarrier.containKey(cid))
+						{
+							invByCarrier.put(cid,List());
+						}
+						lst = invByCarrier.get(cid);
+						lst.add(inv);
+						invByCarrier.put(cid,lst);
+					}
+					cd = ifnull(inv.get("createDate"),"").toString();
+					if(cd.length() >= 10)
+					{
+						cdL = cd.subString(0,10).replaceAll("-","").toLong();
+						if(oldestOnPage == "" || cdL < oldestOnPageL)
+						{
+							oldestOnPage  = cd;
+							oldestOnPageL = cdL;
+						}
+					}
+				}
+				totalInv = totalInv + content.size();
+
+				// Stop early if we've crossed the 24-month PHP window
+				windowCutoffL = twentyFourMo.toString("yyyyMMdd").toLong();
+				if(oldestOnPage != "" && oldestOnPageL < windowCutoffL)
+				{
+					info "[ARS] STEP3 reached PHP window cutoff at page=" + pageNum + " oldestOnPage=" + oldestOnPage;
+					hasMore = false;
+				}
+				else if(content.size() < 200)
+				{
+					hasMore = false;
+				}
+				else
+				{
+					pageNum = pageNum + 1;
+				}
+			}
+		}
+	}
+	info "[ARS] STEP3 totalInvoices=" + totalInv + " | uniqueCarriersWithInv=" + invByCarrier.size();
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// STEP 4: COQL FETCH CARD SWIPED DEALS
+	// Indexed by Carrier_ID → deal map.
+	// ─────────────────────────────────────────────────────────────────────────
+	dealByCarrier = Map();
+	dealQuery     = "SELECT id, Carrier_ID, First_name, Last_Name, Email, Phone, Address, City, State, Zip_Code, Birth_Of_Date, Application_Date, Credit_Limit, Status, First_Transaction, Last_Transaction FROM Deals WHERE Stage = 'Card Swiped' LIMIT 200 OFFSET ";
+	for each off in {0,200,400,600,800,1000,1200,1400,1600,1800,2000,2200,2400,2600,2800,3000,3200,3400,3600,3800}
+	{
+		qm = Map(); qm.put("select_query",dealQuery + off);
+		dr = invokeurl
+		[
+			url :"https://www.zohoapis.com/crm/v2/coql"
+			type :POST
+			parameters:qm.toString()
+			headers:{"Content-Type":"application/json"}
+			connection:"zoho_coql"
+		];
+		dpage = dr.get("data");
+		if(dpage == null || dpage.size() == 0)
+		{
+			break;
+		}
+		for each d in dpage
+		{
+			cid = ifnull(d.get("Carrier_ID"),"").toString().trim();
+			if(cid != "" && cid != "0" && cid != "null")
+			{
+				dealByCarrier.put(cid,d);
+			}
+		}
+		if(dpage.size() < 200)
+		{
+			break;
+		}
+	}
+	info "[ARS] STEP4 Card Swiped deals indexed=" + dealByCarrier.size();
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// STEP 5: COQL FETCH EXISTING Array_Reports FOR THIS PERIOD
+	// Build (Carrier_ID → record_id) so we know whether to update vs create.
+	// ─────────────────────────────────────────────────────────────────────────
+	existingByCarrier = Map();
+	exQuery           = "SELECT id, Carrier_ID FROM Array_Reports WHERE Report_Period = '" + reportPeriod + "' LIMIT 200 OFFSET ";
+	for each off in {0,200,400,600,800,1000,1200,1400,1600,1800,2000}
+	{
+		qm = Map(); qm.put("select_query",exQuery + off);
+		er = invokeurl
+		[
+			url :"https://www.zohoapis.com/crm/v2/coql"
+			type :POST
+			parameters:qm.toString()
+			headers:{"Content-Type":"application/json"}
+			connection:"zoho_coql"
+		];
+		epage = er.get("data");
+		if(epage == null || epage.size() == 0)
+		{
+			break;
+		}
+		for each e in epage
+		{
+			ecid = ifnull(e.get("Carrier_ID"),"").toString().trim();
+			eid  = ifnull(e.get("id"),"").toString();
+			if(ecid != "" && eid != "")
+			{
+				existingByCarrier.put(ecid,eid);
+			}
+		}
+		if(epage.size() < 200)
+		{
+			break;
+		}
+	}
+	info "[ARS] STEP5 existing Array_Reports for " + reportPeriod + ": " + existingByCarrier.size();
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// STEP 6: PER-CARRIER → CLASSIFY + BUILD PAYLOAD + UPSERT
+	// ─────────────────────────────────────────────────────────────────────────
+	created  = 0;
+	updated  = 0;
+	excluded = 0;
+	errors   = 0;
+	bucketLOC      = 0;
+	bucketDebtor   = 0;
+	bucketClosed   = 0;
+	bucketExcluded = 0;
+
+	// Stable iteration order — sort the carrier ID keys numerically so chunking
+	// resumes consistently across runs.
+	allCarrierIds = locCarriers.keys();
+	carrierIdx    = 0;
+	processedThisRun = 0;
+	for each cid in allCarrierIds
+	{
+		// Chunk gate: skip carriers before the resume point or after the chunk end.
+		if(carrierIdx < resumeAt)
+		{
+			carrierIdx = carrierIdx + 1;
+		}
+		else if(processedThisRun >= chunkSize)
+		{
+			// Chunk full — stop. Continue from this index next run.
+			carrierIdx = carrierIdx + 1;
+		}
+		else
+		{
+		comp = locCarriers.get(cid);
+		deal = null;
+		if(dealByCarrier.containKey(cid))
+		{
+			deal = dealByCarrier.get(cid);
+		}
+
+		// ── Pull deal fields (may be missing → empty strings) ──
+		dealFirst    = "";
+		dealLast     = "";
+		dealAddress  = "";
+		dealCity     = "";
+		dealState    = "";
+		dealZip      = "";
+		dealEmail    = "";
+		dealPhone    = "";
+		dealStatus   = "";
+		dealAppDate  = "";
+		dealDob      = "";
+		dealFirstTx  = "";
+		dealLastTx   = "";
+		if(deal != null)
+		{
+			dealFirst    = ifnull(deal.get("First_name"),"").toString().trim();
+			dealLast     = ifnull(deal.get("Last_Name"),"").toString().trim();
+			dealAddress  = ifnull(deal.get("Address"),"").toString().trim();
+			dealCity     = ifnull(deal.get("City"),"").toString().trim();
+			dealState    = ifnull(deal.get("State"),"").toString().trim();
+			dealZip      = ifnull(deal.get("Zip_Code"),"").toString().trim();
+			dealEmail    = ifnull(deal.get("Email"),"").toString().trim();
+			dealPhone    = ifnull(deal.get("Phone"),"").toString().trim();
+			dealStatus   = ifnull(deal.get("Status"),"").toString().trim();
+			dealAppDate  = ifnull(deal.get("Application_Date"),"").toString().trim();
+			dealDob      = ifnull(deal.get("Birth_Of_Date"),"").toString().trim();
+			dealFirstTx  = ifnull(deal.get("First_Transaction"),"").toString().trim();
+			dealLastTx   = ifnull(deal.get("Last_Transaction"),"").toString().trim();
+			// (Credit_Limit on Deal is intentionally NOT used — collection team
+			//  confirmed Credit_Limit comes from CMP company.creditLimit, not Deal.)
+
+			// Truncate to Array_Reports module field lengths (Metro 2 spec):
+			//   First_Line_of_Address: 32 | City: 20 | State: 2 | Zip_Code: 9
+			//   First_Name: 20 | Last_Name: 25 | Telephone_Number: 10
+			if(dealFirst.length() > 20)   { dealFirst   = dealFirst.subString(0,20); }
+			if(dealLast.length() > 25)    { dealLast    = dealLast.subString(0,25); }
+			if(dealAddress.length() > 32) { dealAddress = dealAddress.subString(0,32); }
+			if(dealCity.length() > 20)    { dealCity    = dealCity.subString(0,20); }
+			if(dealState.length() > 2)    { dealState   = dealState.subString(0,2); }
+			if(dealZip.length() > 9)      { dealZip     = dealZip.subString(0,9); }
+
+			// Telephone_Number is phone-typed in Zoho — has stricter validation than
+			// plain text. If it contains characters other than digits/space/+/-/()/.
+			// or doesn't have at least 7 digits, blank it out (Zoho will reject otherwise).
+			if(dealPhone != "")
+			{
+				if(!dealPhone.matches("[0-9+\\-\\(\\)\\. ]+"))
+				{
+					dealPhone = "";
+				}
+				else if(dealPhone.length() > 10)
+				{
+					dealPhone = dealPhone.subString(0,10);
+				}
+			}
+		}
+
+		// ── Pull invoice list (may be empty) ──
+		// Per business rules from collection team:
+		//   Credit_Limit    = CMP company.creditLimit (weekly LOC limit)
+		//   Highest_Credit  = max(invoice.totalAmount) WITHIN the current reporting month
+		//   Current_Balance = LAST (most recent) invoice's (totalAmount - totalPaid)
+		invList = List();
+		if(invByCarrier.containKey(cid))
+		{
+			invList = invByCarrier.get(cid);
+		}
+		hasInvoices    = invList.size() > 0;
+		hasIssue       = false;
+		paidAll        = true;
+		oldestUnpaid   = "";        // earliest unpaid invoice's dateTo (for first delinquency)
+		oldestUnpaidL  = 0;
+		latestActiv    = "";        // latest invoice createDate (for closed detection)
+		latestActivL   = 0;
+		actualPay      = 0.0;
+		curMonthKey    = todayDate.toString("yyyy-MM");
+		highestCredMo  = 0.0;
+		lastInvDate    = "";
+		lastInvDateL   = 0;
+		lastInvBalance = 0.0;
+		dateLastPay    = "";
+		dateLastPayL   = 0;
+		for each inv in invList
+		{
+			st  = ifnull(inv.get("status"),"").toString();
+			ta  = ifnull(inv.get("totalAmount"),0).toDecimal();
+			tp  = ifnull(inv.get("totalPaid"),0).toDecimal();
+			rem = ta - tp;
+			cd  = ifnull(inv.get("createDate"),"").toString();
+			dt  = ifnull(inv.get("dateTo"),"").toString();
+			cdL = 0;
+			dtL = 0;
+			if(cd.length() >= 10)
+			{
+				cdL = cd.subString(0,10).replaceAll("-","").toLong();
+			}
+			if(dt.length() >= 10)
+			{
+				dtL = dt.subString(0,10).replaceAll("-","").toLong();
+			}
+
+			// Highest_Credit: only consider invoices created in the current month
+			if(cd.length() >= 7 && cd.subString(0,7) == curMonthKey && ta > highestCredMo)
+			{
+				highestCredMo = ta;
+			}
+
+			// Track most-recent invoice for Current_Balance
+			if(cdL > 0 && (lastInvDate == "" || cdL > lastInvDateL))
+			{
+				lastInvDate    = cd.subString(0,10);
+				lastInvDateL   = cdL;
+				lastInvBalance = rem;
+			}
+
+			// Date_of_Last_Payment — most recent invoice with totalPaid > 0
+			if(tp > 0 && cdL > 0 && (dateLastPay == "" || cdL > dateLastPayL))
+			{
+				dateLastPay  = cd.subString(0,10);
+				dateLastPayL = cdL;
+			}
+
+			if(st != "PAID" && st != "CANCELLED")
+			{
+				paidAll = false;
+				if(st == "PAYMENT_ISSUES")
+				{
+					hasIssue = true;
+				}
+				if(dtL > 0 && (oldestUnpaid == "" || dtL < oldestUnpaidL))
+				{
+					oldestUnpaid  = dt.subString(0,10);
+					oldestUnpaidL = dtL;
+				}
+			}
+			if(cdL > 0 && (latestActiv == "" || cdL > latestActivL))
+			{
+				latestActiv  = cd.subString(0,10);
+				latestActivL = cdL;
+			}
+			if(cd.length() >= 7 && cd.subString(0,7) == curMonthKey)
+			{
+				actualPay = actualPay + tp;
+			}
+		}
+		// CMP debtor tag overlay
+		if(debtorCarriers.containKey(cid))
+		{
+			hasIssue = true;
+		}
+
+		// Credit_Limit from CMP (your team's "Weekly Limit"):
+		cmpWeeklyLimit = 0.0;
+		cmpClRaw = comp.get("creditLimit");
+		if(cmpClRaw != null && cmpClRaw != "" && cmpClRaw != "null")
+		{
+			cmpWeeklyLimit = cmpClRaw.toString().toDecimal();
+		}
+
+		// ── Determine Date_Open ──
+		// Priority: Application_Date → First_Transaction → earliest invoice createDate
+		dateOpen = "";
+		if(dealAppDate.length() >= 10)
+		{
+			dateOpen = dealAppDate.subString(0,10);
+		}
+		else if(dealFirstTx.length() >= 10)
+		{
+			dateOpen = dealFirstTx.subString(0,10);
+		}
+		else if(hasInvoices)
+		{
+			oldestInv  = "";
+			oldestInvL = 0;
+			for each inv in invList
+			{
+				cd = ifnull(inv.get("createDate"),"").toString();
+				if(cd.length() >= 10)
+				{
+					cdL2 = cd.subString(0,10).replaceAll("-","").toLong();
+					if(oldestInv == "" || cdL2 < oldestInvL)
+					{
+						oldestInv  = cd.subString(0,10);
+						oldestInvL = cdL2;
+					}
+				}
+			}
+			dateOpen = oldestInv;
+		}
+
+		// ── Determine Date_Closed ──
+		// Closed = (deal Inactive OR no recent activity) AND not in collection AND all paid
+		dateClosed     = "";
+		isClosed       = false;
+		thirtyDaysAgoL = thirtyDaysAgo.toString("yyyyMMdd").toLong();
+		if(!hasIssue && paidAll && (dealStatus == "Inactive" || (latestActiv != "" && latestActivL < thirtyDaysAgoL)))
+		{
+			isClosed = true;
+			if(dealLastTx.length() >= 10)
+			{
+				dateClosed = dealLastTx.subString(0,10);
+			}
+			else if(latestActiv != "")
+			{
+				dateClosed = latestActiv;
+			}
+		}
+
+		// ── Classify ──
+		carrierType    = "";
+		excludedReason = "";
+		acctStatus     = "";
+		payRating      = "";
+		if(deal == null)
+		{
+			carrierType    = "Excluded";
+			excludedReason = "no Card Swiped Deal";
+		}
+		else if(dealDob.length() < 10)
+		{
+			carrierType    = "Excluded";
+			excludedReason = "missing Birth_Of_Date";
+		}
+		else if(hasIssue)
+		{
+			carrierType = "Debtor";
+			acctStatus  = "93";
+			payRating   = "G";
+		}
+		else if(isClosed)
+		{
+			carrierType = "Closed";
+			acctStatus  = "13";
+			payRating   = "0";
+		}
+		else
+		{
+			carrierType = "LOC";
+			acctStatus  = "11";
+			payRating   = "";   // blank for status 11 per CRRG
+		}
+
+		// ── Compute Date_of_First_Delinquency (only meaningful for Debtor) ──
+		dateFirstDelinq = "";
+		if(carrierType == "Debtor" && oldestUnpaid != "")
+		{
+			// Per CRRG: "the date of the first 30-day delinquency that led to the status"
+			// Use oldest unpaid invoice's dateTo + 30 days as approximation.
+			d = oldestUnpaid.toDate("yyyy-MM-dd").addDay(30);
+			dateFirstDelinq = d.toString("yyyy-MM-dd");
+		}
+
+		// (Date_of_Last_Payment was computed inline in the invoice walk above.)
+
+		// ── Compute 24-char PHP ──
+		// Position 0 = current month; right = older (24 months total).
+		// Codes: B=before open, D=after closed, G=in collection (sticky), 0=current,
+		//        1..6 = months delinquent (30/60/90/120/150/180+).
+		//
+		// Statement-budget optimization: only Debtors run the full 24-iter loop.
+		// LOC and Closed have predictable patterns we can build with simple math
+		// (saves ~360 statements per carrier × hundreds of carriers).
+		php = "";
+		if(carrierType == "Excluded")
+		{
+			// 24 B's (Excluded records aren't exported anyway, but field is required).
+			php = "BBBBBBBBBBBBBBBBBBBBBBBB";
+		}
+		else if(dateOpen == "")
+		{
+			// Defensive: no Date_Open → all unknown → leave blank-equivalent
+			php = "BBBBBBBBBBBBBBBBBBBBBBBB";
+		}
+		else
+		{
+			// monthsSinceOpen: how many months from Date_Open to today, capped at 24.
+			// Use built-in monthsBetween() for O(1) computation (was a 24-iter loop).
+			openD    = dateOpen.toDate("yyyy-MM-dd");
+			activeMo = monthsBetween(openD,todayDate) + 1;
+			if(activeMo < 0)
+			{
+				activeMo = 0;
+			}
+			if(activeMo > 24)
+			{
+				activeMo = 24;
+			}
+
+			if(carrierType == "LOC")
+			{
+				// "0" × activeMo + "B" × (24 - activeMo) — built via subString slicing.
+				php = zerosTemplate.subString(0,activeMo) + bsTemplate.subString(activeMo,24);
+			}
+			else if(carrierType == "Closed")
+			{
+				// "D" × dMonths + "0" × (activeMo - dMonths) + "B" × (24 - activeMo)
+				dMonths = 0;
+				if(dateClosed != "")
+				{
+					dMonths = monthsBetween(dateClosed.toDate("yyyy-MM-dd"),todayDate);
+					if(dMonths < 0) { dMonths = 0; }
+					if(dMonths > activeMo) { dMonths = activeMo; }
+				}
+				php = dsTemplate.subString(0,dMonths) + zerosTemplate.subString(0,activeMo - dMonths) + bsTemplate.subString(activeMo,24);
+			}
+			else if(carrierType == "Debtor")
+			{
+				// Always emit G in position 0 for Debtors — they ARE in collection now.
+				// Then per-month logic for older positions.
+				hasOldestD = false;
+				oldestD    = todayDate;   // dummy; only used when hasOldestD=true
+				if(oldestUnpaid != "")
+				{
+					oldestD    = oldestUnpaid.toDate("yyyy-MM-dd");
+					hasOldestD = true;
+				}
+				php = "G";   // sticky G at position 0 for any Debtor (covers tag-only debtors)
+				for each i in {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23}
+				{
+					ch        = "0";
+					monthDate = todayDate.subMonth(i);
+					if(i >= activeMo)
+					{
+						ch = "B";
+					}
+					else if(hasOldestD)
+					{
+						daysOver = 0;
+						if(monthDate >= oldestD)
+						{
+							daysOver = daysBetween(oldestD,monthDate);
+						}
+						if(daysOver >= 180)      { ch = "6"; }
+						else if(daysOver >= 150) { ch = "5"; }
+						else if(daysOver >= 120) { ch = "4"; }
+						else if(daysOver >= 90)  { ch = "3"; }
+						else if(daysOver >= 60)  { ch = "2"; }
+						else if(daysOver >= 30)  { ch = "1"; }
+						else                     { ch = "0"; }
+					}
+					php = php + ch;
+				}
+			}
+		}
+
+		// ── Build Array_Reports payload ──
+		ar = Map();
+		ar.put("Name",ifnull(comp.get("name"),"Carrier " + cid).toString() + " - " + reportPeriod);
+		ar.put("Carrier_ID",cid);                                  // text
+		ar.put("Customer_Account_Number",cid);                     // Metro 2 same value
+		ar.put("Company_Name",ifnull(comp.get("name"),"").toString());
+		ar.put("Report_Period",reportPeriod);
+		ar.put("Carrier_Type",carrierType);
+		// (Last_Synced_At intentionally omitted — Zoho rejected zoho.currenttime as
+		//  invalid datetime. Will re-add with proper toString("yyyy-MM-dd'T'HH:mm:ssXXX") in v2.)
+		ar.put("Sync_Source_Flags",{"CMP","Zoho"});
+
+		// Identity / consumer (all from Zoho Deal)
+		if(carrierType != "Excluded")
+		{
+			ar.put("Association_Code","1");                        // 1 = Individual
+			ar.put("First_Name",dealFirst);
+			ar.put("Last_Name",dealLast);
+			ar.put("First_Line_of_Address",dealAddress);
+			ar.put("City",dealCity);
+			ar.put("State",dealState);
+			ar.put("Zip_Code",dealZip);
+			ar.put("Telephone_Number",dealPhone);
+			if(dealDob.length() >= 10)
+			{
+				ar.put("Date_of_Birth",dealDob.subString(0,10));
+			}
+
+			// Account fields (Metro 2)
+			ar.put("Portfolio_Type","C");                          // Line of Credit
+			ar.put("Account_Type","15");                           // Charge Account
+			if(dateOpen != "")
+			{
+				ar.put("Date_Open",dateOpen);
+			}
+			if(dateFirstDelinq != "")
+			{
+				ar.put("Date_of_First_Delinquency",dateFirstDelinq);
+			}
+			if(dateLastPay != "")
+			{
+				ar.put("Date_of_Last_Payment",dateLastPay);
+			}
+			if(dateClosed != "" && carrierType == "Closed")
+			{
+				ar.put("Date_Closed",dateClosed);
+			}
+			ar.put("Account_Status",acctStatus);
+			ar.put("Payment_Rating",payRating);
+
+			// Money — per business rules confirmed by collection team:
+			//   Credit_Limit    = CMP weekly LOC limit (always populated when known)
+			//   Highest_Credit  = max(totalAmount) in current reporting month only
+			//   Current_Balance = LAST (most recent) invoice's remaining (= totalAmount - totalPaid)
+			//                     For active LOC carriers this is typically 0 (paid by cycle close).
+			//                     For Debtor it's the most recent unpaid period's residual.
+			//                     For Closed it's 0.
+			if(carrierType == "Debtor")
+			{
+				ar.put("Current_Balance",lastInvBalance);
+				ar.put("Amount_Past_Due",lastInvBalance);
+			}
+			else if(carrierType == "Closed")
+			{
+				ar.put("Current_Balance",0);
+				ar.put("Amount_Past_Due",0);
+			}
+			else
+			{
+				// LOC: report the last-invoice remaining (often 0); past-due always 0
+				ar.put("Current_Balance",lastInvBalance);
+				ar.put("Amount_Past_Due",0);
+			}
+			ar.put("Credit_Limit",cmpWeeklyLimit);
+			ar.put("Highest_Credit",highestCredMo);
+			ar.put("Actual_Payment",actualPay);
+
+			ar.put("Payment_History_Profile",php);
+
+			// Collection-specific fields
+			if(carrierType == "Debtor")
+			{
+				ar.put("Has_Agency",false);
+				if(oldestUnpaid != "")
+				{
+					daysOver2 = daysBetween(oldestUnpaid.toDate("yyyy-MM-dd"),todayDate);
+					ar.put("Months_Delinquent",(daysOver2 / 30).toLong());
+				}
+			}
+		}
+		else
+		{
+			ar.put("Excluded_Reason",excludedReason);
+		}
+
+		// Validation_Errors (free-form)
+		validation = "";
+		if(carrierType != "Excluded")
+		{
+			if(dealAddress == "") { validation = validation + "MISSING_ADDRESS|"; }
+			if(dealCity == "")    { validation = validation + "MISSING_CITY|";    }
+			if(dealState == "")   { validation = validation + "MISSING_STATE|";   }
+			if(dealZip == "")     { validation = validation + "MISSING_ZIP|";     }
+			if(dealLast == "")    { validation = validation + "MISSING_LAST_NAME|"; }
+		}
+		if(validation != "")
+		{
+			ar.put("Validation_Errors",validation);
+		}
+
+		// ── Upsert ──
+		isUpdate = existingByCarrier.containKey(cid);
+		if(isUpdate)
+		{
+			recId = existingByCarrier.get(cid);
+			r = zoho.crm.updateRecord("Array_Reports",recId,ar,Map(),"zoho_coql");
+			if(ifnull(r.get("id"),"").toString() == "")
+			{
+				errors = errors + 1;
+				info "[ARS] update FAIL " + cid + ": " + r;
+			}
+			else
+			{
+				updated = updated + 1;
+			}
+		}
+		else
+		{
+			r = zoho.crm.createRecord("Array_Reports",ar,Map(),"zoho_coql");
+			if(ifnull(r.get("id"),"").toString() == "")
+			{
+				errors = errors + 1;
+				info "[ARS] create FAIL " + cid + ": " + r;
+			}
+			else
+			{
+				created = created + 1;
+			}
+		}
+
+		// Bucket counters
+		if(carrierType == "LOC")      { bucketLOC = bucketLOC + 1; }
+		else if(carrierType == "Debtor")   { bucketDebtor = bucketDebtor + 1; }
+		else if(carrierType == "Closed")   { bucketClosed = bucketClosed + 1; }
+		else if(carrierType == "Excluded") { bucketExcluded = bucketExcluded + 1; excluded = excluded + 1; }
+
+		processedThisRun = processedThisRun + 1;
+		carrierIdx = carrierIdx + 1;
+		}  // end chunk-gate else block
+	}
+
+	// Persist resume offset for next run.
+	totalCarriers = allCarrierIds.size();
+	nextOffset    = resumeAt + processedThisRun;
+	if(nextOffset >= totalCarriers)
+	{
+		nextOffset = 0;   // wrapped — start over next time
+	}
+	offsetMap = Map();
+	offsetMap.put("apiname","ARS_RESUME_OFFSET");
+	offsetMap.put("value",nextOffset.toString());
+	zoho.crm.invokeConnector("crm.set",offsetMap);
+
+	// Verify the save actually persisted. If the org variable was created as
+	// Number type instead of Single Line (Text), zoho.crm.invokeConnector("crm.set")
+	// silently fails — the call returns 200 but the value doesn't update.
+	verifyStr = ifnull(zoho.crm.getOrgVariable("ARS_RESUME_OFFSET"),"").toString();
+	verifyL   = 0;
+	if(verifyStr != "")
+	{
+		verifyL = verifyStr.toLong();
+	}
+	if(verifyL != nextOffset)
+	{
+		info "[ARS] ⚠ OFFSET SAVE DID NOT PERSIST! Expected=" + nextOffset + " but ARS_RESUME_OFFSET still reads=" + verifyL + ". FIX: delete the variable and recreate as type 'Single Line' (Text), default value '0'.";
+	}
+	info "[ARS] chunk done: processedThisRun=" + processedThisRun + " | nextOffset=" + nextOffset + " | totalCarriers=" + totalCarriers + " | verifiedOffset=" + verifyL;
+
+	// ─────────────────────────────────────────────────────────────────────────
+	// STEP 7: TELEGRAM SUMMARY (org-variable credentials)
+	// ─────────────────────────────────────────────────────────────────────────
+	notifyFlag = ifnull(zoho.crm.getOrgVariable("ARRAY_REPORTS_NOTIFY"),"true").toString();
+	if(notifyFlag != "false")
+	{
+		botToken = ifnull(zoho.crm.getOrgVariable("TELEGRAM_BOT_TOKEN"),"").toString();
+		chatId   = ifnull(zoho.crm.getOrgVariable("TELEGRAM_CHAT_ID"),"").toString();
+		if(botToken != "" && chatId != "")
+		{
+			totalProcessed = bucketLOC + bucketDebtor + bucketClosed + bucketExcluded;
+			progressLine = "Progress: " + nextOffset + " / " + totalCarriers;
+			if(nextOffset == 0)
+			{
+				progressLine = "Progress: COMPLETE (" + totalCarriers + " / " + totalCarriers + ")";
+			}
+			lines = List();
+			lines.add("📋 <b>Array Reports Sync</b>");
+			lines.add("━━━━━━━━━━━━━━━━━━━");
+			lines.add("📅 Period: <b>" + reportPeriod + "</b>");
+			lines.add(" ");
+			lines.add("This run: <b>" + totalProcessed + "</b>");
+			lines.add(" • LOC: " + bucketLOC);
+			lines.add(" • Debtor: " + bucketDebtor);
+			lines.add(" • Closed: " + bucketClosed);
+			lines.add(" • Excluded: " + bucketExcluded);
+			lines.add(" ");
+			lines.add("Created: " + created + " | Updated: " + updated + " | Errors: " + errors);
+			lines.add(progressLine);
+			text = "";
+			for each l in lines
+			{
+				if(text != "") { text = text + "\n" + l; } else { text = l; }
+			}
+			text = text.replaceAll("\"","'");
+			invokeurl
+			[
+				url :"https://api.telegram.org/bot" + botToken + "/sendMessage"
+				type :POST
+				parameters:("{\"chat_id\":\"" + chatId + "\",\"text\":\"" + text + "\",\"parse_mode\":\"HTML\",\"disable_web_page_preview\":true}")
+				headers:{"Content-Type":"application/json"}
+			];
+		}
+	}
+
+	info "[ARS] === DONE === processed=" + (bucketLOC + bucketDebtor + bucketClosed + bucketExcluded) + " | LOC=" + bucketLOC + " | Debtor=" + bucketDebtor + " | Closed=" + bucketClosed + " | Excluded=" + bucketExcluded + " | created=" + created + " | updated=" + updated + " | errors=" + errors;
+}

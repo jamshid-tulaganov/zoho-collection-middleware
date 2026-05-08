@@ -1,0 +1,2802 @@
+[
+  {
+    "carrierId": "5745870",
+    "companyName": "RUSHFORD PLAZA INC",
+    "invoiceCount": 5,
+    "highestAmount": 1936.07,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5746748",
+    "companyName": "MYSTIC FREIGHT LLC",
+    "invoiceCount": 4,
+    "highestAmount": 1202.96,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5748338",
+    "companyName": "HALIFAMI TRANSPORT LLC",
+    "invoiceCount": 4,
+    "highestAmount": 3074.95,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5748564",
+    "companyName": "SHER LLC",
+    "invoiceCount": 5,
+    "highestAmount": 2162.5,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5748618",
+    "companyName": "SSP EXPRESS TRUCKING INC",
+    "invoiceCount": 4,
+    "highestAmount": 7484.87,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5748964",
+    "companyName": "DG LIMO INC",
+    "invoiceCount": 5,
+    "highestAmount": 8436.21,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5749972",
+    "companyName": "YOVY LOGISTICS LLC",
+    "invoiceCount": 3,
+    "highestAmount": 2284.11,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5750423",
+    "companyName": "GLA GROUP INC",
+    "invoiceCount": 5,
+    "highestAmount": 22585.33,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5751316",
+    "companyName": "256 TRUCKING  LOGISTICS LLC",
+    "invoiceCount": 5,
+    "highestAmount": 13280.52,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5751363",
+    "companyName": "BGY LOGISTICS LLC",
+    "invoiceCount": 5,
+    "highestAmount": 1641.55,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5751399",
+    "companyName": "WE IP SERVICES LLC",
+    "invoiceCount": 3,
+    "highestAmount": 761.6,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5751622",
+    "companyName": "TIMUR TRUCKING INC",
+    "invoiceCount": 4,
+    "highestAmount": 2643.13,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5751818",
+    "companyName": "KARENNI TRANSPORT",
+    "invoiceCount": 2,
+    "highestAmount": 1870.02,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5752084",
+    "companyName": "MIRONETWORK LLC",
+    "invoiceCount": 5,
+    "highestAmount": 3905.11,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5752184",
+    "companyName": "KROL FAMILY INC",
+    "invoiceCount": 5,
+    "highestAmount": 3056.13,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5752197",
+    "companyName": "VA TRANS INC",
+    "invoiceCount": 5,
+    "highestAmount": 2974.76,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5752252",
+    "companyName": "NARLI TRANSPORT INC",
+    "invoiceCount": 5,
+    "highestAmount": 1912.71,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5752676",
+    "companyName": "LDG TRUCKING LLC",
+    "invoiceCount": 5,
+    "highestAmount": 2396.96,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5752778",
+    "companyName": "DHUX LLC",
+    "invoiceCount": 5,
+    "highestAmount": 10655.27,
+    "remainingAmount": -1.54
+  },
+  {
+    "carrierId": "5752924",
+    "companyName": "HRH TRANSPORTATION LLC",
+    "invoiceCount": 3,
+    "highestAmount": 3707.48,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5753060",
+    "companyName": "TEXAS CARRIES",
+    "invoiceCount": 5,
+    "highestAmount": 2919.61,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5753169",
+    "companyName": "EM GLOBAL EXPRESS LLC",
+    "invoiceCount": 5,
+    "highestAmount": 4543.07,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5753261",
+    "companyName": "SOLEH EXPRESS INC",
+    "invoiceCount": 5,
+    "highestAmount": 2657.25,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5753270",
+    "companyName": "IB TRANSPORTATION LLC",
+    "invoiceCount": 5,
+    "highestAmount": 1965.73,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5753502",
+    "companyName": "KELMAN TRUCKING LLC",
+    "invoiceCount": 4,
+    "highestAmount": 3038.45,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5753682",
+    "companyName": "WE JOHNSON TRANSPORT LLC",
+    "invoiceCount": 5,
+    "highestAmount": 2001.43,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5753692",
+    "companyName": "MADNA LLC",
+    "invoiceCount": 5,
+    "highestAmount": 5142.61,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5753846",
+    "companyName": "OMAZIN TEAM LEEM LLC",
+    "invoiceCount": 5,
+    "highestAmount": 1811.38,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5753849",
+    "companyName": "KIWI EXPRESS INC",
+    "invoiceCount": 5,
+    "highestAmount": 11984.37,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5754120",
+    "companyName": "CHOTSU STREET",
+    "invoiceCount": 5,
+    "highestAmount": 2480.93,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5754296",
+    "companyName": "VS TRANSPORT LLC",
+    "invoiceCount": 3,
+    "highestAmount": 1502.88,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5754297",
+    "companyName": "RUDRA TRUCKING",
+    "invoiceCount": 5,
+    "highestAmount": 8675.52,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5754305",
+    "companyName": "ALLMARAS TRANSPORT LLC",
+    "invoiceCount": 5,
+    "highestAmount": 1640.64,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5754661",
+    "companyName": "GROUND EXPRESS LLC",
+    "invoiceCount": 5,
+    "highestAmount": 4640.2,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5754668",
+    "companyName": "BEK CARGO INC",
+    "invoiceCount": 5,
+    "highestAmount": 5723.24,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5754835",
+    "companyName": "SIMAK TRUCKING LLC",
+    "invoiceCount": 5,
+    "highestAmount": 1183.96,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5756240",
+    "companyName": "DHALIWAL BROS CARGO INC",
+    "invoiceCount": 5,
+    "highestAmount": 3964,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5756252",
+    "companyName": "SALEMBOY INC",
+    "invoiceCount": 5,
+    "highestAmount": 11040.7,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5756368",
+    "companyName": "BDS HAULERS INC",
+    "invoiceCount": 5,
+    "highestAmount": 12189.43,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5756535",
+    "companyName": "ROYAL CROWN LOGISTICS INC",
+    "invoiceCount": 5,
+    "highestAmount": 2438.68,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5756763",
+    "companyName": "SUTHERLAND TRUCKING",
+    "invoiceCount": 5,
+    "highestAmount": 7187.88,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5756765",
+    "companyName": "C AND D LOGISTICS LLC",
+    "invoiceCount": 5,
+    "highestAmount": 2754.33,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5756844",
+    "companyName": "BLACK EAGLE TRUCK LINES INC",
+    "invoiceCount": 5,
+    "highestAmount": 6962.37,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5756869",
+    "companyName": "JP DELIVERY LLC",
+    "invoiceCount": 4,
+    "highestAmount": 921.71,
+    "remainingAmount": -6
+  },
+  {
+    "carrierId": "5756918",
+    "companyName": "LB LOGISTICS INC",
+    "invoiceCount": 1,
+    "highestAmount": 1247.55,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5757046",
+    "companyName": "LDM EXPRESS LLC",
+    "invoiceCount": 3,
+    "highestAmount": 219.94,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5757756",
+    "companyName": "VLADYSLAV HARAN",
+    "invoiceCount": 5,
+    "highestAmount": 2825.76,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5757765",
+    "companyName": "YRP TRANSPORT LLC",
+    "invoiceCount": 5,
+    "highestAmount": 2398.42,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5757805",
+    "companyName": "WORLDWIDE TRANS INC",
+    "invoiceCount": 5,
+    "highestAmount": 2322.18,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5758064",
+    "companyName": "JOHN BALL TRUCKING",
+    "invoiceCount": 5,
+    "highestAmount": 3277.32,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5758152",
+    "companyName": "UZ WOLF LLC",
+    "invoiceCount": 2,
+    "highestAmount": 932.77,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5758259",
+    "companyName": "SPEEDY CONNECTION LIMITED LIAB",
+    "invoiceCount": 5,
+    "highestAmount": 10530,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5758309",
+    "companyName": "MILTON EXPRESS",
+    "invoiceCount": 4,
+    "highestAmount": 2958.07,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5758394",
+    "companyName": "AXU CARGO LLC",
+    "invoiceCount": 5,
+    "highestAmount": 17308.67,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5758423",
+    "companyName": "305 AUTO EXPRESS CORP",
+    "invoiceCount": 4,
+    "highestAmount": 7339.1,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5758432",
+    "companyName": "TATT2 TRANSPORTATION CORP",
+    "invoiceCount": 7,
+    "highestAmount": 719.29,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5758584",
+    "companyName": "UNIVERSE UZ LLC",
+    "invoiceCount": 5,
+    "highestAmount": 2713.7,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5758708",
+    "companyName": "ISMAIL ALKAMAL",
+    "invoiceCount": 5,
+    "highestAmount": 6980.8,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5758749",
+    "companyName": "SY TRANSPORT LLC",
+    "invoiceCount": 4,
+    "highestAmount": 1330.2,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5758952",
+    "companyName": "JNS TRUCKING LLC",
+    "invoiceCount": 8,
+    "highestAmount": 1304.42,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5759008",
+    "companyName": "ALI FAMILY TRUCKING",
+    "invoiceCount": 4,
+    "highestAmount": 3537.72,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5759212",
+    "companyName": "TURAN GROUP",
+    "invoiceCount": 5,
+    "highestAmount": 8170.95,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5759481",
+    "companyName": "KILLA TRANSPORT INC",
+    "invoiceCount": 5,
+    "highestAmount": 14130.51,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5759664",
+    "companyName": "USA TRANSPORTER INC",
+    "invoiceCount": 4,
+    "highestAmount": 3400.92,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5759691",
+    "companyName": "DYNASTY TRANSPORT SERVICE LLC",
+    "invoiceCount": 7,
+    "highestAmount": 1066.34,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5759876",
+    "companyName": "ASP CARRIER INC",
+    "invoiceCount": 6,
+    "highestAmount": 1300.07,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5760308",
+    "companyName": "BHBTRANSPORTATIONLLC",
+    "invoiceCount": 2,
+    "highestAmount": 1265.04,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5760423",
+    "companyName": "LUNA LOGISTICS LLC",
+    "invoiceCount": 5,
+    "highestAmount": 1805.7,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5760470",
+    "companyName": "WOODBURY TRANS",
+    "invoiceCount": 6,
+    "highestAmount": 2025.07,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5760501",
+    "companyName": "NORDSTAR LLC",
+    "invoiceCount": 5,
+    "highestAmount": 980.33,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5760509",
+    "companyName": "GOLD LOGISTIC INC",
+    "invoiceCount": 7,
+    "highestAmount": 2495.75,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5760572",
+    "companyName": "EYL TRUCKING INC",
+    "invoiceCount": 8,
+    "highestAmount": 4477.69,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5760730",
+    "companyName": "HV CARRIER INC",
+    "invoiceCount": 6,
+    "highestAmount": 2180.93,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5761037",
+    "companyName": "PARVIZ 0010 INC",
+    "invoiceCount": 3,
+    "highestAmount": 5088.73,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5761142",
+    "companyName": "GADDIS  GADDIS LIMITED LIABILI",
+    "invoiceCount": 1,
+    "highestAmount": 96.68,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5761173",
+    "companyName": "ASSN TRUCKING INC",
+    "invoiceCount": 8,
+    "highestAmount": 3774.99,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5761262",
+    "companyName": "HIRT POWERSPORTS LLC",
+    "invoiceCount": 8,
+    "highestAmount": 1533.53,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5761717",
+    "companyName": "R V FORD TRUCKING LLC",
+    "invoiceCount": 5,
+    "highestAmount": 3932.89,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5761793",
+    "companyName": "HIBBS HAULER LLC",
+    "invoiceCount": 8,
+    "highestAmount": 7441.42,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5762018",
+    "companyName": "ONZMOVE INC",
+    "invoiceCount": 5,
+    "highestAmount": 143807.23,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5762042",
+    "companyName": "SHERZOD USANOV",
+    "invoiceCount": 4,
+    "highestAmount": 1472.56,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5762085",
+    "companyName": "LEBAIRES TRANSPORT INC",
+    "invoiceCount": 5,
+    "highestAmount": 1947.8,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5762097",
+    "companyName": "VT VLIEGEN TRUCKING LLC",
+    "invoiceCount": 8,
+    "highestAmount": 8132.31,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5762367",
+    "companyName": "JEMAAV TRUCKING LLC",
+    "invoiceCount": 4,
+    "highestAmount": 2198.69,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5762372",
+    "companyName": "UNIQUE MOTOR CARRIERS FREIGHT",
+    "invoiceCount": 3,
+    "highestAmount": 1595.74,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5762627",
+    "companyName": "PRINCE ROADLINES INC",
+    "invoiceCount": 8,
+    "highestAmount": 12438.59,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5762638",
+    "companyName": "EXCELSIOR TRUCKING INC",
+    "invoiceCount": 5,
+    "highestAmount": 3917.61,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5762819",
+    "companyName": "BS84 SMART HOLDING INC",
+    "invoiceCount": 4,
+    "highestAmount": 3453.24,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5762849",
+    "companyName": "FIVERIVER EXPRESS LINES INC",
+    "invoiceCount": 8,
+    "highestAmount": 5173.69,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5763108",
+    "companyName": "DAREX INC",
+    "invoiceCount": 5,
+    "highestAmount": 8610.37,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5763634",
+    "companyName": "DUANE CARMONT",
+    "invoiceCount": 4,
+    "highestAmount": 591.4,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5763656",
+    "companyName": "BLACK BULLS LLC",
+    "invoiceCount": 3,
+    "highestAmount": 880.35,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5763657",
+    "companyName": "PAWAN EXPRESS INC",
+    "invoiceCount": 7,
+    "highestAmount": 7559.7,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5763658",
+    "companyName": "CORTEZ LOGISTICS LLC",
+    "invoiceCount": 8,
+    "highestAmount": 4087.81,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5763796",
+    "companyName": "KASANDRA LLC",
+    "invoiceCount": 5,
+    "highestAmount": 1184.49,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5763953",
+    "companyName": "ASB EXPRESS INC",
+    "invoiceCount": 5,
+    "highestAmount": 1906.31,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5764023",
+    "companyName": "SAMRA ENTERPRISES INC",
+    "invoiceCount": 3,
+    "highestAmount": 768.72,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5764259",
+    "companyName": "NAVAVILLA TRANSPORT LLC",
+    "invoiceCount": 5,
+    "highestAmount": 1039.23,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5764277",
+    "companyName": "KG TRANS LLC",
+    "invoiceCount": 5,
+    "highestAmount": 2173.11,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5764388",
+    "companyName": "MAK TRANSPORTATION INC",
+    "invoiceCount": 5,
+    "highestAmount": 2872.58,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5764475",
+    "companyName": "PIDKOVA TRUCKING LLC",
+    "invoiceCount": 8,
+    "highestAmount": 27551.48,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5764487",
+    "companyName": "YILKI LLC",
+    "invoiceCount": 8,
+    "highestAmount": 9666.38,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5765023",
+    "companyName": "ABDURAHMON SHODIEV",
+    "invoiceCount": 5,
+    "highestAmount": 4057.78,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5765064",
+    "companyName": "Q5 LOGISTICS LLC",
+    "invoiceCount": 5,
+    "highestAmount": 2108.02,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5765075",
+    "companyName": "YARIFRE EXPRESS INC",
+    "invoiceCount": 5,
+    "highestAmount": 4365.38,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5765342",
+    "companyName": "WARREN C PRITCHARD",
+    "invoiceCount": 8,
+    "highestAmount": 14973.87,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5765484",
+    "companyName": "SHERZOD DADAJANOV",
+    "invoiceCount": 5,
+    "highestAmount": 2217.99,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5765502",
+    "companyName": "SFS GROUP INC",
+    "invoiceCount": 8,
+    "highestAmount": 5502.76,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5765554",
+    "companyName": "OLD PRIDE TRANSPORT LLC",
+    "invoiceCount": 8,
+    "highestAmount": 4109.21,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5765882",
+    "companyName": "47 BROTHERS TRANS INC",
+    "invoiceCount": 8,
+    "highestAmount": 2180.23,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5765975",
+    "companyName": "LMM TRUCKING LLC",
+    "invoiceCount": 7,
+    "highestAmount": 1791.47,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5765976",
+    "companyName": "CHAVEZ TRUX LLC",
+    "invoiceCount": 8,
+    "highestAmount": 6695.45,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5765984",
+    "companyName": "FNA EXPRESS INC",
+    "invoiceCount": 5,
+    "highestAmount": 3111.82,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5765985",
+    "companyName": "YURII OVSIANNYKOV",
+    "invoiceCount": 4,
+    "highestAmount": 1992.76,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5766112",
+    "companyName": "SKADWAY INC",
+    "invoiceCount": 8,
+    "highestAmount": 2241.07,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5766270",
+    "companyName": "BAI LOGISTICS",
+    "invoiceCount": 7,
+    "highestAmount": 714.86,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5766278",
+    "companyName": "BARS GROUP INC",
+    "invoiceCount": 5,
+    "highestAmount": 2898.01,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5766432",
+    "companyName": "ARK TRANSIT",
+    "invoiceCount": 4,
+    "highestAmount": 2969.8,
+    "remainingAmount": -1.7
+  },
+  {
+    "carrierId": "5766587",
+    "companyName": "FLASH-HORSE TRUCKING INC",
+    "invoiceCount": 8,
+    "highestAmount": 10489.25,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5766620",
+    "companyName": "DIBOKH LLC",
+    "invoiceCount": 5,
+    "highestAmount": 3347.55,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5766622",
+    "companyName": "GLORY TO UKRAINE LLC",
+    "invoiceCount": 5,
+    "highestAmount": 2548.83,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5766734",
+    "companyName": "ROSHEN GROUP INC",
+    "invoiceCount": 8,
+    "highestAmount": 3054.75,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5766799",
+    "companyName": "BONJOUR MOVING LLC",
+    "invoiceCount": 5,
+    "highestAmount": 17161.67,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5766802",
+    "companyName": "RED OAK TRANSPORTATION LLC",
+    "invoiceCount": 8,
+    "highestAmount": 1977.02,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5766833",
+    "companyName": "YM TRANSPORTATION INC",
+    "invoiceCount": 5,
+    "highestAmount": 2935.73,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5767093",
+    "companyName": "CARLOS IBARRA",
+    "invoiceCount": 8,
+    "highestAmount": 2953.59,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5767202",
+    "companyName": "GTB FREIGHTWAYS INC",
+    "invoiceCount": 5,
+    "highestAmount": 2491.03,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5767247",
+    "companyName": "HR TRUCKING LLC",
+    "invoiceCount": 6,
+    "highestAmount": 1551.58,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5767272",
+    "companyName": "MARUFKHUJA",
+    "invoiceCount": 4,
+    "highestAmount": 3269.08,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5767445",
+    "companyName": "JAS TRANSPORTATION INC",
+    "invoiceCount": 4,
+    "highestAmount": 2614.35,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5767464",
+    "companyName": "ISKANDAROV BEKZOD",
+    "invoiceCount": 5,
+    "highestAmount": 4495.21,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5767478",
+    "companyName": "PARTS FOR MOBILE LLC",
+    "invoiceCount": 5,
+    "highestAmount": 1641.79,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5767536",
+    "companyName": "MINO EXPRESS LLC",
+    "invoiceCount": 4,
+    "highestAmount": 2557.66,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5767538",
+    "companyName": "GROUND FREIGHT LOGISTICS INC",
+    "invoiceCount": 5,
+    "highestAmount": 22829.3,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5767597",
+    "companyName": "KANG TRANSPORT INC",
+    "invoiceCount": 5,
+    "highestAmount": 3453.99,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5767638",
+    "companyName": "AMERICAN GRIT LLP",
+    "invoiceCount": 5,
+    "highestAmount": 1713.13,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5767676",
+    "companyName": "HEET RUHI PATEL LLC",
+    "invoiceCount": 7,
+    "highestAmount": 1515.26,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5767862",
+    "companyName": "PUNIA 22 TRANS INC",
+    "invoiceCount": 8,
+    "highestAmount": 10227.63,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5767886",
+    "companyName": "DDL LOGISTICS LLC",
+    "invoiceCount": 5,
+    "highestAmount": 20264.04,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5767887",
+    "companyName": "ABDULLO",
+    "invoiceCount": 3,
+    "highestAmount": 2083.14,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5767908",
+    "companyName": "THIND TRUCKING INC",
+    "invoiceCount": 5,
+    "highestAmount": 3716.6,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5767943",
+    "companyName": "CLOUD LOGISTICS INC",
+    "invoiceCount": 5,
+    "highestAmount": 1533.91,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5767946",
+    "companyName": "EDY FERNNDEZ TRUONG LLC",
+    "invoiceCount": 3,
+    "highestAmount": 489.22,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5767996",
+    "companyName": "YEVHEN KOBZAR",
+    "invoiceCount": 6,
+    "highestAmount": 1528.15,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5767998",
+    "companyName": "NASYROV BOTIR",
+    "invoiceCount": 4,
+    "highestAmount": 1294.07,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5768082",
+    "companyName": "TEXAS HARVEST LLC",
+    "invoiceCount": 5,
+    "highestAmount": 1577.41,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5768268",
+    "companyName": "BOTTLENOSE LOGISTICS LLC",
+    "invoiceCount": 3,
+    "highestAmount": 1384.87,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5768324",
+    "companyName": "NG TRUCKING LLC",
+    "invoiceCount": 5,
+    "highestAmount": 3505.11,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5768326",
+    "companyName": "ODSS LOGISTICS LLC",
+    "invoiceCount": 5,
+    "highestAmount": 16525.31,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5768328",
+    "companyName": "TURAKULOV ASHRAFJON",
+    "invoiceCount": 3,
+    "highestAmount": 786.98,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5768329",
+    "companyName": "SHAGID LINE LLC",
+    "invoiceCount": 4,
+    "highestAmount": 2229.04,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5768363",
+    "companyName": "SOA SERVICES LTD",
+    "invoiceCount": 5,
+    "highestAmount": 7876.96,
+    "remainingAmount": -189.92
+  },
+  {
+    "carrierId": "5768400",
+    "companyName": "VC TRAVEL EXPRESS",
+    "invoiceCount": 8,
+    "highestAmount": 2337.88,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5768461",
+    "companyName": "ALL ROADS EXPRESS LLC",
+    "invoiceCount": 5,
+    "highestAmount": 994.07,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5768462",
+    "companyName": "BBA PRESTO LOGISTICS",
+    "invoiceCount": 5,
+    "highestAmount": 10922.35,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5768472",
+    "companyName": "JR-H3 CORP",
+    "invoiceCount": 5,
+    "highestAmount": 6699.63,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5768547",
+    "companyName": "FIBA RELOCATION LLC",
+    "invoiceCount": 8,
+    "highestAmount": 2137.94,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5768702",
+    "companyName": "INTER TRANS LOGISTIC",
+    "invoiceCount": 3,
+    "highestAmount": 409.71,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5768745",
+    "companyName": "TAKE IT EASY TRANSPORTATION LL",
+    "invoiceCount": 8,
+    "highestAmount": 3142.36,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5768783",
+    "companyName": "SHOKHABBOS AKRAMOV",
+    "invoiceCount": 4,
+    "highestAmount": 3016.78,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5768925",
+    "companyName": "US GILL EXPRESS INC",
+    "invoiceCount": 8,
+    "highestAmount": 6640.27,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5769061",
+    "companyName": "SOLOTURK EXPRESS",
+    "invoiceCount": 5,
+    "highestAmount": 3322.82,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5769063",
+    "companyName": "GOOGA TRANSPORT INC",
+    "invoiceCount": 5,
+    "highestAmount": 5710.55,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5769082",
+    "companyName": "NODIR TRUCKING CORPORATION",
+    "invoiceCount": 3,
+    "highestAmount": 574.13,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5769086",
+    "companyName": "KALSONS TRANSPORT LLC",
+    "invoiceCount": 7,
+    "highestAmount": 1146.25,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5769116",
+    "companyName": "RENIER ESTEVEZ PAEZ",
+    "invoiceCount": 8,
+    "highestAmount": 1380.4,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5769266",
+    "companyName": "M E CARRIER SERVICE LLC",
+    "invoiceCount": 8,
+    "highestAmount": 967.37,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5769416",
+    "companyName": "IZAEV LLC",
+    "invoiceCount": 4,
+    "highestAmount": 2832.2,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5769417",
+    "companyName": "KAITOVVV LLC",
+    "invoiceCount": 5,
+    "highestAmount": 841.54,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5769772",
+    "companyName": "ALMOST EXPRESS INC",
+    "invoiceCount": 5,
+    "highestAmount": 18866.86,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5769812",
+    "companyName": "STAR TRANSPORT",
+    "invoiceCount": 5,
+    "highestAmount": 1868.41,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5770043",
+    "companyName": "DJANGO EXPRESS",
+    "invoiceCount": 6,
+    "highestAmount": 384.21,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5770124",
+    "companyName": "QUEEN CITY EXPRESS LLC",
+    "invoiceCount": 7,
+    "highestAmount": 1733.11,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5770321",
+    "companyName": "JN TARDI TRANSPORT INC",
+    "invoiceCount": 7,
+    "highestAmount": 1188.22,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5770327",
+    "companyName": "SSM UZ INC",
+    "invoiceCount": 5,
+    "highestAmount": 58717.29,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5770357",
+    "companyName": "RUDACHENKO SOUL LLC",
+    "invoiceCount": 6,
+    "highestAmount": 1557.36,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5770502",
+    "companyName": "VOLODYMYR SYDOR",
+    "invoiceCount": 7,
+    "highestAmount": 831.49,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5770665",
+    "companyName": "ILS LLC",
+    "invoiceCount": 5,
+    "highestAmount": 15831.71,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5770671",
+    "companyName": "TEUNA009 LLC",
+    "invoiceCount": 5,
+    "highestAmount": 3143.97,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5770714",
+    "companyName": "RX3 LOGISTICS LLC",
+    "invoiceCount": 8,
+    "highestAmount": 2118.4,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5770757",
+    "companyName": "DUNCAN FREIGHT LLC",
+    "invoiceCount": 5,
+    "highestAmount": 39619.85,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5770973",
+    "companyName": "KARL TRUCKING LLC",
+    "invoiceCount": 8,
+    "highestAmount": 4465.63,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5771186",
+    "companyName": "ORIAC LLC",
+    "invoiceCount": 8,
+    "highestAmount": 1917.14,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5771230",
+    "companyName": "NARMAL INC",
+    "invoiceCount": 4,
+    "highestAmount": 5716.77,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5771291",
+    "companyName": "FOUR C TRUCKING LLC",
+    "invoiceCount": 8,
+    "highestAmount": 1456.93,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5771296",
+    "companyName": "MOUSSA BOYS LLC",
+    "invoiceCount": 4,
+    "highestAmount": 2734.46,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5771298",
+    "companyName": "PREMIERE HAULING  LOGISTICS",
+    "invoiceCount": 7,
+    "highestAmount": 1007.41,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5771300",
+    "companyName": "MSK TRUCKING LLC",
+    "invoiceCount": 4,
+    "highestAmount": 2613.06,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5771431",
+    "companyName": "RMB EXPRESS LLC",
+    "invoiceCount": 7,
+    "highestAmount": 1037.26,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5771498",
+    "companyName": "RHINO TJ",
+    "invoiceCount": 6,
+    "highestAmount": 1927.4,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5771553",
+    "companyName": "NAMOZGOH AUTO CORP",
+    "invoiceCount": 5,
+    "highestAmount": 38015.84,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5771612",
+    "companyName": "RUSSA INC",
+    "invoiceCount": 5,
+    "highestAmount": 3611.59,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5771615",
+    "companyName": "KUT EXPRESS LLC",
+    "invoiceCount": 5,
+    "highestAmount": 11671.45,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5771616",
+    "companyName": "SARDORBEK",
+    "invoiceCount": 4,
+    "highestAmount": 3075.54,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5771635",
+    "companyName": "LIBERTA 510",
+    "invoiceCount": 8,
+    "highestAmount": 761.23,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5771720",
+    "companyName": "SAVLAT",
+    "invoiceCount": 5,
+    "highestAmount": 10561.93,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5771754",
+    "companyName": "YYY TRANSPORT LLC",
+    "invoiceCount": 5,
+    "highestAmount": 649.86,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5771756",
+    "companyName": "KMT BUSINESS INC",
+    "invoiceCount": 5,
+    "highestAmount": 2989.45,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5771912",
+    "companyName": "CG TRANSPORT INC",
+    "invoiceCount": 8,
+    "highestAmount": 3810.19,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5772230",
+    "companyName": "BACHA LLC",
+    "invoiceCount": 4,
+    "highestAmount": 1079.84,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5772233",
+    "companyName": "CL TRUCKING LLC",
+    "invoiceCount": 4,
+    "highestAmount": 4812.38,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5772275",
+    "companyName": "KOMILJON MUKHAMEDOV",
+    "invoiceCount": 5,
+    "highestAmount": 3280.76,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5772491",
+    "companyName": "SAIDAKHON INC",
+    "invoiceCount": 4,
+    "highestAmount": 2669.59,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5772493",
+    "companyName": "ABUBOKIR KARIMOV",
+    "invoiceCount": 3,
+    "highestAmount": 1853.62,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5772538",
+    "companyName": "COGART INC",
+    "invoiceCount": 5,
+    "highestAmount": 1250.3,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5772545",
+    "companyName": "CARLOS M PAREDES FERREIRO",
+    "invoiceCount": 5,
+    "highestAmount": 2545.74,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5772659",
+    "companyName": "QJ TRUCKING INDUSTRY LLC",
+    "invoiceCount": 8,
+    "highestAmount": 1173.44,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5772679",
+    "companyName": "GURPARSHAD TRUCK LINE INC",
+    "invoiceCount": 7,
+    "highestAmount": 1847.35,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5772716",
+    "companyName": "AA GLOBAL LLC",
+    "invoiceCount": 4,
+    "highestAmount": 2490.85,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5772837",
+    "companyName": "IMRON INC",
+    "invoiceCount": 3,
+    "highestAmount": 4417.72,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5773020",
+    "companyName": "ODUSHSAYUSH INC",
+    "invoiceCount": 5,
+    "highestAmount": 11227.06,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5773090",
+    "companyName": "YH TRUCK LOGISTICS CORP",
+    "invoiceCount": 2,
+    "highestAmount": 710.76,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5773246",
+    "companyName": "ERDIN TILBEK UULU",
+    "invoiceCount": 1,
+    "highestAmount": 448.23,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5773258",
+    "companyName": "GULCHERA INC",
+    "invoiceCount": 3,
+    "highestAmount": 2154.43,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5773279",
+    "companyName": "JAY C NICHOLS LLC",
+    "invoiceCount": 8,
+    "highestAmount": 1987.91,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5773312",
+    "companyName": "LEMBERG TRANS LLC",
+    "invoiceCount": 5,
+    "highestAmount": 7272.73,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5773429",
+    "companyName": "HD CARGA",
+    "invoiceCount": 8,
+    "highestAmount": 6528.18,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5773448",
+    "companyName": "LAI GROUP INC",
+    "invoiceCount": 5,
+    "highestAmount": 5005.95,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5773547",
+    "companyName": "MVR TRANS INC",
+    "invoiceCount": 8,
+    "highestAmount": 2850.71,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5773821",
+    "companyName": "UATRANSPORTATION",
+    "invoiceCount": 4,
+    "highestAmount": 7417.95,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5773825",
+    "companyName": "LP CARRIERS INC",
+    "invoiceCount": 5,
+    "highestAmount": 18287.8,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5773928",
+    "companyName": "DILLA TRUCKING LLC",
+    "invoiceCount": 5,
+    "highestAmount": 6566.59,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5774098",
+    "companyName": "NILE FREIGHTS LLC",
+    "invoiceCount": 5,
+    "highestAmount": 12623.12,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5774314",
+    "companyName": "GRIFFINS LLC",
+    "invoiceCount": 5,
+    "highestAmount": 5666.15,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5774368",
+    "companyName": "UZ STARS INC",
+    "invoiceCount": 7,
+    "highestAmount": 2185.4,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5774422",
+    "companyName": "WILD WINGS LOGISTICS INC",
+    "invoiceCount": 2,
+    "highestAmount": 2867.24,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5774583",
+    "companyName": "DONALD FRANCISCO CORRALES",
+    "invoiceCount": 5,
+    "highestAmount": 2317.53,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5774585",
+    "companyName": "GROW UP TRUCKING INC",
+    "invoiceCount": 5,
+    "highestAmount": 21535.13,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5774586",
+    "companyName": "RELIABLE CARRIER LLC",
+    "invoiceCount": 8,
+    "highestAmount": 3874.17,
+    "remainingAmount": -2233.77
+  },
+  {
+    "carrierId": "5774617",
+    "companyName": "SUN ENTERPRISE AHH LLC",
+    "invoiceCount": 8,
+    "highestAmount": 3880.27,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5774688",
+    "companyName": "XSE LOGISTICS INC",
+    "invoiceCount": 1,
+    "highestAmount": 607.52,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5774699",
+    "companyName": "BOBUR ERMATOV",
+    "invoiceCount": 4,
+    "highestAmount": 2451.65,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5774720",
+    "companyName": "BOOK CITY TRUCKING LLC",
+    "invoiceCount": 5,
+    "highestAmount": 17675.57,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5774910",
+    "companyName": "AKMAL SARMUSOKOV",
+    "invoiceCount": 4,
+    "highestAmount": 2550.4,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5774938",
+    "companyName": "EREN TRUCKING",
+    "invoiceCount": 8,
+    "highestAmount": 2137.55,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5774976",
+    "companyName": "RAN EXPRESS INC",
+    "invoiceCount": 8,
+    "highestAmount": 5774.53,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5775078",
+    "companyName": "KF FREIGHT LINES LLC",
+    "invoiceCount": 5,
+    "highestAmount": 3269.92,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5775127",
+    "companyName": "NARYN EXPRESS INC",
+    "invoiceCount": 1,
+    "highestAmount": 2435.43,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5775283",
+    "companyName": "DURAC TRUCKING LLC",
+    "invoiceCount": 5,
+    "highestAmount": 3016.48,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5775438",
+    "companyName": "DAY USA TRUCKING INC",
+    "invoiceCount": 5,
+    "highestAmount": 23541.71,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5775518",
+    "companyName": "NEXT STEP TRUCKING LLC",
+    "invoiceCount": 7,
+    "highestAmount": 1301.07,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5775555",
+    "companyName": "AVANGARD LOGISTICS CO",
+    "invoiceCount": 8,
+    "highestAmount": 3938.39,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5775661",
+    "companyName": "SUNSHINE HOT TRANSPORT LLC",
+    "invoiceCount": 7,
+    "highestAmount": 3120.62,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5775753",
+    "companyName": "JUAN M VILLARREAL",
+    "invoiceCount": 8,
+    "highestAmount": 4654.92,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5775777",
+    "companyName": "SHJ HOLDING INC",
+    "invoiceCount": 5,
+    "highestAmount": 30643.75,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5775886",
+    "companyName": "MIGUEL LEON OLIVERA",
+    "invoiceCount": 4,
+    "highestAmount": 886.73,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5775891",
+    "companyName": "ODILJONOVICH",
+    "invoiceCount": 3,
+    "highestAmount": 1755.84,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5775904",
+    "companyName": "NELSON BROTHERS LOGISTICS LLC",
+    "invoiceCount": 4,
+    "highestAmount": 6444.14,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5776046",
+    "companyName": "AZAEL TRANSPORT SERVICE",
+    "invoiceCount": 5,
+    "highestAmount": 34605.68,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5776056",
+    "companyName": "SARVAR YUSUPOV",
+    "invoiceCount": 5,
+    "highestAmount": 1867.33,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5776163",
+    "companyName": "SEASON TRANSPORT INC",
+    "invoiceCount": 6,
+    "highestAmount": 2272.6,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5776205",
+    "companyName": "CARLOS LEOMAR CASTILLO ARIAS",
+    "invoiceCount": 5,
+    "highestAmount": 30568.53,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5776230",
+    "companyName": "LL TRANSPORT  LOGISTICS LLC",
+    "invoiceCount": 5,
+    "highestAmount": 2484.49,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5776283",
+    "companyName": "BIG BOSS TRANSPORTATION INC",
+    "invoiceCount": 5,
+    "highestAmount": 22949.85,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5776696",
+    "companyName": "GREAT 8 TRANSPORTATION",
+    "invoiceCount": 3,
+    "highestAmount": 355.73,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5776697",
+    "companyName": "EZWAY LOGISTICS",
+    "invoiceCount": 4,
+    "highestAmount": 4820.02,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5776791",
+    "companyName": "UGUR CURA",
+    "invoiceCount": 5,
+    "highestAmount": 19081.6,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5776900",
+    "companyName": "SAM TRUCKINIG INC",
+    "invoiceCount": 3,
+    "highestAmount": 4256.41,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5776929",
+    "companyName": "TRI-STATE ROLLOFF DUMPSTERS LL",
+    "invoiceCount": 8,
+    "highestAmount": 969.57,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5777108",
+    "companyName": "BEST PARTNERS LLC",
+    "invoiceCount": 8,
+    "highestAmount": 10622.86,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5777134",
+    "companyName": "BRKN TRANSPORT LLC",
+    "invoiceCount": 7,
+    "highestAmount": 1246.48,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5777141",
+    "companyName": "FAST DECISION",
+    "invoiceCount": 5,
+    "highestAmount": 2173.78,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5777267",
+    "companyName": "EAZY TRANS LLC",
+    "invoiceCount": 8,
+    "highestAmount": 15161.74,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5777274",
+    "companyName": "RAZDOROZHNYI MYKOLA",
+    "invoiceCount": 4,
+    "highestAmount": 2171.28,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5777452",
+    "companyName": "JIWAN TRANSPORT INC",
+    "invoiceCount": 5,
+    "highestAmount": 2995.98,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5777453",
+    "companyName": "MAC III TRANS LLC",
+    "invoiceCount": 4,
+    "highestAmount": 2228.05,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5777521",
+    "companyName": "USBR GENERAL SERVICES LLC",
+    "invoiceCount": 5,
+    "highestAmount": 7641.07,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5777597",
+    "companyName": "KST CARRIER INC",
+    "invoiceCount": 5,
+    "highestAmount": 4813.66,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5777605",
+    "companyName": "CHEN CHEN",
+    "invoiceCount": 5,
+    "highestAmount": 6091.01,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5777615",
+    "companyName": "J-N-J TRUCKING LLC",
+    "invoiceCount": 5,
+    "highestAmount": 2443.15,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5777644",
+    "companyName": "FARHODS DELIVERY SERVICES INC",
+    "invoiceCount": 5,
+    "highestAmount": 19999.66,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5777685",
+    "companyName": "ZAMIR RAKHMATOV",
+    "invoiceCount": 4,
+    "highestAmount": 1576.29,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5778077",
+    "companyName": "WILL ACH YAVEY TRUCKING LLC",
+    "invoiceCount": 5,
+    "highestAmount": 7245.81,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5778078",
+    "companyName": "SHOALS TRANSPORTATION SERVICES",
+    "invoiceCount": 5,
+    "highestAmount": 7146.46,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5778080",
+    "companyName": "MU TRUCK CORP",
+    "invoiceCount": 8,
+    "highestAmount": 2631.05,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5778118",
+    "companyName": "MILLY INC",
+    "invoiceCount": 5,
+    "highestAmount": 5959.82,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5778365",
+    "companyName": "VR LOGISTICS",
+    "invoiceCount": 5,
+    "highestAmount": 1872.46,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5778504",
+    "companyName": "COASTAL TRUCKS CORPORATION",
+    "invoiceCount": 8,
+    "highestAmount": 4851.31,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5778515",
+    "companyName": "MURAAD TRANS INC",
+    "invoiceCount": 5,
+    "highestAmount": 5771.94,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5778539",
+    "companyName": "EFO TRANSPORTATION LLC",
+    "invoiceCount": 7,
+    "highestAmount": 1811.78,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5778577",
+    "companyName": "SJN MOVING FORWARD TRANSPORTAT",
+    "invoiceCount": 5,
+    "highestAmount": 9172.78,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5778580",
+    "companyName": "ON TIME TRUCKING EXPRESS LLC",
+    "invoiceCount": 5,
+    "highestAmount": 2510.9,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5778687",
+    "companyName": "SAROD LOGISTICS INC",
+    "invoiceCount": 8,
+    "highestAmount": 7736.48,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5778697",
+    "companyName": "",
+    "invoiceCount": 0,
+    "highestAmount": 0,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5778724",
+    "companyName": "EXPRESS PLATINUM TRUCKING",
+    "invoiceCount": 5,
+    "highestAmount": 11006.83,
+    "remainingAmount": -77.22
+  },
+  {
+    "carrierId": "5778870",
+    "companyName": "KCB TRUCKING LLC",
+    "invoiceCount": 5,
+    "highestAmount": 3375.18,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5778884",
+    "companyName": "LUXURY MIAMI TRANSPORTATION LL",
+    "invoiceCount": 4,
+    "highestAmount": 2414.92,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5778932",
+    "companyName": "DORAT LOGISTICS LLC",
+    "invoiceCount": 4,
+    "highestAmount": 12476.18,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5779102",
+    "companyName": "CARGO POST SERVICE INC",
+    "invoiceCount": 5,
+    "highestAmount": 2640.51,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5779109",
+    "companyName": "NLN GLOBAL INC",
+    "invoiceCount": 5,
+    "highestAmount": 30361.2,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5779216",
+    "companyName": "GT TRANSPORT AND SERVICES CORP",
+    "invoiceCount": 5,
+    "highestAmount": 3826.81,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5779325",
+    "companyName": "AD BISHKEK EXPRESS INC",
+    "invoiceCount": 8,
+    "highestAmount": 4286.97,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5779493",
+    "companyName": "LEAN DELIVERY SERVICES LLC",
+    "invoiceCount": 8,
+    "highestAmount": 642.26,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5779724",
+    "companyName": "TAMAK EXPRESS INC",
+    "invoiceCount": 3,
+    "highestAmount": 5092.54,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5779801",
+    "companyName": "SRH TRANSPORTATION LLC",
+    "invoiceCount": 5,
+    "highestAmount": 8829.2,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5779908",
+    "companyName": "ROYALS HUB LLC",
+    "invoiceCount": 3,
+    "highestAmount": 1153.83,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5779956",
+    "companyName": "MAHFOUD TRUCKING LLC",
+    "invoiceCount": 1,
+    "highestAmount": 759.47,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5780290",
+    "companyName": "KLL TRANSPORT LLC",
+    "invoiceCount": 4,
+    "highestAmount": 1125.15,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5780312",
+    "companyName": "KENAN TRUCKING LLC",
+    "invoiceCount": 6,
+    "highestAmount": 1955.51,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5780315",
+    "companyName": "MATALIPOV LLC",
+    "invoiceCount": 7,
+    "highestAmount": 2806.92,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5780316",
+    "companyName": "FARMER CARRIERLINK INC",
+    "invoiceCount": 2,
+    "highestAmount": 652.52,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5780319",
+    "companyName": "BELLEVUE TRUCKING LLC",
+    "invoiceCount": 4,
+    "highestAmount": 2016.59,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5780345",
+    "companyName": "CLIFTON SMITH",
+    "invoiceCount": 5,
+    "highestAmount": 969.68,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5780465",
+    "companyName": "ALIF EXPRESS INC",
+    "invoiceCount": 5,
+    "highestAmount": 6902.92,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5780912",
+    "companyName": "KEN DALA KZ",
+    "invoiceCount": 5,
+    "highestAmount": 7968.72,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5780965",
+    "companyName": "FOODIE FLORIDA",
+    "invoiceCount": 4,
+    "highestAmount": 2509.42,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5781078",
+    "companyName": "DAVID PEREZ TRUCKING INC",
+    "invoiceCount": 7,
+    "highestAmount": 1765.15,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5781079",
+    "companyName": "AZIZ KADIROV",
+    "invoiceCount": 3,
+    "highestAmount": 1965.55,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5781178",
+    "companyName": "B AND A TRUCKING LLC",
+    "invoiceCount": 3,
+    "highestAmount": 1561.8,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5781286",
+    "companyName": "GLOBAL CARGO TRUCKING INC",
+    "invoiceCount": 5,
+    "highestAmount": 27664.19,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5781288",
+    "companyName": "BRIGHTWAY LOGISTICS INC",
+    "invoiceCount": 8,
+    "highestAmount": 6018.01,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5781456",
+    "companyName": "AJ XPRESS LLC",
+    "invoiceCount": 5,
+    "highestAmount": 5698.1,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5781520",
+    "companyName": "DT EXPRESS ONE LP",
+    "invoiceCount": 5,
+    "highestAmount": 3978.56,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5781528",
+    "companyName": "THE DANIELS TEAM LLC",
+    "invoiceCount": 8,
+    "highestAmount": 1342.82,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5781693",
+    "companyName": "DAM TRANSPORTATION",
+    "invoiceCount": 4,
+    "highestAmount": 3195.16,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5781775",
+    "companyName": "SHAF CARGO INCORPORATED",
+    "invoiceCount": 4,
+    "highestAmount": 1566.75,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5781828",
+    "companyName": "EASTVALE TRUCKING INC",
+    "invoiceCount": 5,
+    "highestAmount": 1879.94,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5781840",
+    "companyName": "EBENEZER CG TRANSPORT LLC",
+    "invoiceCount": 8,
+    "highestAmount": 5133.96,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5781857",
+    "companyName": "RIEDERER TRUCKING LLC",
+    "invoiceCount": 7,
+    "highestAmount": 1920.93,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5781858",
+    "companyName": "AMEN TA LLC",
+    "invoiceCount": 5,
+    "highestAmount": 2615.34,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5781880",
+    "companyName": "WAD TRANSPORT",
+    "invoiceCount": 5,
+    "highestAmount": 1557.04,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5781881",
+    "companyName": "A L R TRUCKING LLC",
+    "invoiceCount": 8,
+    "highestAmount": 2843.85,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5781883",
+    "companyName": "GAP TRANSPORT LLC",
+    "invoiceCount": 8,
+    "highestAmount": 757.13,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5781891",
+    "companyName": "LEEN TRANSPORT INC",
+    "invoiceCount": 3,
+    "highestAmount": 2033.94,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5782098",
+    "companyName": "KAREEM HAULING",
+    "invoiceCount": 5,
+    "highestAmount": 11158.98,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5782239",
+    "companyName": "FRIDRIKH LLC",
+    "invoiceCount": 1,
+    "highestAmount": 1259.47,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5782314",
+    "companyName": "GRAND SERVICE LOGISTICS LLC",
+    "invoiceCount": 7,
+    "highestAmount": 6230.12,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5782460",
+    "companyName": "OLCEK GROUP LLC",
+    "invoiceCount": 1,
+    "highestAmount": 166.32,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5782575",
+    "companyName": "BULLITT TRUCKING LLC",
+    "invoiceCount": 2,
+    "highestAmount": 562.19,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5782576",
+    "companyName": "OM LOGISTICS AND TRUCKING LLC",
+    "invoiceCount": 6,
+    "highestAmount": 1336.23,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5782580",
+    "companyName": "METU TRANS INC",
+    "invoiceCount": 5,
+    "highestAmount": 3998.67,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5782632",
+    "companyName": "DIRECT LLC",
+    "invoiceCount": 5,
+    "highestAmount": 10363.13,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5782723",
+    "companyName": "CAMERON MILL TRANSPORT LLC",
+    "invoiceCount": 8,
+    "highestAmount": 2640.14,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5782827",
+    "companyName": "Y  A LOGISTICS LLC",
+    "invoiceCount": 4,
+    "highestAmount": 3037.31,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5782872",
+    "companyName": "ZU PRIME TRANSPORTATION INC",
+    "invoiceCount": 5,
+    "highestAmount": 8628.1,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5782910",
+    "companyName": "TN CARGO LLC",
+    "invoiceCount": 4,
+    "highestAmount": 9446.36,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5782919",
+    "companyName": "TAYLOR MATTHEWS ENTERPRISES",
+    "invoiceCount": 3,
+    "highestAmount": 527.01,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5782930",
+    "companyName": "BM MEGA INC",
+    "invoiceCount": 5,
+    "highestAmount": 14780.02,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5782937",
+    "companyName": "BZF SOLUTIONS",
+    "invoiceCount": 5,
+    "highestAmount": 23105.32,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5782962",
+    "companyName": "THIS IS AMERICA INC",
+    "invoiceCount": 8,
+    "highestAmount": 2077.69,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5783025",
+    "companyName": "AMIRA TRUCKING INC",
+    "invoiceCount": 8,
+    "highestAmount": 34569.15,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5783039",
+    "companyName": "NADEZHDA TRANS",
+    "invoiceCount": 6,
+    "highestAmount": 2352.9,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5783041",
+    "companyName": "EKO TRUCKING LLC",
+    "invoiceCount": 3,
+    "highestAmount": 2686.92,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5783157",
+    "companyName": "SHAWLLC",
+    "invoiceCount": 4,
+    "highestAmount": 1486.55,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5783180",
+    "companyName": "BEKTUR ABDISATTAROV",
+    "invoiceCount": 2,
+    "highestAmount": 1245.73,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5783226",
+    "companyName": "BAINUR INC",
+    "invoiceCount": 4,
+    "highestAmount": 2478.13,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5783350",
+    "companyName": "L  D EXPRESS TRANSPORT",
+    "invoiceCount": 5,
+    "highestAmount": 5092.94,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5783358",
+    "companyName": "SOLO TRANSIT",
+    "invoiceCount": 3,
+    "highestAmount": 788.62,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5783678",
+    "companyName": "BEHZOD BAYMURADOV",
+    "invoiceCount": 4,
+    "highestAmount": 2284.83,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5783691",
+    "companyName": "ROLLING ON WHEELS I LLC",
+    "invoiceCount": 5,
+    "highestAmount": 44952.31,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5783693",
+    "companyName": "RAJ RAJENDRA",
+    "invoiceCount": 7,
+    "highestAmount": 4176.25,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5783695",
+    "companyName": "PBG  S ENTERPRICE LLC",
+    "invoiceCount": 8,
+    "highestAmount": 2266.75,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5783747",
+    "companyName": "NURSULTAN ZHOLDOSHOV",
+    "invoiceCount": 2,
+    "highestAmount": 682.48,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5783748",
+    "companyName": "TYNYBEK KOCHROV",
+    "invoiceCount": 4,
+    "highestAmount": 2145.68,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5783751",
+    "companyName": "ALMAZ ABDUKALIL UULU",
+    "invoiceCount": 4,
+    "highestAmount": 3132.01,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5783771",
+    "companyName": "AG TRUCKING",
+    "invoiceCount": 5,
+    "highestAmount": 4335.84,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5783933",
+    "companyName": "BRR AUTO TRANS LLC",
+    "invoiceCount": 7,
+    "highestAmount": 1804.17,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5783966",
+    "companyName": "JASUR MURTAZOEV",
+    "invoiceCount": 3,
+    "highestAmount": 3017.93,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5783979",
+    "companyName": "LEFONZA MCCOY TRANSPORTATION",
+    "invoiceCount": 6,
+    "highestAmount": 2161.83,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5783991",
+    "companyName": "BALANA TRANS INC",
+    "invoiceCount": 7,
+    "highestAmount": 2649,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5784091",
+    "companyName": "VIZHEN INC",
+    "invoiceCount": 4,
+    "highestAmount": 1789.37,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5784170",
+    "companyName": "SEHAJ TRUCKS INC",
+    "invoiceCount": 5,
+    "highestAmount": 1533.33,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5784308",
+    "companyName": "SVS GROUP",
+    "invoiceCount": 5,
+    "highestAmount": 2509.1,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5784325",
+    "companyName": "ABK TRUCKING INC",
+    "invoiceCount": 8,
+    "highestAmount": 2030.47,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5784526",
+    "companyName": "VASILIY KRIZHANOVSKIY",
+    "invoiceCount": 2,
+    "highestAmount": 743.13,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5784552",
+    "companyName": "SERGIO GONZALEZ ESTRADA",
+    "invoiceCount": 3,
+    "highestAmount": 957.13,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5784620",
+    "companyName": "NUR EXSSPRES KG INC",
+    "invoiceCount": 5,
+    "highestAmount": 2652.61,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5784817",
+    "companyName": "MNR ENTERPRISESS LLC",
+    "invoiceCount": 3,
+    "highestAmount": 601.06,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5784823",
+    "companyName": "BA MARTIN INC",
+    "invoiceCount": 5,
+    "highestAmount": 5690.54,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5784866",
+    "companyName": "SHIFT WAVE LOGISTICS",
+    "invoiceCount": 4,
+    "highestAmount": 2392.73,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5784889",
+    "companyName": "MONTES TRANSPORTATION LLC",
+    "invoiceCount": 8,
+    "highestAmount": 2217.48,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5785067",
+    "companyName": "HIGH EAGLES TRUCKING LLC",
+    "invoiceCount": 5,
+    "highestAmount": 7666.93,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5785119",
+    "companyName": "GREENWAY TRANS INC",
+    "invoiceCount": 6,
+    "highestAmount": 1296.66,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5785244",
+    "companyName": "SAMOUZ LLC",
+    "invoiceCount": 5,
+    "highestAmount": 7402.57,
+    "remainingAmount": -201.87
+  },
+  {
+    "carrierId": "5785248",
+    "companyName": "FOZIL PARMIDINOV",
+    "invoiceCount": 1,
+    "highestAmount": 1520.92,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5785250",
+    "companyName": "RAM SANCHEZ TRUCKING INC",
+    "invoiceCount": 4,
+    "highestAmount": 1587.99,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5785252",
+    "companyName": "HEMISFERIUMINC",
+    "invoiceCount": 3,
+    "highestAmount": 783.95,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5785253",
+    "companyName": "EVENTIDE LOGOS LLC",
+    "invoiceCount": 1,
+    "highestAmount": 726.83,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5785258",
+    "companyName": "AKAL TRUCKS LINE INC",
+    "invoiceCount": 4,
+    "highestAmount": 3007.99,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5785259",
+    "companyName": "AMIRKHON DAVRONOV",
+    "invoiceCount": 4,
+    "highestAmount": 4055.6,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5785301",
+    "companyName": "DOGAN LLC",
+    "invoiceCount": 3,
+    "highestAmount": 1947.66,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5785341",
+    "companyName": "STAN WAY LLC",
+    "invoiceCount": 4,
+    "highestAmount": 1337.95,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5785385",
+    "companyName": "SS TRANSPORT INC",
+    "invoiceCount": 1,
+    "highestAmount": 469.55,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5785501",
+    "companyName": "FARRUKH UMAROV",
+    "invoiceCount": 5,
+    "highestAmount": 2173.46,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5785513",
+    "companyName": "JDB SOLUTIONZ PLUS LLC",
+    "invoiceCount": 5,
+    "highestAmount": 1789.91,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5785514",
+    "companyName": "ABARUA LOGISTICS LLC",
+    "invoiceCount": 4,
+    "highestAmount": 3546.79,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5785519",
+    "companyName": "DON LEE MINCEY JR",
+    "invoiceCount": 4,
+    "highestAmount": 463.41,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5785585",
+    "companyName": "FATHER AND SONS MOVING INC",
+    "invoiceCount": 8,
+    "highestAmount": 1618.79,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5785599",
+    "companyName": "E1995 LLC",
+    "invoiceCount": 4,
+    "highestAmount": 2028.06,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5785664",
+    "companyName": "WGMLPBDISTRIBUTIONLLC",
+    "invoiceCount": 3,
+    "highestAmount": 988.48,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5785794",
+    "companyName": "LEIVYS VILLAFANA BERITAN",
+    "invoiceCount": 5,
+    "highestAmount": 865.9,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5785819",
+    "companyName": "MINHAS BROS LLC",
+    "invoiceCount": 8,
+    "highestAmount": 4931.4,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5785913",
+    "companyName": "CHINGIZ GUSEYNOV",
+    "invoiceCount": 5,
+    "highestAmount": 3838.9,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5785976",
+    "companyName": "KEITH GARNER",
+    "invoiceCount": 7,
+    "highestAmount": 2165.07,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5786000",
+    "companyName": "EXO EXPRESS LLC",
+    "invoiceCount": 6,
+    "highestAmount": 3133.54,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5786009",
+    "companyName": "JOSE DARIO MEJIA",
+    "invoiceCount": 5,
+    "highestAmount": 3798.27,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5786010",
+    "companyName": "CARVAJAL TRANSPORTATION LLC",
+    "invoiceCount": 5,
+    "highestAmount": 3245.12,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5786020",
+    "companyName": "SH FREIGHT HAULING INC",
+    "invoiceCount": 5,
+    "highestAmount": 19862.63,
+    "remainingAmount": 0
+  },
+  {
+    "carrierId": "5786027",
+    "companyName": "SH CARGO GROUP LLC",
+    "invoiceCount": 3,
+    "highestAmount": 3056.06,
+    "remainingAmount": -0.79
+  },
+  {
+    "carrierId": "5786028",
+    "companyName": "JJ CARGO LLC",
+    "invoiceCount": 5,
+    "highestAmount": 9307.93,
+    "remainingAmount": 0
+  }
+]

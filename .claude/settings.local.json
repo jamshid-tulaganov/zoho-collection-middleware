@@ -22,7 +22,8 @@
       "Bash(node -e \"const raw = JSON.parse\\(require\\(''''fs''''\\).readFileSync\\(''''db/smp-data-cache-billing.json'''', ''''utf8''''\\)\\); console.log\\(''''billing txns:'''', Object.keys\\(raw.billing||{}\\).length, ''''| lastFetchedAt:'''', raw.billingLastFetchedAt\\);\")",
       "Bash(grep -E \"\\\\.js$|\\\\.py$\")",
       "Bash(WEX_HEADLESS=false node scripts/fix-dob-48.js --apply 2>&1)",
-      "Bash(__NEW_LINE_3b99bae33aba9a46__ echo:*)"
+      "Bash(__NEW_LINE_3b99bae33aba9a46__ echo:*)",
+      "Bash(git -C /Users/jamshid/Public/Octane/zoho-collection-module show --stat HEAD)"
     ]
   },
   "enabledMcpjsonServers": [

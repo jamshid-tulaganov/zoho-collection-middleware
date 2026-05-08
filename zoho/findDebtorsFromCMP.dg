@@ -1,0 +1,825 @@
+void schedule.findDebtorsFromCMP()
+{
+	// =============================================
+	// STEP 1: GET OR REFRESH CMP TOKEN
+	// =============================================
+	smpToken = ifnull(zoho.crm.getOrgVariable("SMP_Token"),"").toString();
+	if(smpToken == "" || smpToken == "null")
+	{
+		authPayload = Map();
+		authPayload.put("username","asadbek.x@tsst.ai");
+		authPayload.put("password","Mynameisasadbek777!");
+		authResponse = invokeurl
+		[
+			url :"https://tssfuelmanager.com:8443/api/authenticate"
+			type :POST
+			parameters:authPayload.toString()
+			headers:{"Content-Type":"application/json"}
+		];
+		info "[LOG] STEP1 CMP auth response: " + authResponse;
+		smpToken = ifnull(authResponse.get("token"),"").toString();
+		refreshToken = ifnull(authResponse.get("refreshToken"),"").toString();
+		tokenMap = Map();
+		tokenMap.put("apiname","SMP_Token");
+		tokenMap.put("value",smpToken);
+		zoho.crm.invokeConnector("crm.set",tokenMap);
+		refreshMap = Map();
+		refreshMap.put("apiname","SMP_Refresh_Token");
+		refreshMap.put("value",refreshToken);
+		zoho.crm.invokeConnector("crm.set",refreshMap);
+		info "[LOG] STEP1 CMP login done, tokens saved (token len=" + smpToken.length() + ")";
+	}
+	// =============================================
+	// STEP 2: PAGE CMP /api/invoices?stage=PAYMENT_ISSUES
+	// These are the ONLY invoices that matter for collection cases.
+	// Each PAYMENT_ISSUES invoice = case-worthy debt.
+	// =============================================
+	allIssueInvoices = List();
+	pageNum  = 0;
+	pageSize = 100;
+	hasMore  = true;
+	for each  i in {1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20}
+	{
+		if(hasMore)
+		{
+			apiHeaders = Map();
+			apiHeaders.put("Authorization","Bearer " + smpToken);
+			apiHeaders.put("Content-Type","application/json");
+			apiUrl = "https://tssfuelmanager.com:8443/api/invoices?page=" + pageNum + "&size=" + pageSize + "&sort=createDate,desc&stage=PAYMENT_ISSUES";
+			response = invokeurl
+			[
+				url :apiUrl
+				type :GET
+				headers:apiHeaders
+			];
+			respKeysDesc = "NULL";
+			if(response != null)
+			{
+				respKeysDesc = response.keys() + "";
+			}
+			info "[LOG] STEP2 invoice page " + pageNum + " raw response keys: " + respKeysDesc;
+			// --- Token expired? Re-auth and retry ---
+			if(response == null || response.get("content") == null)
+			{
+				info "[LOG] STEP2 page " + pageNum + " no content, full response: " + response;
+				info "Token expired on page " + pageNum + ", re-authenticating...";
+				authPayload = Map();
+				authPayload.put("username","asadbek.x@tsst.ai");
+				authPayload.put("password","Mynameisasadbek777!");
+				authResponse = invokeurl
+				[
+					url :"https://tssfuelmanager.com:8443/api/authenticate"
+					type :POST
+					parameters:authPayload.toString()
+					headers:{"Content-Type":"application/json"}
+				];
+				info "[LOG] STEP2 re-auth response: " + authResponse;
+				smpToken = ifnull(authResponse.get("token"),"").toString();
+				refreshToken = ifnull(authResponse.get("refreshToken"),"").toString();
+				tokenMap = Map();
+				tokenMap.put("apiname","SMP_Token");
+				tokenMap.put("value",smpToken);
+				zoho.crm.invokeConnector("crm.set",tokenMap);
+				refreshMap = Map();
+				refreshMap.put("apiname","SMP_Refresh_Token");
+				refreshMap.put("value",refreshToken);
+				zoho.crm.invokeConnector("crm.set",refreshMap);
+				apiHeaders.put("Authorization","Bearer " + smpToken);
+				response = invokeurl
+				[
+					url :apiUrl
+					type :GET
+					headers:apiHeaders
+				];
+				retryKeysDesc = "NULL";
+				if(response != null)
+				{
+					retryKeysDesc = response.keys() + "";
+				}
+				info "[LOG] STEP2 retry page " + pageNum + " raw response keys: " + retryKeysDesc;
+			}
+			content = response.get("content");
+			if(content == null || content.size() == 0)
+			{
+				info "Page " + pageNum + ": no records, stopping";
+				hasMore = false;
+			}
+			else
+			{
+				for each  inv in content
+				{
+					allIssueInvoices.add(inv);
+				}
+				info "Page " + pageNum + ": " + content.size() + " issue invoices (running total " + allIssueInvoices.size() + ")";
+				if(content.size() < pageSize)
+				{
+					hasMore = false;
+				}
+				else
+				{
+					pageNum = pageNum + 1;
+				}
+			}
+		}
+	}
+	info "findDebtorsFromCMP => Total PAYMENT_ISSUES invoices: " + allIssueInvoices.size();
+	if(allIssueInvoices.size() == 0)
+	{
+		info "findDebtorsFromCMP => No issue invoices, exiting.";
+		return;
+	}
+	// =============================================
+	// STEP 3: GROUP INVOICES BY CARRIER ID
+	// =============================================
+	carrierInvoiceMap = Map();
+	for each  inv in allIssueInvoices
+	{
+		cIdRaw = inv.get("carrierId");
+		cIdStr = ifnull(cIdRaw,"").toString().trim();
+		if(cIdStr != "" && cIdStr != "null" && cIdStr != "0")
+		{
+			if(!carrierInvoiceMap.containKey(cIdStr))
+			{
+				carrierInvoiceMap.put(cIdStr,List());
+			}
+			// Deluge can't chain .get(K).add(V) on a Map<String,List> — bind first.
+			existingInvList = carrierInvoiceMap.get(cIdStr);
+			existingInvList.add(inv);
+			carrierInvoiceMap.put(cIdStr,existingInvList);
+		}
+	}
+	info "findDebtorsFromCMP => Unique carriers with PAYMENT_ISSUES: " + carrierInvoiceMap.size();
+	// =============================================
+	// STEP 4: FETCH CARD SWIPED DEAL MAP (Octane validation + contact)
+	// =============================================
+	cardSwipedDealMap = Map();
+	dealsQuery        = "SELECT id, Carrier_ID, Email, Secondary_Email, Phone, Cell, First_name, Last_Name, Address, City, State, Zip_Code, MC, DOT1, Birth_Of_Date FROM Deals WHERE Stage = 'Card Swiped' LIMIT 200 OFFSET ";
+	for each  offset in {0,200,400,600,800,1000,1200,1400,1600,1800,2000,2200,2400,2600,2800,3000,3200,3400,3600,3800}
+	{
+		coqlMap = Map();
+		coqlMap.put("select_query",dealsQuery + offset);
+		dealsResp = invokeurl
+		[
+			url :"https://www.zohoapis.com/crm/v2/coql"
+			type :POST
+			parameters:coqlMap.toString()
+			headers:{"Content-Type":"application/json"}
+			connection:"zoho_coql"
+		];
+		dealsPage = dealsResp.get("data");
+		if(dealsPage == null || dealsPage.size() == 0)
+		{
+			if(offset == 0)
+			{
+				info "[LOG] STEP4 deals COQL empty/error response: " + dealsResp;
+			}
+			break;
+		}
+		for each  deal in dealsPage
+		{
+			cid = ifnull(deal.get("Carrier_ID"),"").toString().trim();
+			did = ifnull(deal.get("id"),"").toString().trim();
+			if(cid != "" && cid != "null" && cid != "0" && did != "")
+			{
+				cardSwipedDealMap.put(cid,deal);
+			}
+		}
+		info "findDebtorsFromCMP => Deals offset " + offset + " => " + dealsPage.size() + " (cardSwipedDealMap " + cardSwipedDealMap.size() + ")";
+		if(dealsPage.size() < 200)
+		{
+			break;
+		}
+	}
+	info "findDebtorsFromCMP => Card Swiped deals: " + cardSwipedDealMap.size();
+	// ----- Match summary: how many PAYMENT_ISSUES carriers actually have a Card Swiped deal? -----
+	matchedOctaneCount   = 0;
+	unmatchedOctaneCount = 0;
+	for each  cidKey in carrierInvoiceMap.keys()
+	{
+		if(cardSwipedDealMap.containKey(cidKey))
+		{
+			matchedOctaneCount = matchedOctaneCount + 1;
+		}
+		else
+		{
+			unmatchedOctaneCount = unmatchedOctaneCount + 1;
+		}
+	}
+	info "[LOG] MATCH summary: total invoices loaded=" + allIssueInvoices.size() + " | unique carriers=" + carrierInvoiceMap.size() + " | matched with Card Swiped=" + matchedOctaneCount + " | unmatched (non-Octane)=" + unmatchedOctaneCount + " | Card Swiped pool=" + cardSwipedDealMap.size();
+	// =============================================
+	// STEP 5 PRE: PRELOAD ALL EXISTING COLLECTION CASES BY CARRIER_ID
+	// One bulk COQL fetch via the zoho_coql connection (which has full
+	// Collection_Cases scope). No Case_Source filter — we want to match
+	// existing cases from ANY source so we update them instead of duplicating.
+	// `Carrier_ID > 0` is the only filter (`>` is supported on integer fields).
+	// =============================================
+	existingCaseByCarrier = Map();
+	preOffset             = 0;
+	hasMorePre            = true;
+	for each  pgPre in {0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19}
+	{
+		if(hasMorePre)
+		{
+			preMap = Map();
+			preMap.put("select_query","SELECT id, Carrier_ID FROM Collection_Cases WHERE Carrier_ID > 0 LIMIT 200 OFFSET " + preOffset);
+			preResp = invokeurl
+			[
+				url :"https://www.zohoapis.com/crm/v2/coql"
+				type :POST
+				parameters:preMap.toString()
+				headers:{"Content-Type":"application/json"}
+				connection:"zoho_coql"
+			];
+			prePage = preResp.get("data");
+			if(prePage == null || prePage.size() == 0)
+			{
+				if(preOffset == 0)
+				{
+					info "[LOG] STEP5pre no existing cases (response: " + preResp + ")";
+				}
+				hasMorePre = false;
+			}
+			else
+			{
+				for each  ec in prePage
+				{
+					ecCarrierId = ifnull(ec.get("Carrier_ID"),"").toString().trim();
+					ecId        = ec.get("id").toString();
+					if(ecCarrierId != "" && ecCarrierId != "null")
+					{
+						existingCaseByCarrier.put(ecCarrierId,ecId);
+					}
+				}
+				if(prePage.size() < 200)
+				{
+					hasMorePre = false;
+				}
+				else
+				{
+					preOffset = preOffset + 200;
+				}
+			}
+		}
+	}
+	info "[LOG] STEP5pre existing Collection_Cases preloaded (all sources): " + existingCaseByCarrier.size();
+	// =============================================
+	// STEP 5: PER-CARRIER → CREATE / UPDATE COLLECTION CASE
+	// =============================================
+	todayDate            = today;
+	casesCreated         = 0;
+	casesUpdated         = 0;
+	skippedNonOctane     = 0;
+	skippedBadData       = 0;
+	// Round-robin owner assignment for new cases
+	managerIds = List();
+	managerIds.add("6227679000038542039");  // Farrukh
+	managerIds.add("6227679000144698013");  // Abbos
+	for each  cIdStr in carrierInvoiceMap.keys()
+	{
+		if(!cardSwipedDealMap.containKey(cIdStr))
+		{
+			skippedNonOctane = skippedNonOctane + 1;
+		}
+		else
+		{
+			cIdInt  = cIdStr.toLong();
+			invList = carrierInvoiceMap.get(cIdStr);
+			// ----- Aggregate totals + build subform list -----
+			// PAID invoices ARE included (team needs the historical context).
+			// Since `rem = totalAmount - totalPaid = 0` for PAID rows, they
+			// contribute 0 to totalRemaining → debt amount stays correct.
+			totalAmt       = 0.0;
+			totalPaidSum   = 0.0;
+			totalRemaining = 0.0;
+			oldestDue      = null;
+			companyName    = "";
+			subformList    = List();
+			dealRecord     = cardSwipedDealMap.get(cIdStr);
+			dealIdForRow   = "";
+			if(dealRecord != null)
+			{
+				dealIdForRow = ifnull(dealRecord.get("id"),"").toString();
+			}
+			for each  inv in invList
+			{
+				ta  = ifnull(inv.get("totalAmount"),0).toDecimal();
+				tp  = ifnull(inv.get("totalPaid"),0).toDecimal();
+				rem = ta - tp;
+				totalAmt       = totalAmt + ta;
+				totalPaidSum   = totalPaidSum + tp;
+				totalRemaining = totalRemaining + rem;
+				if(companyName == "")
+				{
+					companyName = ifnull(inv.get("companyName"),"").toString();
+				}
+				// First Delinquent Date = dateTo + 1 day (day after billing period ends).
+				// Only non-PAID invoices count → fully-paid carrier has oldestDue=null.
+				invStatusRaw = ifnull(inv.get("status"),"").toString();
+				dueDateRaw   = ifnull(inv.get("dueDate"),"").toString();
+				dueDate      = null;
+				if(dueDateRaw.length() >= 10)
+				{
+					dueDate = dueDateRaw.subString(0,10).toDate("yyyy-MM-dd");
+				}
+				dateToRawForDelinq = ifnull(inv.get("dateTo"),"").toString();
+				if(dateToRawForDelinq.length() >= 10 && invStatusRaw != "PAID" && invStatusRaw != "CANCELLED")
+				{
+					delinqDate = dateToRawForDelinq.subString(0,10).toDate("yyyy-MM-dd").addDay(1);
+					if(oldestDue == null || delinqDate < oldestDue)
+					{
+						oldestDue = delinqDate;
+					}
+				}
+				// Parse createDate
+				createDateRaw = ifnull(inv.get("createDate"),"").toString();
+				createDate    = null;
+				if(createDateRaw.length() >= 10)
+				{
+					createDate = createDateRaw.subString(0,10).toDate("yyyy-MM-dd");
+				}
+				// Period text "YYYY-MM-DD to YYYY-MM-DD"
+				dateFromRaw  = ifnull(inv.get("dateFrom"),"").toString();
+				dateToRaw    = ifnull(inv.get("dateTo"),"").toString();
+				dateFromOnly = "";
+				dateToOnly   = "";
+				if(dateFromRaw.length() >= 10)
+				{
+					dateFromOnly = dateFromRaw.subString(0,10);
+				}
+				if(dateToRaw.length() >= 10)
+				{
+					dateToOnly = dateToRaw.subString(0,10);
+				}
+				periodText = dateFromOnly + " to " + dateToOnly;
+				// Status mapping CMP → subform picklist
+				statusMapped = "";
+				if(invStatusRaw == "PENDING")
+				{
+					statusMapped = "Pending";
+				}
+				else if(invStatusRaw == "PARTIALLY_PAID")
+				{
+					statusMapped = "Partially Paid";
+				}
+				else if(invStatusRaw == "PAID")
+				{
+					statusMapped = "Paid";
+				}
+				else if(invStatusRaw == "CANCELLED")
+				{
+					statusMapped = "Cancelled";
+				}
+				// Notes from companyNotes array
+				notesText    = "";
+				companyNotes = inv.get("companyNotes");
+				if(companyNotes != null && companyNotes.size() > 0)
+				{
+					for each  note in companyNotes
+					{
+						noteText = ifnull(note.get("text"),"").toString();
+						if(noteText != "")
+						{
+							if(notesText != "")
+							{
+								notesText = notesText + " | ";
+							}
+							notesText = notesText + noteText;
+						}
+					}
+				}
+				paymentDay = ifnull(inv.get("paymentDay"),"").toString();
+				// Build subform row
+				row = Map();
+				row.put("Invoice_Number",ifnull(inv.get("invoiceNumber"),"").toString());
+				if(statusMapped != "")
+				{
+					row.put("Status",statusMapped);
+				}
+				row.put("Period",periodText);
+				if(dueDate != null)
+				{
+					row.put("Due_Date",dueDate);
+				}
+				if(createDate != null)
+				{
+					row.put("CMP_Create_Date",createDate);
+				}
+				row.put("Total_Amount",ta);
+				row.put("Total_Paid",tp);
+				row.put("Remaining_Amount",rem);
+				row.put("Total_Merchant_Fee",ifnull(inv.get("totalMerchantFee"),0).toDecimal());
+				row.put("Carrier_ID",cIdStr);
+				if(notesText != "")
+				{
+					row.put("Invoice_Notes",notesText);
+				}
+				if(paymentDay != "" && paymentDay != "null")
+				{
+					row.put("Payment_Day",paymentDay);
+				}
+				if(dealIdForRow != "" && dealIdForRow != "null")
+				{
+					row.put("Deal",dealIdForRow);
+				}
+				subformList.add(row);
+			}
+			// Sanity check — only skip if we couldn't build any rows at all.
+			// (totalRemaining can legitimately be 0 if all invoices are paid; the
+			// team still needs that historical record, so we DO create the case.)
+			if(subformList.size() == 0)
+			{
+				skippedBadData = skippedBadData + 1;
+				info "[LOG] STEP5 " + cIdStr + " BADDATA: 0 invoice rows built (raw invList=" + invList.size() + ")";
+			}
+			else
+			{
+				daysOverdue = 0;
+				if(oldestDue != null)
+				{
+					// Deluge `date - date` returns MILLISECONDS, not days. Divide by ms-per-day.
+					// (Without this, anything > ~11 days overflows the 9-digit Days_Past_Due field.)
+					daysOverdue = ((todayDate - oldestDue).toLong() / 86400000).toLong();
+				}
+				// ----- Look up existing case from preloaded map -----
+				hasExistingCase = false;
+				existingCaseId  = "";
+				if(existingCaseByCarrier.containKey(cIdStr))
+				{
+					hasExistingCase = true;
+					existingCaseId  = existingCaseByCarrier.get(cIdStr).toString();
+				}
+				if(hasExistingCase)
+				{
+					// ----- UPDATE existing case: refresh subform + totals -----
+					updateMap = Map();
+					updateMap.put("Total_Debt_Amount",totalRemaining);
+					updateMap.put("Total_Invoice_Amount",totalAmt);
+					updateMap.put("Total_Amount_Paid",totalPaidSum);
+					updateMap.put("Issue_Invoice_Count",subformList.size());
+					updateMap.put("Days_Past_Due",daysOverdue);
+					if(oldestDue != null)
+					{
+						updateMap.put("First_Delinquent_Date",oldestDue);
+					}
+					updateMap.put("Invoice_Issues",subformList);
+					// Use zoho_coql connection (which has full Collection_Cases scope)
+					// to bypass the function's missing VIEW permission on this module.
+					updateResp = zoho.crm.updateRecord("Collection_Cases",existingCaseId,updateMap,Map(),"zoho_coql");
+					updateRespId = ifnull(updateResp.get("id"),"").toString();
+					if(updateRespId == "" || updateRespId == "null")
+					{
+						info "[ERR] STEP5 updateRecord " + existingCaseId + " for " + cIdStr + " FAILED: " + updateResp;
+					}
+					casesUpdated = casesUpdated + 1;
+					info "findDebtorsFromCMP => UPDATED case " + existingCaseId + " for " + companyName + " (" + cIdStr + ") | invoices=" + subformList.size() + " | debt=" + totalRemaining;
+				}
+				else
+				{
+					// ----- CREATE new case -----
+					// Pull contact info from Deal record (Card Swiped is Octane source of truth)
+					dealId          = "";
+					dealEmail       = "";
+					dealSecondEmail = "";
+					dealPhone       = "";
+					dealCell        = "";
+					dealFirstName   = "";
+					dealLastName    = "";
+					dealAddr        = "";
+					dealCity        = "";
+					dealState       = "";
+					dealZip         = "";
+					dealMc          = "";
+					dealDot         = "";
+					dealDob         = null;
+					if(dealRecord != null)
+					{
+						dealId          = ifnull(dealRecord.get("id"),"").toString().trim();
+						dealEmail       = ifnull(dealRecord.get("Email"),"").toString().trim();
+						dealSecondEmail = ifnull(dealRecord.get("Secondary_Email"),"").toString().trim();
+						dealPhone       = ifnull(dealRecord.get("Phone"),"").toString().trim();
+						dealCell        = ifnull(dealRecord.get("Cell"),"").toString().trim();
+						dealFirstName   = ifnull(dealRecord.get("First_name"),"").toString().trim();
+						dealLastName    = ifnull(dealRecord.get("Last_Name"),"").toString().trim();
+						dealAddr        = ifnull(dealRecord.get("Address"),"").toString().trim();
+						dealCity        = ifnull(dealRecord.get("City"),"").toString().trim();
+						dealState       = ifnull(dealRecord.get("State"),"").toString().trim();
+						dealZip         = ifnull(dealRecord.get("Zip_Code"),"").toString().trim();
+						dealMc          = ifnull(dealRecord.get("MC"),"").toString().trim();
+						dealDot         = ifnull(dealRecord.get("DOT1"),"").toString().trim();
+						dealDob         = dealRecord.get("Birth_Of_Date");
+					}
+					// ----- WEX DOB fallback -----
+					// If the deal has no Birth_Of_Date, call the middleware's
+					// /telegram/wex-lookup endpoint to scrape DOB from WEX. Slow
+					// (~5-30s per call via Playwright) so only invoked when needed.
+					// Override the URL via org variable `Wex_Lookup_Base_Url` if your
+					// Render service has a different name.
+					if(dealDob == null && companyName != "")
+					{
+						wexBaseUrl = ifnull(zoho.crm.getOrgVariable("Wex_Lookup_Base_Url"),"").toString();
+						if(wexBaseUrl == "" || wexBaseUrl == "null")
+						{
+							wexBaseUrl = "https://zoho-collection-middleware.onrender.com";
+						}
+						wexBody = Map();
+						wexBody.put("carrierId",cIdStr);
+						wexBody.put("companyName",companyName);
+						if(dealFirstName != "")
+						{
+							wexBody.put("firstName",dealFirstName);
+						}
+						if(dealLastName != "")
+						{
+							wexBody.put("lastName",dealLastName);
+						}
+						wexResp = invokeurl
+						[
+							url :wexBaseUrl + "/telegram/wex-lookup"
+							type :POST
+							parameters:wexBody.toString()
+							headers:{"Content-Type":"application/json"}
+						];
+						wexStatus = ifnull(wexResp.get("status"),"").toString();
+						if(wexStatus == "found")
+						{
+							wexDobISO = ifnull(wexResp.get("dobISO"),"").toString();
+							if(wexDobISO.length() >= 10)
+							{
+								dealDob = wexDobISO.subString(0,10).toDate("yyyy-MM-dd");
+								info "[LOG] STEP5 WEX DOB found for " + cIdStr + " (" + companyName + "): " + wexDobISO;
+							}
+							else
+							{
+								info "[LOG] STEP5 WEX 'found' but no dobISO for " + cIdStr + ": " + wexResp;
+							}
+						}
+						else
+						{
+							info "[LOG] STEP5 WEX DOB lookup for " + cIdStr + " (" + companyName + ") => status=" + wexStatus;
+						}
+					}
+					if(dealSecondEmail == dealEmail)
+					{
+						dealSecondEmail = "";
+					}
+					if(dealCell == dealPhone)
+					{
+						dealCell = "";
+					}
+					fullAddr = dealAddr;
+					if(dealCity != "")
+					{
+						fullAddr = fullAddr + ", " + dealCity;
+					}
+					if(dealState != "")
+					{
+						fullAddr = fullAddr + ", " + dealState;
+					}
+					if(dealZip != "")
+					{
+						fullAddr = fullAddr + " " + dealZip;
+					}
+					mcDot = "";
+					if(dealMc != "" && dealDot != "")
+					{
+						mcDot = "MC " + dealMc + " / DOT " + dealDot;
+					}
+					else if(dealMc != "")
+					{
+						mcDot = "MC " + dealMc;
+					}
+					else if(dealDot != "")
+					{
+						mcDot = "DOT " + dealDot;
+					}
+					// Build case map
+					caseMap = Map();
+					caseMap.put("Name",companyName + " - " + todayDate);
+					caseMap.put("Carrier_ID",cIdInt);
+					caseMap.put("Stage","Intake");
+					caseMap.put("Case_Source","Zoho Sync");
+					caseMap.put("Case_Status","Open");
+					caseMap.put("Case_Created_Date",todayDate);
+					caseMap.put("Days_Past_Due",daysOverdue);
+					if(oldestDue != null)
+					{
+						caseMap.put("First_Delinquent_Date",oldestDue);
+					}
+					caseMap.put("Total_Debt_Amount",totalRemaining);
+					caseMap.put("Total_Invoice_Amount",totalAmt);
+					caseMap.put("Total_Amount_Paid",totalPaidSum);
+					caseMap.put("Issue_Invoice_Count",subformList.size());
+					caseMap.put("Early_Bad_Deptor_Flag",true);
+					caseMap.put("Reminder_Cycle_Active",true);
+					caseMap.put("Total_Contact_Attempts",0);
+					caseMap.put("Reopen_Count",0);
+					caseMap.put("Days_In_Current_Stage",0);
+					caseMap.put("Last_Stage_Change_Date",todayDate);
+					caseMap.put("Debtor_Company_Name",companyName);
+					caseMap.put("Currency","USD");
+					// Round-robin: assign Owner between Farrukh and Abbos
+					ownerIdx = casesCreated % managerIds.size();
+					caseMap.put("Owner",managerIds.get(ownerIdx));
+					if(dealId != "" && dealId != "null")
+					{
+						caseMap.put("Related_Deal",dealId);
+					}
+					// Build "First Last" from the deal — fall back to whichever half is present.
+					fullName = dealFirstName;
+					if(dealLastName != "")
+					{
+						if(fullName != "")
+						{
+							fullName = fullName + " " + dealLastName;
+						}
+						else
+						{
+							fullName = dealLastName;
+						}
+					}
+					if(fullName != "")
+					{
+						caseMap.put("Debtor_Full_Name",fullName);
+					}
+					if(dealEmail != "" && dealEmail != "null")
+					{
+						caseMap.put("Debtor_Email",dealEmail);
+					}
+					if(dealSecondEmail != "" && dealSecondEmail != "null")
+					{
+						caseMap.put("Debtor_Secondary_Email",dealSecondEmail);
+					}
+					if(dealPhone != "" && dealPhone != "null")
+					{
+						caseMap.put("Debtor_Phone_Number",dealPhone);
+					}
+					if(dealCell != "" && dealCell != "null")
+					{
+						caseMap.put("Debtor_Cell_Phone",dealCell);
+					}
+					if(fullAddr != "")
+					{
+						caseMap.put("Debtor_Address",fullAddr);
+					}
+					if(dealCity != "")
+					{
+						caseMap.put("Debtor_City",dealCity);
+					}
+					if(dealState != "")
+					{
+						caseMap.put("Debtor_State",dealState);
+					}
+					if(dealZip != "")
+					{
+						caseMap.put("Debtor_Zip_Code",dealZip);
+					}
+					if(mcDot != "")
+					{
+						caseMap.put("Debtor_MC_DOT",mcDot);
+					}
+					if(dealDob != null)
+					{
+						caseMap.put("Debtor_Date_of_Birth",dealDob);
+					}
+					// Subform: must be passed as last (Zoho convention for subforms)
+					caseMap.put("Invoice_Issues",subformList);
+					// Use zoho_coql connection to bypass missing VIEW permission on Collection_Cases
+					// (subform Parent_Id is a lookup back to this module → triggers Crm_Implied_View_CustomModule42).
+					createResp = zoho.crm.createRecord("Collection_Cases",caseMap,Map(),"zoho_coql");
+					newCaseId  = ifnull(createResp.get("id"),"").toString();
+					if(newCaseId != "" && newCaseId != "null")
+					{
+						casesCreated = casesCreated + 1;
+						info "findDebtorsFromCMP => CREATED case " + newCaseId + " for " + companyName + " (" + cIdStr + ") | invoices=" + subformList.size() + " | debt=" + totalRemaining + " | overdue=" + daysOverdue + "d";
+						// ----- Telegram notification for new case -----
+						assignedTag = "";
+						if(ownerIdx == 0)
+						{
+							assignedTag = "@itzfaraa_a";
+						}
+						else
+						{
+							assignedTag = "@Khan_Octane";
+						}
+						delinqStr = "";
+						if(oldestDue != null)
+						{
+							delinqStr = oldestDue.toString("MM/dd/yyyy");
+						}
+						crmLink = "https://crm.zoho.com/crm/octanefuel/tab/CustomModule42/" + newCaseId;
+						tgLines = List();
+						tgLines.add("📋 <b>New Collection Record</b>");
+						tgLines.add("━━━━━━━━━━━━━━━━━━━━");
+						tgLines.add(" ");
+						tgLines.add("🏢 <b>" + companyName + "</b> — " + cIdStr);
+						tgLines.add(" ");
+						tgLines.add("📅 First Delinquent Date: <b>" + delinqStr + "</b>");
+						tgLines.add("💰 Total Debt Amount: <b>$" + totalRemaining + "</b>");
+						tgLines.add("📋 Invoices: <b>" + subformList.size() + "</b>");
+						tgLines.add("⏳ Days Overdue: <b>" + daysOverdue + "</b>");
+						tgLines.add(" ");
+						tgLines.add("🔗 " + crmLink);
+						tgLines.add(" ");
+						tgLines.add(assignedTag);
+						tgText = "";
+						for each tgL in tgLines { if(tgText != "") { tgText = tgText + "\n" + tgL; } else { tgText = tgL; } }
+						tgText = tgText.replaceAll("\"","'");
+						tgResp = invokeurl
+						[
+							url :"https://api.telegram.org/bot8539280656:AAHyJ3qIIwfCIJBVBmEexJu8ceYW58-jpqk/sendMessage"
+							type :POST
+							parameters:("{\"chat_id\":\"905434593\",\"text\":\"" + tgText + "\",\"parse_mode\":\"HTML\",\"disable_web_page_preview\":true}")
+							headers:{"Content-Type":"application/json"}
+						];
+						info "[LOG] STEP5 Telegram notify for " + cIdStr + ": " + tgResp;
+					}
+					else
+					{
+						info "[ERR] STEP5 createRecord for " + cIdStr + " FAILED: " + createResp;
+					}
+				}
+			}
+		}
+	}
+	// =============================================
+	// STEP 6: AUTO-CLEAR CASES FOR CARRIERS WHO PAID EVERYTHING
+	// User said "some clients may pay the debt" → daily refresh.
+	// If a Zoho Sync case exists but carrier no longer has any
+	// PAYMENT_ISSUES invoice → clear totals + empty subform.
+	// Stage stays where it is (user decides closure).
+	// =============================================
+	casesCleared = 0;
+	clearOffset  = 0;
+	hasMoreCases = true;
+	for each  pgNum in {0,1,2,3,4,5,6,7,8,9,10}
+	{
+		if(hasMoreCases)
+		{
+			clearQueryMap = Map();
+			// Zoho COQL v2 in this org rejects: `!=`, `NOT IN`, and `IS NOT NULL` on
+			// integer/picklist fields (all return INVALID_QUERY/SYNTAX_ERROR). The only
+			// reliable filter is single `= 'value'`. We pull Stage in the projection
+			// and filter "Debt Closed" / "Case Lost" / null Carrier_ID per-row below.
+			clearQueryMap.put("select_query","SELECT id, Carrier_ID, Stage FROM Collection_Cases WHERE Case_Source = 'Zoho Sync' LIMIT 200 OFFSET " + clearOffset);
+			clearResp = invokeurl
+			[
+				url :"https://www.zohoapis.com/crm/v2/coql"
+				type :POST
+				parameters:clearQueryMap.toString()
+				headers:{"Content-Type":"application/json"}
+				connection:"zoho_coql"
+			];
+			openCases = clearResp.get("data");
+			if(openCases == null && clearOffset == 0)
+			{
+				info "[LOG] STEP6 clear COQL empty/error response: " + clearResp;
+			}
+			if(openCases == null || openCases.size() == 0)
+			{
+				hasMoreCases = false;
+			}
+			else
+			{
+				for each  oc in openCases
+				{
+					ocCarrierId = ifnull(oc.get("Carrier_ID"),"").toString().trim();
+					ocId        = oc.get("id").toString();
+					ocStage     = ifnull(oc.get("Stage"),"").toString();
+					// Skip cases that are already terminal (Stage filter pushed to Deluge
+					// because Zoho COQL v2 won't accept != / NOT IN on picklist fields).
+					if(ocStage == "Debt Closed" || ocStage == "Case Lost")
+					{
+						// terminal — leave alone
+					}
+					else if(ocCarrierId != "" && ocCarrierId != "null" && !carrierInvoiceMap.containKey(ocCarrierId))
+					{
+						// Carrier no longer in PAYMENT_ISSUES → mark resolved
+						clearMap = Map();
+						clearMap.put("Total_Debt_Amount",0);
+						clearMap.put("Total_Invoice_Amount",0);
+						clearMap.put("Issue_Invoice_Count",0);
+						clearMap.put("Invoice_Issues",List());
+						// Same connection workaround as create/update above.
+						clearResp2 = zoho.crm.updateRecord("Collection_Cases",ocId,clearMap,Map(),"zoho_coql");
+						clearResp2Id = ifnull(clearResp2.get("id"),"").toString();
+						if(clearResp2Id == "" || clearResp2Id == "null")
+						{
+							info "[ERR] STEP6 clearUpdate " + ocId + " FAILED: " + clearResp2;
+						}
+						casesCleared = casesCleared + 1;
+						info "findDebtorsFromCMP => CLEARED case " + ocId + " (carrier " + ocCarrierId + ") - paid all PAYMENT_ISSUES";
+					}
+				}
+				if(openCases.size() < 200)
+				{
+					hasMoreCases = false;
+				}
+				else
+				{
+					clearOffset = clearOffset + 200;
+				}
+			}
+		}
+	}
+	info "findDebtorsFromCMP => SUMMARY: created=" + casesCreated + " | updated=" + casesUpdated + " | cleared=" + casesCleared + " | nonOctane=" + skippedNonOctane + " | badData=" + skippedBadData;
+}
